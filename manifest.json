@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/t8y2/dbx/plugin-sdk-v1/plugins/manifest.schema.json",
+  "manifest_version": 1,
+  "id": "com.example.dbx-plugin-k8s",
+  "name": "DBX Plugin K8s",
+  "version": "0.1.0",
+  "publisher": "eryajf",
+  "description": "DBX Plugin K8s plugin for DBX.",
+  "icon": "assets/plugin.svg",
+  "engines": {
+    "dbx": ">=0.5.68",
+    "host_api": "1"
+  },
+  "entrypoints": {
+    "backend": {
+      "executable": "bin/dbx-plugin-dbx-plugin-k8s"
+    },
+    "ui": {
+      "root": "ui",
+      "entry": "ui/index.html"
+    }
+  },
+  "contributions": [
+    {
+      "type": "connection-provider",
+      "id": "com.example.dbx-plugin-k8s.connection",
+      "label": "DBX Plugin K8s connection",
+      "icon": "assets/plugin.svg",
+      "database_type": "dbx-plugin-k8s",
+      "description": "Connection form contributed by DBX Plugin K8s.",
+      "fields": [
+        {
+          "key": "display_name",
+          "label": "Connection name",
+          "type": "text",
+          "default": "DBX Plugin K8s connection",
+          "binding": "name",
+          "required": true
+        },
+        {
+          "key": "host",
+          "label": "Host",
+          "type": "text",
+          "default": "localhost",
+          "binding": "host",
+          "required": true
+        },
+        {
+          "key": "port",
+          "label": "Port",
+          "type": "number",
+          "default": 0,
+          "binding": "port",
+          "required": true
+        }
+      ],
+      "workbench": "com.example.dbx-plugin-k8s.workbench",
+      "capabilities": ["test", "connect", "disconnect"]
+    },
+    {
+      "type": "workbench",
+      "id": "com.example.dbx-plugin-k8s.workbench",
+      "label": "DBX Plugin K8s Workbench",
+      "description": "Sandboxed UI contributed by DBX Plugin K8s.",
+      "icon": "assets/plugin.svg"
+    }
+  ],
+  "localizations": {
+    "zh-CN": {
+      "name": "DBX Plugin K8s",
+      "description": "DBX Plugin K8s plugin for DBX.",
+      "contributions": {
+        "com.example.dbx-plugin-k8s.connection": {
+          "label": "DBX Plugin K8s 连接",
+          "description": "由插件声明的连接表单。",
+          "fields": {
+            "display_name": { "label": "连接名称" },
+            "host": { "label": "主机" },
+            "port": { "label": "端口" }
+          }
+        },
+        "com.example.dbx-plugin-k8s.workbench": {
+          "label": "DBX Plugin K8s 工作台",
+          "description": "由插件提供的沙箱工作台界面。"
+        }
+      }
+    }
+  }
+}
