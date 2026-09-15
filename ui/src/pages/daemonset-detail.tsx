@@ -1,0 +1,570 @@
+import { useEffect, useMemo, useState } from 'react'
+import { IconLoader, IconReload, IconTrash } from '@tabler/icons-react'
+import * as yaml from 'js-yaml'
+import { DaemonSet } from 'kubernetes-types/apps/v1'
+import { Container } from 'kubernetes-types/core/v1'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+
+import { trackResourceAction } from '@/lib/analytics'
+import { updateResource, useResource, useResourcesWatch } from '@/lib/api'
+import {
+  buildDaemonSetOverviewViewModel,
+  filterPodsOwnedByController,
+  toSimpleContainer,
+} from '@/lib/k8s'
+import { translateError } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
+import { ContainerTable } from '@/components/container-table'
+import { DaemonSetOverviewInfoCard } from '@/components/daemonset-overview-info-card'
+import { DescribeDialog } from '@/components/describe-dialog'
+import { ErrorMessage } from '@/components/error-message'
+import { EventTable } from '@/components/event-table'
+import { ProResourceHistoryTable } from '@/components/license/pro-resource-history-table'
+import { LogViewer } from '@/components/log-viewer'
+import { OpenPodTerminalButton } from '@/components/open-pod-terminal-button'
+import { PodMonitoring } from '@/components/pod-monitoring'
+import { PodTable } from '@/components/pod-table'
+import { RefreshButton } from '@/components/refresh-button'
+import { RelatedResourcesTable } from '@/components/related-resource-table'
+import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
+import { VolumeTable } from '@/components/volume-table'
+import { YamlEditor } from '@/components/yaml-editor'
+
+export function DaemonSetDetail(props: { namespace: string; name: string }) {
+  const { namespace, name } = props
+  const [yamlContent, setYamlContent] = useState('')
+  const [isSavingYaml, setIsSavingYaml] = useState(false)
+  const [isRestartPopoverOpen, setIsRestartPopoverOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [refreshInterval, setRefreshInterval] = useState<number>(0)
+  const { t } = useTranslation()
+
+  // Fetch daemonset data
+  const {
+    data: daemonset,
+    isLoading: isLoadingDaemonSet,
+    isError: isDaemonSetError,
+    error: daemonsetError,
+    refetch: refetchDaemonSet,
+  } = useResource('daemonsets', name, namespace, {
+    refreshInterval,
+  })
+
+  useEffect(() => {
+    if (daemonset) {
+      setYamlContent(yaml.dump(daemonset, { indent: 2 }))
+    }
+  }, [daemonset])
+
+  // Auto-reset refresh interval when daemonset reaches stable state
+  useEffect(() => {
+    if (daemonset && refreshInterval > 0) {
+      const { status } = daemonset
+      const readyReplicas = status?.numberReady || 0
+      const desiredReplicas = status?.desiredNumberScheduled || 0
+      const currentReplicas = status?.currentNumberScheduled || 0
+
+      // Check if daemonset is in a stable state
+      const isStable =
+        readyReplicas === desiredReplicas && currentReplicas === desiredReplicas
+
+      if (isStable) {
+        setRefreshInterval(0)
+      }
+    }
+  }, [daemonset, refreshInterval])
+
+  const handleRefresh = () => {
+    trackResourceAction('daemonsets', 'refresh')
+    setRefreshKey((prev) => prev + 1)
+    refetchDaemonSet()
+  }
+
+  const labelSelector = daemonset?.spec?.selector.matchLabels
+    ? Object.entries(daemonset.spec.selector.matchLabels)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(',')
+    : undefined
+
+  const { data: watchedPods, isLoading: isLoadingPods } = useResourcesWatch(
+    'pods',
+    namespace,
+    {
+      labelSelector,
+      reduce: false,
+      enabled: !!daemonset?.spec?.selector.matchLabels,
+    }
+  )
+  const relatedPods = useMemo(
+    () => filterPodsOwnedByController(watchedPods, 'DaemonSet', daemonset),
+    [daemonset, watchedPods]
+  )
+
+  const handleSaveYaml = async (content: DaemonSet) => {
+    setIsSavingYaml(true)
+    try {
+      await updateResource('daemonsets', name, namespace, content)
+      trackResourceAction('daemonsets', 'yaml_save', {
+        result: 'success',
+      })
+      toast.success('DaemonSet YAML saved successfully')
+      setRefreshInterval(1000) // Set a short refresh interval to see changes
+      await refetchDaemonSet()
+      return true
+    } catch (error) {
+      console.error('Failed to save YAML:', error)
+      trackResourceAction('daemonsets', 'yaml_save', {
+        result: 'error',
+      })
+      toast.error(translateError(error, t))
+      return false
+    } finally {
+      setIsSavingYaml(false)
+    }
+  }
+
+  const handleYamlChange = (content: string) => {
+    setYamlContent(content)
+  }
+
+  const handleRestart = async () => {
+    if (!daemonset) return
+
+    try {
+      // Create a deep copy of the daemonset to avoid modifying the original
+      const updatedDaemonSet = {
+        ...daemonset,
+      }
+
+      // Ensure annotations object exists
+      if (!updatedDaemonSet.spec!.template!.metadata!.annotations) {
+        updatedDaemonSet.spec!.template!.metadata!.annotations = {}
+      }
+
+      // Add restart annotation to trigger pod restart
+      updatedDaemonSet.spec!.template!.metadata!.annotations[
+        'kite.kubernetes.io/restartedAt'
+      ] = new Date().toISOString()
+
+      await updateResource('daemonsets', name, namespace, updatedDaemonSet)
+      trackResourceAction('daemonsets', 'restart', {
+        result: 'success',
+      })
+      toast.success('DaemonSet restart initiated')
+      setIsRestartPopoverOpen(false)
+      setRefreshInterval(1000)
+    } catch (error) {
+      console.error('Failed to restart daemonset:', error)
+      trackResourceAction('daemonsets', 'restart', {
+        result: 'error',
+      })
+      toast.error(translateError(error, t))
+    }
+  }
+
+  const handleContainerUpdate = async (
+    updatedContainer: Container,
+    init = false
+  ) => {
+    try {
+      // Create a deep copy of the daemonset to avoid modifying the original
+      const updatedDaemonSet = JSON.parse(
+        JSON.stringify(daemonset)
+      ) as DaemonSet
+
+      if (init) {
+        if (updatedDaemonSet.spec?.template?.spec?.initContainers) {
+          const containerIndex =
+            updatedDaemonSet.spec.template.spec.initContainers.findIndex(
+              (c) => c.name === updatedContainer.name
+            )
+          if (containerIndex !== -1) {
+            updatedDaemonSet.spec.template.spec.initContainers[containerIndex] =
+              updatedContainer
+          }
+        }
+      } else {
+        if (updatedDaemonSet.spec?.template?.spec?.containers) {
+          const containerIndex =
+            updatedDaemonSet.spec.template.spec.containers.findIndex(
+              (c) => c.name === updatedContainer.name
+            )
+          if (containerIndex !== -1) {
+            updatedDaemonSet.spec.template.spec.containers[containerIndex] =
+              updatedContainer
+          }
+        }
+      }
+
+      await updateResource('daemonsets', name, namespace, updatedDaemonSet)
+      trackResourceAction('daemonsets', 'container_update', {
+        result: 'success',
+        container_kind: init ? 'init' : 'app',
+      })
+      toast.success('Container updated successfully')
+      setRefreshInterval(1000) // Set a short refresh interval to see changes
+    } catch (error) {
+      console.error('Failed to update container:', error)
+      trackResourceAction('daemonsets', 'container_update', {
+        result: 'error',
+        container_kind: init ? 'init' : 'app',
+      })
+      toast.error(translateError(error, t))
+    }
+  }
+
+  if (isLoadingDaemonSet) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center gap-2">
+              <IconLoader className="animate-spin" />
+              <span>
+                {t('detail.status.loading', {
+                  resource: t('resourceKind.daemonset'),
+                })}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isDaemonSetError || !daemonset) {
+    return (
+      <ErrorMessage
+        resourceName="DaemonSet"
+        error={daemonsetError}
+        refetch={handleRefresh}
+      />
+    )
+  }
+
+  const { metadata, spec, status } = daemonset
+  const overview = buildDaemonSetOverviewViewModel(daemonset)
+
+  return (
+    <div className="space-y-2">
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold">{metadata?.name}</h1>
+          <p className="text-muted-foreground">
+            {t('detail.fields.namespace')}:{' '}
+            <span className="font-medium">{namespace}</span>
+          </p>
+        </div>
+        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
+          <RefreshButton variant="outline" size="sm" onClick={handleRefresh}>
+            {t('detail.buttons.refresh')}
+          </RefreshButton>
+          <DescribeDialog
+            resourceType={'daemonsets'}
+            namespace={namespace}
+            name={name}
+          />
+          <OpenPodTerminalButton
+            namespace={namespace}
+            pods={relatedPods}
+            containers={spec?.template.spec?.containers}
+            initContainers={spec?.template.spec?.initContainers}
+            source={`daemonset/${name}`}
+          />
+          <Popover
+            open={isRestartPopoverOpen}
+            onOpenChange={setIsRestartPopoverOpen}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <IconReload className="w-4 h-4" />
+                {t('detail.buttons.restart')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium">
+                    {t('detail.dialogs.restartDaemonSet.title')}
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {t('detail.dialogs.restartDaemonSet.description')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsRestartPopoverOpen(false)}
+                    className="flex-1"
+                  >
+                    {t('detail.buttons.cancel')}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleRestart()
+                      setIsRestartPopoverOpen(false)
+                    }}
+                    className="flex-1"
+                  >
+                    <IconReload className="w-4 h-4 mr-2" />
+                    {t('detail.dialogs.restartDaemonSet.restartButton')}
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <IconTrash className="w-4 h-4" />
+            {t('detail.buttons.delete')}
+          </Button>
+        </div>
+      </div>
+
+      <ResponsiveTabs
+        tabs={[
+          {
+            value: 'overview',
+            label: t('detail.tabs.overview'),
+            content: (
+              <div className="space-y-4">
+                <DaemonSetOverviewInfoCard overview={overview} />
+
+                {/* Init Containers */}
+                {spec?.template?.spec?.initContainers &&
+                spec.template.spec.initContainers.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        {t('detail.sections.initContainers')} (
+                        {spec.template.spec.initContainers.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {spec.template.spec.initContainers.map((container) => (
+                          <ContainerTable
+                            key={container.name}
+                            container={container}
+                            onContainerUpdate={(updatedContainer) =>
+                              handleContainerUpdate(updatedContainer, true)
+                            }
+                            init
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {/* Containers */}
+                {spec?.template?.spec?.containers ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        {t('detail.sections.containers')} (
+                        {spec.template.spec.containers.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {spec.template.spec.containers.map((container) => (
+                          <ContainerTable
+                            key={container.name}
+                            container={container}
+                            onContainerUpdate={(updatedContainer) =>
+                              handleContainerUpdate(updatedContainer, false)
+                            }
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                <PodTable
+                  pods={relatedPods}
+                  isLoading={isLoadingPods}
+                  labelSelector={labelSelector}
+                  title={
+                    <>
+                      Pods{' '}
+                      <Badge variant="secondary">
+                        {relatedPods?.length || 0}
+                      </Badge>
+                    </>
+                  }
+                />
+
+                {status?.conditions && status.conditions.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t('detail.sections.conditions')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {status.conditions.map((condition, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-3 rounded border p-2"
+                          >
+                            <Badge
+                              variant={
+                                condition.status === 'True'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                            >
+                              {condition.type}
+                            </Badge>
+                            <span className="text-sm">{condition.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </div>
+            ),
+          },
+          {
+            value: 'yaml',
+            label: t('detail.tabs.yaml'),
+            content: (
+              <div className="space-y-4">
+                <YamlEditor<'daemonsets'>
+                  key={refreshKey}
+                  value={yamlContent}
+                  title={t('yamlEditor.daemonSetTitle')}
+                  onSave={handleSaveYaml}
+                  onChange={handleYamlChange}
+                  isSaving={isSavingYaml}
+                />
+              </div>
+            ),
+          },
+          ...(relatedPods
+            ? [
+                {
+                  value: 'logs',
+                  label: t('detail.tabs.logs'),
+                  content: (
+                    <div className="space-y-6">
+                      <LogViewer
+                        namespace={namespace}
+                        pods={relatedPods}
+                        containers={spec?.template.spec?.containers}
+                        initContainers={spec?.template.spec?.initContainers}
+                        labelSelector={labelSelector}
+                      />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+          ...(spec?.template?.spec?.volumes
+            ? [
+                {
+                  value: 'volumes',
+                  label: (
+                    <>
+                      Volumes
+                      {spec.template.spec.volumes && (
+                        <Badge variant="secondary">
+                          {spec.template.spec.volumes.length}
+                        </Badge>
+                      )}
+                    </>
+                  ),
+                  content: (
+                    <div className="space-y-6">
+                      <VolumeTable
+                        namespace={namespace}
+                        volumes={spec.template.spec?.volumes}
+                        containers={toSimpleContainer(
+                          spec.template.spec?.initContainers,
+                          spec.template.spec?.containers
+                        )}
+                        isLoading={isLoadingDaemonSet}
+                      />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+          {
+            value: 'Related',
+            label: t('detail.tabs.related'),
+            content: (
+              <RelatedResourcesTable
+                resource={'daemonsets'}
+                name={name}
+                namespace={namespace}
+              />
+            ),
+          },
+          {
+            value: 'events',
+            label: t('detail.tabs.events'),
+            content: (
+              <EventTable
+                resource="daemonsets"
+                name={name}
+                namespace={namespace}
+              />
+            ),
+          },
+          {
+            value: 'history',
+            label: 'History',
+            content: (
+              <ProResourceHistoryTable
+                resourceType="daemonsets"
+                name={name}
+                namespace={namespace}
+                currentResource={daemonset}
+              />
+            ),
+          },
+          {
+            value: 'monitor',
+            label: t('detail.tabs.monitor'),
+            content: (
+              <PodMonitoring
+                namespace={namespace}
+                pods={relatedPods}
+                containers={spec?.template.spec?.containers}
+                initContainers={spec?.template.spec?.initContainers}
+                defaultQueryName={relatedPods?.[0]?.metadata?.generateName}
+                labelSelector={labelSelector}
+              />
+            ),
+          },
+        ]}
+      />
+
+      <ResourceDeleteConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        resourceName={metadata?.name || ''}
+        resourceType="daemonsets"
+        namespace={namespace}
+        confirmationValue={t('deleteConfirmation.confirmDeleteKeyword')}
+      />
+    </div>
+  )
+}

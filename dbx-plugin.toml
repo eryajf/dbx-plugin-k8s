@@ -3,7 +3,11 @@ schema_version = 1
 [backend]
 language = "go"
 directory = "backend"
-binary = "dbx-plugin-dbx-plugin-k8s"
+binary = "dbx-plugin-kubernetes"
 
 [package]
-include = ["assets", "ui"]
+include = ["assets", "ui/dist"]
+
+[dev]
+ui_build = ["npm", "--prefix", "ui", "run", "build"]
+ui_watch = ["npm", "--prefix", "ui", "run", "build:watch"]

@@ -1,0 +1,9 @@
+@import 'tailwindcss' source('./');
+@import 'tw-animate-css';
+@import './styles/base.css';
+@import './styles/themes/default.css';
+@import './styles/themes/eye-care.css';
+@import './styles/themes/darkmatter.css';
+@import './styles/themes/notebook.css';
+@import './styles/themes/clean-slate.css';
+@import './styles/themes/claude.css';

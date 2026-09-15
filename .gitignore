@@ -3,3 +3,7 @@
 .dbx-repository-signing-key.env
 .DS_Store
 *.log
+tmp/
+node_modules/*
+ui/node_modules/*
+.pnpm-store/

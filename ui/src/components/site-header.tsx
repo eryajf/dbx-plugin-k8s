@@ -1,0 +1,85 @@
+import { lazy, Suspense, useState } from 'react'
+import { Plus, Settings } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
+
+import { useIsMobile } from '@/hooks/use-mobile'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+
+import { DynamicBreadcrumb } from './dynamic-breadcrumb'
+import { LanguageToggle } from './language-toggle'
+import { ModeToggle } from './mode-toggle'
+import { Search } from './search'
+
+const dialogModules = import.meta.glob(['./create-resource-dialog.tsx'])
+
+const CreateResourceDialog = lazy(async () => {
+  const module = (await dialogModules[
+    './create-resource-dialog.tsx'
+  ]()) as typeof import('./create-resource-dialog')
+
+  return {
+    default: module.CreateResourceDialog,
+  }
+})
+
+export function SiteHeader() {
+  const isMobile = useIsMobile()
+  const navigate = useNavigate()
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const { t } = useTranslation()
+  return (
+    <>
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+        <div className="flex w-full items-center gap-1 pl-2 pr-2 lg:gap-2 lg:pl-2.5 lg:pr-2.5">
+          <SidebarTrigger className="-ml-1" />
+          <Separator
+            orientation="vertical"
+            className="mx-2 data-[orientation=vertical]:h-4"
+          />
+          <DynamicBreadcrumb />
+          <div className="ml-auto flex items-center gap-2">
+            <Search />
+            <Plus
+              className="h-5 w-5 cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={() => setCreateDialogOpen(true)}
+              aria-label={t('siteHeader.createNewResource')}
+            />
+            {!isMobile && (
+              <>
+                <Separator
+                  orientation="vertical"
+                  className="mx-2 data-[orientation=vertical]:h-4"
+                />
+                {true && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate('/settings')}
+                    className="hidden sm:flex"
+                  >
+                    <Settings className="h-5 w-5" />
+                    <span className="sr-only">{t('siteHeader.settings')}</span>
+                  </Button>
+                )}
+                <LanguageToggle />
+                <ModeToggle />
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {createDialogOpen ? (
+        <Suspense fallback={null}>
+          <CreateResourceDialog
+            open={createDialogOpen}
+            onOpenChange={setCreateDialogOpen}
+          />
+        </Suspense>
+      ) : null}
+    </>
+  )
+}

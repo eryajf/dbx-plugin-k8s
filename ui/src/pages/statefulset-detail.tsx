@@ -1,0 +1,670 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  IconLoader,
+  IconReload,
+  IconScale,
+  IconTrash,
+} from '@tabler/icons-react'
+import * as yaml from 'js-yaml'
+import { StatefulSet } from 'kubernetes-types/apps/v1'
+import { Container } from 'kubernetes-types/core/v1'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+
+import { trackResourceAction } from '@/lib/analytics'
+import { updateResource, useResource, useResourcesWatch } from '@/lib/api'
+import {
+  buildStatefulSetOverviewViewModel,
+  filterPodsOwnedByController,
+  toSimpleContainer,
+} from '@/lib/k8s'
+import { translateError } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
+import { ContainerTable } from '@/components/container-table'
+import { DescribeDialog } from '@/components/describe-dialog'
+import { ErrorMessage } from '@/components/error-message'
+import { EventTable } from '@/components/event-table'
+import { ProResourceHistoryTable } from '@/components/license/pro-resource-history-table'
+import { LogViewer } from '@/components/log-viewer'
+import { OpenPodTerminalButton } from '@/components/open-pod-terminal-button'
+import { PodMonitoring } from '@/components/pod-monitoring'
+import { PodTable } from '@/components/pod-table'
+import { RefreshButton } from '@/components/refresh-button'
+import { RelatedResourcesTable } from '@/components/related-resource-table'
+import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
+import { StatefulSetOverviewInfoCard } from '@/components/statefulset-overview-info-card'
+import { VolumeTable } from '@/components/volume-table'
+import { YamlEditor } from '@/components/yaml-editor'
+
+export function StatefulSetDetail(props: { namespace: string; name: string }) {
+  const { namespace, name } = props
+  const [yamlContent, setYamlContent] = useState('')
+  const [isSavingYaml, setIsSavingYaml] = useState(false)
+  const [isRestartPopoverOpen, setIsRestartPopoverOpen] = useState(false)
+  const [isScalePopoverOpen, setIsScalePopoverOpen] = useState(false)
+  const [scaleReplicas, setScaleReplicas] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [refreshInterval, setRefreshInterval] = useState<number>(0)
+
+  const { t } = useTranslation()
+
+  // Fetch statefulset data
+  const {
+    data: statefulset,
+    isLoading: isLoadingStatefulSet,
+    isError: isStatefulSetError,
+    error: statefulsetError,
+    refetch: refetchStatefulSet,
+  } = useResource('statefulsets', name, namespace, {
+    refreshInterval,
+  })
+
+  const labelSelector = statefulset?.spec?.selector.matchLabels
+    ? Object.entries(statefulset.spec.selector.matchLabels)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(',')
+    : undefined
+  const { data: watchedPods, isLoading: isLoadingPods } = useResourcesWatch(
+    'pods',
+    namespace,
+    {
+      labelSelector,
+      reduce: false,
+      enabled: !!statefulset?.spec?.selector.matchLabels,
+    }
+  )
+  const relatedPods = useMemo(
+    () => filterPodsOwnedByController(watchedPods, 'StatefulSet', statefulset),
+    [statefulset, watchedPods]
+  )
+
+  useEffect(() => {
+    if (statefulset) {
+      setYamlContent(yaml.dump(statefulset, { indent: 2 }))
+      setScaleReplicas(statefulset.spec?.replicas || 0)
+    }
+  }, [statefulset])
+
+  // Auto-reset refresh interval when statefulset reaches stable state
+  useEffect(() => {
+    if (statefulset && refreshInterval > 0) {
+      const { status } = statefulset
+      const readyReplicas = status?.readyReplicas || 0
+      const replicas = status?.replicas || 0
+      const updatedReplicas = status?.updatedReplicas || 0
+
+      // Check if statefulset is in a stable state
+      const isStable =
+        readyReplicas === replicas && updatedReplicas === replicas
+      console.log(`StatefulSet ${name} stability check:`, {
+        readyReplicas,
+        replicas,
+        updatedReplicas,
+        isStable,
+      })
+      if (isStable) {
+        setRefreshInterval(0)
+      }
+    }
+  }, [statefulset, refreshInterval, name])
+
+  const handleRefresh = () => {
+    trackResourceAction('statefulsets', 'refresh')
+    setRefreshKey((prev) => prev + 1)
+    refetchStatefulSet()
+  }
+
+  const handleSaveYaml = async (content: StatefulSet) => {
+    setIsSavingYaml(true)
+    try {
+      await updateResource('statefulsets', name, namespace, content)
+      trackResourceAction('statefulsets', 'yaml_save', {
+        result: 'success',
+      })
+      toast.success('StatefulSet YAML saved successfully')
+      setRefreshInterval(1000)
+      return true
+    } catch (error) {
+      console.error('Failed to save YAML:', error)
+      trackResourceAction('statefulsets', 'yaml_save', {
+        result: 'error',
+      })
+      toast.error(translateError(error, t))
+      return false
+    } finally {
+      setIsSavingYaml(false)
+    }
+  }
+
+  const handleYamlChange = (content: string) => {
+    setYamlContent(content)
+  }
+
+  const handleScale = async () => {
+    if (!statefulset) return
+
+    try {
+      const updatedStatefulSet = { ...statefulset } as StatefulSet
+      if (!updatedStatefulSet.spec) {
+        updatedStatefulSet.spec = {
+          selector: { matchLabels: {} },
+          template: { spec: { containers: [] } },
+          serviceName: '',
+        }
+      }
+
+      // Update the replica count
+      updatedStatefulSet.spec.replicas = scaleReplicas
+
+      await updateResource('statefulsets', name, namespace, updatedStatefulSet)
+      trackResourceAction('statefulsets', 'scale', {
+        result: 'success',
+        scaled_up: scaleReplicas > (statefulset.spec?.replicas || 0),
+      })
+      toast.success(`StatefulSet scaled to ${scaleReplicas} replicas`)
+      setIsScalePopoverOpen(false)
+      setRefreshInterval(1000)
+    } catch (error) {
+      console.error('Failed to scale statefulset:', error)
+      trackResourceAction('statefulsets', 'scale', {
+        result: 'error',
+        scaled_up: scaleReplicas > (statefulset.spec?.replicas || 0),
+      })
+      toast.error(translateError(error, t))
+    }
+  }
+
+  const handleRestart = async () => {
+    if (!statefulset) return
+
+    try {
+      const updatedStatefulSet = { ...statefulset } as StatefulSet
+      if (!updatedStatefulSet.spec) {
+        updatedStatefulSet.spec = {
+          selector: { matchLabels: {} },
+          template: { spec: { containers: [] } },
+          serviceName: '',
+        }
+      }
+      if (!updatedStatefulSet.spec.template) {
+        updatedStatefulSet.spec.template = { spec: { containers: [] } }
+      }
+      if (!updatedStatefulSet.spec.template.metadata) {
+        updatedStatefulSet.spec.template.metadata = {}
+      }
+      if (!updatedStatefulSet.spec.template.metadata.annotations) {
+        updatedStatefulSet.spec.template.metadata.annotations = {}
+      }
+
+      // Add restart annotation to trigger pod restart
+      updatedStatefulSet.spec.template.metadata.annotations[
+        'kite.kubernetes.io/restartedAt'
+      ] = new Date().toISOString()
+
+      await updateResource('statefulsets', name, namespace, updatedStatefulSet)
+      trackResourceAction('statefulsets', 'restart', {
+        result: 'success',
+      })
+      toast.success('StatefulSet restart initiated')
+      setIsRestartPopoverOpen(false)
+      setRefreshInterval(1000)
+    } catch (error) {
+      console.error('Failed to restart statefulset:', error)
+      trackResourceAction('statefulsets', 'restart', {
+        result: 'error',
+      })
+      toast.error(translateError(error, t))
+    }
+  }
+
+  const handleContainerUpdate = async (
+    updatedContainer: Container,
+    init = false
+  ) => {
+    try {
+      const updatedStatefulSet = { ...statefulset } as StatefulSet
+
+      if (init) {
+        if (updatedStatefulSet.spec?.template?.spec?.initContainers) {
+          const containerIndex =
+            updatedStatefulSet.spec.template.spec.initContainers.findIndex(
+              (c: Container) => c.name === updatedContainer.name
+            )
+          if (containerIndex !== -1) {
+            updatedStatefulSet.spec.template.spec.initContainers[
+              containerIndex
+            ] = updatedContainer
+          }
+        }
+      } else {
+        if (updatedStatefulSet.spec?.template?.spec?.containers) {
+          const containerIndex =
+            updatedStatefulSet.spec.template.spec.containers.findIndex(
+              (c: Container) => c.name === updatedContainer.name
+            )
+          if (containerIndex !== -1) {
+            updatedStatefulSet.spec.template.spec.containers[containerIndex] =
+              updatedContainer
+          }
+        }
+      }
+      await updateResource('statefulsets', name, namespace, updatedStatefulSet)
+      trackResourceAction('statefulsets', 'container_update', {
+        result: 'success',
+        container_kind: init ? 'init' : 'app',
+      })
+      toast.success('Container updated successfully')
+      setRefreshInterval(1000)
+    } catch (error) {
+      console.error('Failed to update container:', error)
+      trackResourceAction('statefulsets', 'container_update', {
+        result: 'error',
+        container_kind: init ? 'init' : 'app',
+      })
+      toast.error(translateError(error, t))
+    }
+  }
+
+  if (isLoadingStatefulSet) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center gap-2">
+              <IconLoader className="animate-spin" />
+              <span>
+                {t('detail.status.loading', {
+                  resource: t('resourceKind.statefulset'),
+                })}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isStatefulSetError || !statefulset) {
+    return (
+      <ErrorMessage
+        resourceName={'StatefulSet'}
+        error={statefulsetError}
+        refetch={handleRefresh}
+      />
+    )
+  }
+
+  const { metadata, spec, status } = statefulset
+  const overview = buildStatefulSetOverviewViewModel(statefulset)
+
+  return (
+    <div className="space-y-2">
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold">{metadata?.name}</h1>
+          <p className="text-muted-foreground">
+            {t('detail.fields.namespace')}:{' '}
+            <span className="font-medium">{namespace}</span>
+          </p>
+        </div>
+        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
+          <RefreshButton variant="outline" size="sm" onClick={handleRefresh}>
+            {t('detail.buttons.refresh')}
+          </RefreshButton>
+          <DescribeDialog
+            resourceType="statefulsets"
+            namespace={namespace}
+            name={name}
+          />
+          <OpenPodTerminalButton
+            namespace={namespace}
+            pods={relatedPods}
+            containers={spec?.template.spec?.containers}
+            initContainers={spec?.template.spec?.initContainers}
+            source={`statefulset/${name}`}
+          />
+          <Popover
+            open={isScalePopoverOpen}
+            onOpenChange={setIsScalePopoverOpen}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <IconScale className="w-4 h-4" />
+                {t('detail.buttons.scale')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium">
+                    {t('detail.buttons.scale')} StatefulSet
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {t('detail.dialogs.scaleDeployment.description')}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="replicas">
+                    {t('detail.dialogs.scaleDeployment.replicas')}
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0"
+                      onClick={() =>
+                        setScaleReplicas(Math.max(0, scaleReplicas - 1))
+                      }
+                      disabled={scaleReplicas <= 0}
+                    >
+                      -
+                    </Button>
+                    <Input
+                      id="replicas"
+                      type="number"
+                      min="0"
+                      value={scaleReplicas}
+                      onChange={(e) =>
+                        setScaleReplicas(parseInt(e.target.value) || 0)
+                      }
+                      className="text-center"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0"
+                      onClick={() => setScaleReplicas(scaleReplicas + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+                <Button onClick={handleScale} className="w-full">
+                  {t('detail.buttons.scale')}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Popover
+            open={isRestartPopoverOpen}
+            onOpenChange={setIsRestartPopoverOpen}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <IconReload className="w-4 h-4" />
+                {t('detail.buttons.restart')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-2">
+                <p className="text-sm">
+                  {t('detail.dialogs.restartDeployment.description')}
+                </p>
+                <Button
+                  onClick={handleRestart}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {t('detail.dialogs.restartDeployment.restartButton')}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <IconTrash className="w-4 h-4" />
+            {t('detail.buttons.delete')}
+          </Button>
+        </div>
+      </div>
+
+      <ResponsiveTabs
+        tabs={[
+          {
+            value: 'overview',
+            label: t('detail.tabs.overview'),
+            content: (
+              <div className="space-y-6">
+                <StatefulSetOverviewInfoCard overview={overview} />
+
+                {/* Init Containers */}
+                {spec?.template?.spec?.initContainers &&
+                spec.template.spec.initContainers.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        {t('detail.sections.initContainers')} (
+                        {spec.template.spec.initContainers.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {spec.template.spec.initContainers.map(
+                          (container: Container) => (
+                            <ContainerTable
+                              key={container.name}
+                              container={container}
+                              onContainerUpdate={(updatedContainer) =>
+                                handleContainerUpdate(updatedContainer, true)
+                              }
+                              init
+                            />
+                          )
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {/* Containers */}
+                {spec?.template?.spec?.containers ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        {t('detail.sections.containers')} (
+                        {spec.template.spec.containers.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {spec.template.spec.containers.map(
+                          (container: Container) => (
+                            <ContainerTable
+                              key={container.name}
+                              container={container}
+                              onContainerUpdate={handleContainerUpdate}
+                            />
+                          )
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {relatedPods ? (
+                  <PodTable
+                    pods={relatedPods}
+                    isLoading={isLoadingPods}
+                    labelSelector={labelSelector}
+                    title={
+                      <>
+                        Pods{' '}
+                        <Badge variant="secondary">{relatedPods.length}</Badge>
+                      </>
+                    }
+                  />
+                ) : null}
+
+                {status?.conditions && status.conditions.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t('detail.sections.conditions')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {status.conditions.map((condition, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-3 rounded border p-2"
+                          >
+                            <Badge
+                              variant={
+                                condition.status === 'True'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                            >
+                              {condition.type}
+                            </Badge>
+                            <span className="text-sm">{condition.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </div>
+            ),
+          },
+          {
+            value: 'yaml',
+            label: t('detail.tabs.yaml'),
+            content: (
+              <div className="space-y-4">
+                <YamlEditor<'statefulsets'>
+                  key={refreshKey}
+                  value={yamlContent}
+                  title={t('yamlEditor.statefulSetTitle')}
+                  onSave={handleSaveYaml}
+                  onChange={handleYamlChange}
+                  isSaving={isSavingYaml}
+                />
+              </div>
+            ),
+          },
+          ...(relatedPods
+            ? [
+                {
+                  value: 'logs',
+                  label: t('detail.tabs.logs'),
+                  content: (
+                    <div className="space-y-6">
+                      <LogViewer
+                        namespace={namespace}
+                        pods={relatedPods}
+                        containers={spec?.template.spec?.containers}
+                        initContainers={spec?.template.spec?.initContainers}
+                        labelSelector={labelSelector}
+                      />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+          ...(spec?.template?.spec?.volumes
+            ? [
+                {
+                  value: 'volumes',
+                  label: (
+                    <>
+                      Volumes
+                      {spec.template.spec.volumes && (
+                        <Badge variant="secondary">
+                          {spec.template.spec.volumes.length}
+                        </Badge>
+                      )}
+                    </>
+                  ),
+                  content: (
+                    <div className="space-y-6">
+                      <VolumeTable
+                        namespace={namespace}
+                        volumes={spec.template.spec?.volumes}
+                        containers={toSimpleContainer(
+                          spec.template.spec?.initContainers,
+                          spec.template.spec?.containers
+                        )}
+                        isLoading={isLoadingStatefulSet}
+                      />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+          {
+            value: 'Related',
+            label: t('detail.tabs.related'),
+            content: (
+              <RelatedResourcesTable
+                resource={'statefulsets'}
+                name={name}
+                namespace={namespace}
+              />
+            ),
+          },
+          {
+            value: 'events',
+            label: t('detail.tabs.events'),
+            content: (
+              <EventTable
+                resource="statefulsets"
+                name={name}
+                namespace={namespace}
+              />
+            ),
+          },
+          {
+            value: 'history',
+            label: 'History',
+            content: (
+              <ProResourceHistoryTable
+                resourceType="statefulsets"
+                name={name}
+                namespace={namespace}
+                currentResource={statefulset}
+              />
+            ),
+          },
+          {
+            value: 'monitor',
+            label: t('detail.tabs.monitor'),
+            content: (
+              <PodMonitoring
+                namespace={namespace}
+                pods={relatedPods}
+                containers={spec?.template.spec?.containers}
+                initContainers={spec?.template.spec?.initContainers}
+                defaultQueryName={relatedPods?.[0]?.metadata?.generateName}
+                labelSelector={labelSelector}
+              />
+            ),
+          },
+        ]}
+      />
+
+      <ResourceDeleteConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        resourceName={metadata?.name || ''}
+        resourceType="statefulsets"
+        namespace={namespace}
+        confirmationValue={t('deleteConfirmation.confirmDeleteKeyword')}
+      />
+    </div>
+  )
+}

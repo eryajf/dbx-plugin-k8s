@@ -1,0 +1,42 @@
+.kd-detail { color: #dbe6f5; padding: 20px; min-width: 0; overflow: auto; background: #111a28; border: 1px solid #29374a; border-radius: 12px; }
+.kd-detail header, .kd-editor header { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.kd-detail h2, .kd-editor h2 { margin: 5px 0 12px; font-size: 22px; overflow-wrap: anywhere; }
+.kd-detail h3 { font-size: 14px; color: #8ea9ca; margin: 0 0 14px; }
+.kd-detail small { color: #91a6c0; }
+.kd-actions, .kd-tabs, .kd-editor footer, .kd-confirm footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.kd-detail button, .kd-editor button, .kd-confirm button { background: #1e2d40; color: #dce7f7; border: 1px solid #3a4e69; padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+.kd-detail button:hover, .kd-editor button:hover { background: #2a405d; }
+.kd-detail button:disabled, .kd-editor button:disabled, .kd-confirm button:disabled { opacity: .45; cursor: not-allowed; }
+.kd-detail button.kd-danger, .kd-confirm button.kd-danger { color: #ffb7b7; border-color: #934e58; }
+.kd-editor button.kd-primary { background: #2666b6; }
+.kd-tabs { margin: 16px 0; border-bottom: 1px solid #304159; padding-bottom: 10px; }
+.kd-tabs button[aria-current] { background: #244771; border-color: #5189c9; }
+.kd-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.kd-sections article, .kd-sections details { padding: 16px; background: #162234; border-radius: 8px; overflow: auto; }
+.kd-wide { grid-column: 1 / -1; }
+.kd-pairs { margin: 0; font-size: 13px; }
+.kd-pairs > div { display: grid; grid-template-columns: minmax(95px, 30%) 1fr; gap: 12px; padding: 7px 0; border-bottom: 1px solid #28374b; }
+.kd-pairs dt { color: #91a6c0; overflow-wrap: anywhere; }
+.kd-pairs dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.kd-detail table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.kd-detail th, .kd-detail td { text-align: left; padding: 10px; border-bottom: 1px solid #304159; vertical-align: top; overflow-wrap: anywhere; }
+.kd-document, .kd-detail pre, .kd-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 ui-monospace, SFMono-Regular, monospace; }
+.kd-document { background: #0b1320; padding: 16px; border-radius: 8px; }
+.kd-notice { border-left: 3px solid #7099d3; background: #1c2b42; padding: 12px; margin: 12px 0; overflow-wrap: anywhere; font-size: 13px; }
+.kd-notice button { margin-left: 12px; }
+.kd-error { color: #ffb4b4; background: #44242d; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.kd-timeline { list-style: none; padding: 0 0 0 15px; border-left: 2px solid #3c5b7b; }
+.kd-timeline li { padding: 12px; margin-bottom: 12px; background: #162234; border-radius: 8px; }
+.kd-timeline time { display: block; color: #91a6c0; font-size: 12px; margin-top: 6px; }
+.kd-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.kd-links button { display: flex; flex-direction: column; gap: 8px; text-align: left; overflow-wrap: anywhere; }
+.kd-overlay { position: fixed; inset: 0; z-index: 100; background: #050a13bd; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.kd-editor, .kd-confirm { background: #111c2c; color: #dce7f7; border: 1px solid #3b526f; border-radius: 12px; padding: 24px; max-height: 90vh; overflow: auto; width: min(1100px, 100%); box-shadow: 0 20px 80px #0008; }
+.kd-confirm { max-width: 570px; }
+.kd-editor footer, .kd-confirm footer { justify-content: flex-end; margin-top: 16px; }
+.kd-editor .kd-actions { margin-bottom: 12px; font-size: 12px; color: #91a6c0; }
+.kd-yaml { box-sizing: border-box; width: 100%; height: 380px; background: #0b1320; color: #dce7f7; padding: 15px; font: 13px/1.6 monospace; }
+.kd-preview { margin-top: 16px; max-height: 300px; overflow: auto; padding: 16px; background: #0b1320; border: 1px solid #325d4a; }
+.kd-confirm input { box-sizing: border-box; width: 100%; padding: 10px; background: #0b1320; color: #dce7f7; border: 1px solid #3b526f; }
+@media (max-width: 760px) { .kd-sections { grid-template-columns: 1fr; } .kd-overlay { padding: 8px; } .kd-editor, .kd-confirm { padding: 14px; } }
+.kd-document-actions{display:flex;gap:8px;align-items:center;margin:8px 0}.kd-document-actions span{color:#15803d;font-size:12px}

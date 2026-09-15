@@ -1,0 +1,367 @@
+@custom-variant dark (&:is(.dark *));
+
+/* maple-mono-latin-400-normal */
+@font-face {
+  font-family: 'Maple Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src:
+    url('@/assets/fonts/maple-mono-latin-400-normal.woff2') format('woff2'),
+    url('@/assets/fonts/maple-mono-latin-400-normal.woff') format('woff');
+}
+
+/* jetbrains-mono-latin-wght-normal */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: auto;
+  font-weight: 100 800;
+  src: url('@/assets/fonts/jetbrains-mono-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+  Font families
+  - --font-sans holds the system UI font stack
+  - --font-mono enforces Maple Mono for all monospace usages
+  - --app-font-sans controls the app's primary font; default to Maple to keep current look
+*/
+:root {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+  --app-font-sans: var(--font-sans);
+}
+
+body {
+  font-family: var(--app-font-sans);
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono);
+}
+
+/* Ensure Tailwind font utility classes respect current choice */
+.font-sans {
+  font-family: var(--app-font-sans) !important;
+}
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --header-height: 3.5rem;
+  --radius: 0.5rem;
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/*
+  Radix Select uses react-remove-scroll, which locks body scroll and injects
+  scrollbar compensation on open. In the desktop shell this causes the whole
+  page to shift horizontally whenever a select menu opens.
+*/
+body[data-scroll-locked] {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+  --removed-body-scroll-bar-size: 0px;
+}
+
+body[data-scroll-locked] .right-scroll-bar-position {
+  right: 0 !important;
+}
+
+body[data-scroll-locked] .width-before-scroll-bar {
+  margin-right: 0 !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    @apply h-full w-full overflow-hidden;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .app-link {
+    @apply text-primary underline-offset-4 hover:text-primary/80 hover:underline;
+  }
+}
+
+@layer utilities {
+  .table-scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(
+        in oklab,
+        var(--color-foreground) 22%,
+        transparent
+      )
+      transparent;
+  }
+
+  .table-scroll-thin::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .table-scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .table-scroll-thin::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--color-foreground) 22%, transparent);
+  }
+
+  .table-scroll-thin::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-foreground) 32%, transparent);
+  }
+}
+
+/* Breathing animation for log viewer connection indicator */
+@keyframes breathing {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+    box-shadow: 0 0 2px rgba(74, 222, 128, 0.4);
+  }
+  25% {
+    opacity: 0.7;
+    transform: scale(1.05);
+    box-shadow: 0 0 4px rgba(74, 222, 128, 0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.9);
+  }
+  75% {
+    opacity: 0.7;
+    transform: scale(1.05);
+    box-shadow: 0 0 4px rgba(74, 222, 128, 0.6);
+  }
+}
+
+.breathing-indicator {
+  animation: breathing 3s ease-in-out infinite;
+}
+
+/* AI Chat markdown styles */
+@keyframes ai-dot-wave {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.ai-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ai-thinking-dots > span {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--muted-foreground);
+  animation: ai-dot-wave 1.8s ease-in-out infinite;
+}
+
+.ai-thinking-dots > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ai-thinking-dots > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.ai-markdown {
+  line-height: 1.5;
+}
+
+.ai-markdown > *:first-child {
+  margin-top: 0;
+}
+
+.ai-markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown p {
+  margin: 0.4em 0;
+}
+
+.ai-markdown h1,
+.ai-markdown h2,
+.ai-markdown h3,
+.ai-markdown h4 {
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+
+.ai-markdown h1 {
+  font-size: 1.15em;
+}
+
+.ai-markdown h2 {
+  font-size: 1.08em;
+}
+
+.ai-markdown h3 {
+  font-size: 1em;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  margin: 0.3em 0;
+  padding-left: 1.4em;
+}
+
+.ai-markdown ul {
+  list-style-type: disc;
+}
+
+.ai-markdown ol {
+  list-style-type: decimal;
+}
+
+.ai-markdown li {
+  margin: 0.15em 0;
+}
+
+.ai-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+}
+
+.ai-markdown pre {
+  margin: 0.4em 0;
+  padding: 0.6em 0.8em;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  overflow-x: auto;
+}
+
+.ai-markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.82em;
+}
+
+.ai-markdown blockquote {
+  margin: 0.4em 0;
+  padding-left: 0.8em;
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.ai-markdown table {
+  border-collapse: collapse;
+  margin: 0.4em 0;
+  font-size: 0.9em;
+  width: 100%;
+}
+
+.ai-markdown th,
+.ai-markdown td {
+  border: 1px solid var(--border);
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
+
+.ai-markdown th {
+  font-weight: 600;
+  background: var(--background);
+}
+
+.ai-markdown hr {
+  margin: 0.5em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.ai-markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ai-markdown strong {
+  font-weight: 600;
+}

@@ -1,0 +1,7 @@
+import {describe,it,expect,vi} from 'vitest'
+import {DBXTransport} from './dbx-transport'
+import {clearDBXResourceDiscovery} from './dbx-resource-discovery'
+describe('DBX transport contract',()=>{
+ it('sends GVR for namespaced list and cluster detail',async()=>{const i=vi.fn().mockResolvedValue({resources:[{group:'apps',version:'v1',resource:'deployments',kind:'Deployment',namespaced:true},{group:'',version:'v1',resource:'nodes',kind:'Node',namespaced:false}]});const t=new DBXTransport(i,'c');await t.request('/api/v1/deployments/default','GET');expect(i).toHaveBeenLastCalledWith('resource/list',expect.objectContaining({group:'apps',version:'v1',resource:'deployments',namespace:'default'}));await t.request('/api/v1/nodes/n1','GET');expect(i).toHaveBeenLastCalledWith('resource/get',expect.objectContaining({resource:'nodes',name:'n1',namespace:undefined}))})
+ it('maps patch and delete preconditions',async()=>{const i=vi.fn().mockResolvedValue({resources:[{version:'v1',resource:'pods',kind:'Pod',namespaced:true}],metadata:{uid:'u',resourceVersion:'v'}});clearDBXResourceDiscovery('c');const t=new DBXTransport(i,'c');await t.request('/api/v1/pods/default/p1','PATCH',{spec:{x:1}});expect(i).toHaveBeenCalledWith('resource/patch',expect.objectContaining({patch:{spec:{x:1}}}));await t.request('/api/v1/pods/default/p1','DELETE');expect(i).toHaveBeenCalledWith('resource/delete',expect.objectContaining({uid:'u',resourceVersion:'v'}))})
+})

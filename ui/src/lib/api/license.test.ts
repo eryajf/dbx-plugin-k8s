@@ -1,0 +1,3 @@
+import { readFileSync } from 'node:fs';import { resolve } from 'node:path';import { describe,it,expect } from 'vitest'
+const read=(p:string)=>readFileSync(resolve(__dirname,'../../../',p),'utf8')
+describe('DBX feature surface',()=>it('exposes supported capabilities and hides host-only entries',()=>{const app=read('src/App.tsx'), side=read('src/components/app-sidebar.tsx'), header=read('src/components/site-header.tsx'), table=read('src/components/resource-table.tsx');expect(table).toContain('batch');expect(app+side+header).not.toContain('AIChatbox');expect(side).not.toContain('useDesktopUpdate');expect(header).not.toContain('TerminalSquare')}))

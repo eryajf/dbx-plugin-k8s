@@ -1,0 +1,112 @@
+import { useState } from 'react'
+import { Pod } from 'kubernetes-types/core/v1'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
+import { cn, getAge } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+
+interface PodSelectorProps {
+  pods: Pod[]
+  selectedPod?: string
+  onPodChange: (podName?: string) => void
+  placeholder?: string
+  showAllOption?: boolean
+}
+
+export function PodSelector({
+  pods,
+  selectedPod,
+  onPodChange,
+  showAllOption = false,
+}: PodSelectorProps) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  const allOption: Pod = {
+    metadata: {
+      name: t('selector.allPods'),
+      uid: 'all',
+      creationTimestamp: undefined,
+    },
+  }
+  const options = showAllOption ? [allOption, ...pods] : pods
+
+  const selectedOption = selectedPod
+    ? pods.find((c) => c.metadata?.name === selectedPod)
+    : allOption
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full min-w-0 justify-between md:w-fit md:min-w-[18rem] md:max-w-[min(48rem,calc(100vw-2rem))]"
+        >
+          <span className="truncate">
+            {selectedOption ? selectedOption.metadata?.name : t('common.all')}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-max min-w-[var(--radix-popover-trigger-width)] max-w-[min(48rem,calc(100vw-1rem))] p-0">
+        <Command>
+          <CommandInput placeholder={t('selector.searchPods')} />
+          <CommandList>
+            <CommandEmpty>{t('selector.noPodsFound')}</CommandEmpty>
+            <CommandGroup>
+              {options.map((pod) => (
+                <CommandItem
+                  key={pod.metadata?.uid}
+                  value={pod.metadata?.name}
+                  onSelect={(currentValue) => {
+                    const newValue =
+                      currentValue === allOption.metadata?.name
+                        ? undefined
+                        : currentValue
+                    onPodChange(newValue)
+                    setOpen(false)
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      'mr-2 h-4 w-4',
+                      selectedPod === pod.metadata?.name ||
+                        (!selectedPod &&
+                          pod.metadata?.name === allOption.metadata?.name)
+                        ? 'opacity-100'
+                        : 'opacity-0'
+                    )}
+                  />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="font-medium">{pod.metadata?.name}</span>
+                    {pod.metadata?.creationTimestamp && (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {`${t('pods.age')}: ${getAge(pod.metadata?.creationTimestamp || '')}, ${t('pods.node')}: ${pod.spec?.nodeName}`}
+                      </span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}

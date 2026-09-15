@@ -1,87 +1,164 @@
 {
   "$schema": "https://raw.githubusercontent.com/t8y2/dbx/plugin-sdk-v1/plugins/manifest.schema.json",
   "manifest_version": 1,
-  "id": "com.example.dbx-plugin-k8s",
-  "name": "DBX Plugin K8s",
+  "id": "io.dbx.kubernetes",
+  "name": "Kubernetes Manager",
   "version": "0.1.0",
   "publisher": "eryajf",
-  "description": "DBX Plugin K8s plugin for DBX.",
+  "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
   "icon": "assets/plugin.svg",
   "engines": {
     "dbx": ">=0.5.68",
     "host_api": "1"
   },
+  "permissions": [
+    "host.events"
+  ],
   "entrypoints": {
     "backend": {
-      "executable": "bin/dbx-plugin-dbx-plugin-k8s"
+      "executable": "bin/dbx-plugin-kubernetes"
     },
     "ui": {
-      "root": "ui",
-      "entry": "ui/index.html"
+      "root": "ui/dist",
+      "entry": "ui/dist/index.html"
     }
   },
   "contributions": [
     {
       "type": "connection-provider",
-      "id": "com.example.dbx-plugin-k8s.connection",
-      "label": "DBX Plugin K8s connection",
+      "id": "io.dbx.kubernetes.connection",
+      "label": "Kubernetes cluster",
       "icon": "assets/plugin.svg",
-      "database_type": "dbx-plugin-k8s",
-      "description": "Connection form contributed by DBX Plugin K8s.",
+      "database_type": "kubernetes",
+      "description": "Connect to a Kubernetes cluster using kubeconfig.",
       "fields": [
         {
           "key": "display_name",
           "label": "Connection name",
           "type": "text",
-          "default": "DBX Plugin K8s connection",
+          "default": "Kubernetes cluster",
           "binding": "name",
           "required": true
         },
         {
-          "key": "host",
-          "label": "Host",
-          "type": "text",
-          "default": "localhost",
-          "binding": "host",
-          "required": true
+          "key": "kubeconfig",
+          "label": "Kubeconfig",
+          "type": "textarea",
+          "binding": "secret",
+          "required": true,
+          "description": "Kubeconfig YAML stored in DBX secret store."
         },
         {
-          "key": "port",
-          "label": "Port",
+          "key": "server",
+          "label": "API Server (optional)",
+          "type": "text",
+          "binding": "config",
+          "description": "Use with token or client certificate when kubeconfig is not provided."
+        },
+        {
+          "key": "token",
+          "label": "Bearer token",
+          "type": "password",
+          "binding": "secret"
+        },
+        {
+          "key": "ca_cert",
+          "label": "CA certificate (PEM)",
+          "type": "textarea",
+          "binding": "secret"
+        },
+        {
+          "key": "client_cert",
+          "label": "Client certificate (PEM)",
+          "type": "textarea",
+          "binding": "secret"
+        },
+        {
+          "key": "client_key",
+          "label": "Client key (PEM)",
+          "type": "textarea",
+          "binding": "secret"
+        },
+        {
+          "key": "context",
+          "label": "Kubeconfig context",
+          "type": "text",
+          "binding": "config"
+        },
+        {
+          "key": "timeout_s",
+          "label": "Timeout (seconds)",
           "type": "number",
-          "default": 0,
-          "binding": "port",
-          "required": true
+          "default": 30,
+          "binding": "config"
+        },
+        {
+          "key": "insecure_skip_tls_verify",
+          "label": "Skip TLS verification",
+          "type": "boolean",
+          "default": false,
+          "binding": "config"
+        },
+        {
+          "key": "allow_exec",
+          "label": "Allow kubeconfig exec credentials",
+          "type": "boolean",
+          "default": false,
+          "binding": "config",
+          "description": "Only enable for trusted kubeconfig files."
+        },
+        {
+          "key": "namespace",
+          "label": "Default namespace",
+          "type": "text",
+          "default": "default",
+          "binding": "config"
         }
       ],
-      "workbench": "com.example.dbx-plugin-k8s.workbench",
-      "capabilities": ["test", "connect", "disconnect"]
+      "workbench": "io.dbx.kubernetes.workbench",
+      "capabilities": [
+        "test",
+        "connect",
+        "disconnect"
+      ]
     },
     {
       "type": "workbench",
-      "id": "com.example.dbx-plugin-k8s.workbench",
-      "label": "DBX Plugin K8s Workbench",
-      "description": "Sandboxed UI contributed by DBX Plugin K8s.",
-      "icon": "assets/plugin.svg"
+      "id": "io.dbx.kubernetes.workbench",
+      "label": "Kubernetes Workbench",
+      "description": "Browse and operate Kubernetes resources."
     }
   ],
   "localizations": {
     "zh-CN": {
-      "name": "DBX Plugin K8s",
-      "description": "DBX Plugin K8s plugin for DBX.",
+      "name": "Kubernetes 管理",
+      "description": "在 DBX 中管理 Kubernetes 集群、工作负载和资源。",
       "contributions": {
-        "com.example.dbx-plugin-k8s.connection": {
-          "label": "DBX Plugin K8s 连接",
-          "description": "由插件声明的连接表单。",
+        "io.dbx.kubernetes.connection": {
+          "label": "Kubernetes 集群",
           "fields": {
-            "display_name": { "label": "连接名称" },
-            "host": { "label": "主机" },
-            "port": { "label": "端口" }
+            "display_name": {
+              "label": "连接名称"
+            },
+            "kubeconfig": {
+              "label": "Kubeconfig"
+            },
+            "server": {"label": "API Server（可选）"},
+            "token": {"label": "Bearer Token"},
+            "ca_cert": {"label": "CA 证书（PEM）"},
+            "client_cert": {"label": "客户端证书（PEM）"},
+            "client_key": {"label": "客户端私钥（PEM）"},
+            "context": {"label": "Kubeconfig Context"},
+            "timeout_s": {"label": "超时时间（秒）"},
+            "insecure_skip_tls_verify": {"label": "跳过 TLS 校验"},
+            "allow_exec": {"label": "允许执行 Kubeconfig 凭据插件"},
+            "namespace": {
+              "label": "默认命名空间"
+            }
           }
         },
-        "com.example.dbx-plugin-k8s.workbench": {
-          "label": "DBX Plugin K8s 工作台",
-          "description": "由插件提供的沙箱工作台界面。"
+        "io.dbx.kubernetes.workbench": {
+          "label": "Kubernetes 工作台"
         }
       }
     }

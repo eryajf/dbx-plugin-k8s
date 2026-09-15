@@ -1,0 +1,654 @@
+import { DaemonSet, Deployment, ReplicaSet } from 'kubernetes-types/apps/v1'
+import { Pod } from 'kubernetes-types/core/v1'
+import { describe, expect, it } from 'vitest'
+
+import type { CustomResource } from '@/types/api'
+
+import {
+  aggregateContainerResources,
+  buildDaemonSetOverviewViewModel,
+  buildDeploymentOverviewViewModel,
+  buildStatefulSetOverviewViewModel,
+  filterPodsOwnedByController,
+  filterPodsOwnedByDeployment,
+  filterReplicaSetsOwnedByDeployment,
+  getPodStatus,
+  getPrinterColumnValue,
+} from './k8s'
+
+const resource = {
+  apiVersion: 'example.io/v1',
+  kind: 'Widget',
+  metadata: {
+    name: 'example-widget',
+    namespace: 'default',
+  },
+  status: {
+    phase: 'Running',
+    conditions: [
+      { type: 'Synced', status: 'True' },
+      { type: 'Ready', status: 'False' },
+    ],
+    addresses: [
+      { value: '10.0.0.1' },
+      { value: null },
+      {},
+      { value: '10.0.0.2' },
+    ],
+  },
+} as CustomResource
+
+describe('getPrinterColumnValue', () => {
+  it.each(['.status.phase', 'status.phase', '$.status.phase'])(
+    'reads simple additionalPrinterColumns JSONPath values for %s',
+    (jsonPath) => {
+      expect(getPrinterColumnValue(resource, jsonPath)).toBe('Running')
+    }
+  )
+
+  it('reads filtered conditions from additionalPrinterColumns JSONPath', () => {
+    expect(
+      getPrinterColumnValue(
+        resource,
+        ".status.conditions[?(@.type=='Synced')].status"
+      )
+    ).toBe('True')
+
+    expect(
+      getPrinterColumnValue(
+        resource,
+        ".status.conditions[?(@.type=='Ready')].status"
+      )
+    ).toBe('False')
+  })
+
+  it('returns undefined when the JSONPath does not match any value', () => {
+    expect(
+      getPrinterColumnValue(
+        resource,
+        ".status.conditions[?(@.type=='Healthy')].status"
+      )
+    ).toBeUndefined()
+  })
+
+  it('joins multiple values and skips nullish matches', () => {
+    expect(getPrinterColumnValue(resource, '.status.addresses[*].value')).toBe(
+      '10.0.0.1, 10.0.0.2'
+    )
+  })
+})
+
+describe('getPodStatus', () => {
+  it('shows NotReady when regular containers are running but readiness is not true', () => {
+    const pod = {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: 'web-0',
+        namespace: 'default',
+      },
+      spec: {
+        containers: [{ name: 'app', image: 'nginx:latest' }],
+      },
+      status: {
+        phase: 'Running',
+        conditions: [{ type: 'Ready', status: 'False' }],
+        containerStatuses: [
+          {
+            name: 'app',
+            image: 'nginx:latest',
+            imageID: 'container-image-id',
+            containerID: 'container-id',
+            ready: false,
+            restartCount: 1,
+            started: true,
+            state: {
+              running: {
+                startedAt: '2026-05-22T01:00:00Z',
+              },
+            },
+          },
+        ],
+      },
+    } as Pod
+
+    expect(getPodStatus(pod)).toMatchObject({
+      readyContainers: 0,
+      totalContainers: 1,
+      reason: 'NotReady',
+    })
+  })
+
+  it('shows Starting while a running container has not passed startup yet', () => {
+    const pod = {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: 'web-0',
+        namespace: 'default',
+      },
+      spec: {
+        containers: [{ name: 'app', image: 'nginx:latest' }],
+      },
+      status: {
+        phase: 'Running',
+        conditions: [{ type: 'Ready', status: 'False' }],
+        containerStatuses: [
+          {
+            name: 'app',
+            image: 'nginx:latest',
+            imageID: 'container-image-id',
+            containerID: 'container-id',
+            ready: false,
+            restartCount: 1,
+            started: false,
+            state: {
+              running: {
+                startedAt: '2026-05-22T01:00:00Z',
+              },
+            },
+          },
+        ],
+      },
+    } as Pod
+
+    expect(getPodStatus(pod)).toMatchObject({
+      readyContainers: 0,
+      totalContainers: 1,
+      reason: 'Starting',
+    })
+  })
+
+  it('shows Running only when the pod Ready condition is true', () => {
+    const pod = {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: 'web-0',
+        namespace: 'default',
+      },
+      spec: {
+        containers: [{ name: 'app', image: 'nginx:latest' }],
+      },
+      status: {
+        phase: 'Running',
+        conditions: [{ type: 'Ready', status: 'True' }],
+        containerStatuses: [
+          {
+            name: 'app',
+            image: 'nginx:latest',
+            imageID: 'container-image-id',
+            containerID: 'container-id',
+            ready: true,
+            restartCount: 1,
+            started: true,
+            state: {
+              running: {
+                startedAt: '2026-05-22T01:00:00Z',
+              },
+            },
+          },
+        ],
+      },
+    } as Pod
+
+    expect(getPodStatus(pod)).toMatchObject({
+      readyContainers: 1,
+      totalContainers: 1,
+      reason: 'Running',
+    })
+  })
+})
+
+describe('deployment overview helpers', () => {
+  const deployment = {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: 'web',
+      namespace: 'default',
+      creationTimestamp: '2026-04-15T12:00:00.000Z',
+      generation: 4,
+      labels: {
+        app: 'web',
+      },
+      annotations: {
+        'deployment.kubernetes.io/revision': '7',
+      },
+    },
+    spec: {
+      replicas: 3,
+      strategy: {
+        type: 'RollingUpdate',
+      },
+      selector: {
+        matchLabels: {
+          app: 'web',
+        },
+      },
+      template: {
+        spec: {
+          hostNetwork: true,
+          schedulerName: 'custom-scheduler',
+          enableServiceLinks: false,
+          containers: [
+            {
+              name: 'api',
+              image: 'nginx:1.0',
+              resources: {
+                requests: {
+                  cpu: '100m',
+                  memory: '128Mi',
+                },
+                limits: {
+                  cpu: '500m',
+                  memory: '256Mi',
+                },
+              },
+            },
+            {
+              name: 'worker',
+              image: 'busybox:1.0',
+              resources: {
+                requests: {
+                  cpu: '250m',
+                  memory: '256Mi',
+                },
+                limits: {
+                  cpu: '1',
+                  memory: '512Mi',
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+    status: {
+      readyReplicas: 2,
+      updatedReplicas: 3,
+      availableReplicas: 2,
+      observedGeneration: 3,
+      replicas: 3,
+    },
+  } as Deployment
+
+  it('aggregates container resources across regular containers', () => {
+    expect(
+      aggregateContainerResources(deployment.spec?.template?.spec?.containers)
+    ).toEqual({
+      requests: {
+        cpu: '350m',
+        memory: '384Mi',
+      },
+      limits: {
+        cpu: '1500m',
+        memory: '768Mi',
+      },
+    })
+  })
+
+  it('builds the deployment overview view model with rollout metadata', () => {
+    const overview = buildDeploymentOverviewViewModel(deployment)
+
+    expect(overview.status).toBe('Progressing')
+    expect(overview.readyReplicas).toBe(2)
+    expect(overview.specReplicas).toBe(3)
+    expect(overview.observedGeneration).toBe(3)
+    expect(overview.generation).toBe(4)
+    expect(overview.isObserved).toBe(false)
+    expect(overview.hostNetwork).toBe(true)
+    expect(overview.schedulerName).toBe('custom-scheduler')
+    expect(overview.revision).toBe('7')
+    expect(overview.serviceLinksEnabled).toBe(false)
+    expect(overview.resourceRequests.memory).toBe('384Mi')
+    expect(overview.resourceLimits.cpu).toBe('1500m')
+  })
+})
+
+describe('statefulset overview helpers', () => {
+  const statefulSet = {
+    apiVersion: 'apps/v1',
+    kind: 'StatefulSet',
+    metadata: {
+      name: 'db',
+      namespace: 'default',
+      creationTimestamp: '2026-04-15T12:00:00.000Z',
+      generation: 6,
+      labels: {
+        app: 'db',
+      },
+      annotations: {
+        note: 'critical',
+      },
+    },
+    spec: {
+      replicas: 3,
+      serviceName: 'db-headless',
+      podManagementPolicy: 'Parallel',
+      minReadySeconds: 15,
+      persistentVolumeClaimRetentionPolicy: {
+        whenDeleted: 'Retain',
+        whenScaled: 'Delete',
+      },
+      selector: {
+        matchLabels: {
+          app: 'db',
+        },
+      },
+      template: {
+        spec: {
+          hostNetwork: false,
+          schedulerName: 'storage-scheduler',
+          enableServiceLinks: false,
+          containers: [
+            {
+              name: 'db',
+              image: 'postgres:16',
+              resources: {
+                requests: {
+                  cpu: '500m',
+                  memory: '1Gi',
+                },
+                limits: {
+                  cpu: '1',
+                  memory: '2Gi',
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+    status: {
+      readyReplicas: 2,
+      updatedReplicas: 2,
+      availableReplicas: 2,
+      currentReplicas: 3,
+      replicas: 3,
+      observedGeneration: 5,
+      currentRevision: 'db-6d4f6f7f9',
+      updateRevision: 'db-78bd56fc9',
+    },
+  } as StatefulSet
+
+  it('builds the statefulset overview view model with rollout and pvc metadata', () => {
+    const overview = buildStatefulSetOverviewViewModel(statefulSet)
+
+    expect(overview.status).toBe('Progressing')
+    expect(overview.readyReplicas).toBe(2)
+    expect(overview.specReplicas).toBe(3)
+    expect(overview.currentReplicas).toBe(3)
+    expect(overview.observedGeneration).toBe(5)
+    expect(overview.generation).toBe(6)
+    expect(overview.isObserved).toBe(false)
+    expect(overview.serviceName).toBe('db-headless')
+    expect(overview.podManagementPolicy).toBe('Parallel')
+    expect(overview.minReadySeconds).toBe(15)
+    expect(overview.schedulerName).toBe('storage-scheduler')
+    expect(overview.currentRevision).toBe('db-6d4f6f7f9')
+    expect(overview.updateRevision).toBe('db-78bd56fc9')
+    expect(overview.pvcWhenDeleted).toBe('Retain')
+    expect(overview.pvcWhenScaled).toBe('Delete')
+    expect(overview.serviceLinksEnabled).toBe(false)
+    expect(overview.resourceRequests.memory).toBe('1Gi')
+    expect(overview.resourceLimits.cpu).toBe('1')
+  })
+})
+
+describe('daemonset overview helpers', () => {
+  const daemonSet = {
+    apiVersion: 'apps/v1',
+    kind: 'DaemonSet',
+    metadata: {
+      name: 'node-agent',
+      namespace: 'default',
+      creationTimestamp: '2026-04-15T12:00:00.000Z',
+      generation: 9,
+      labels: {
+        app: 'node-agent',
+      },
+      annotations: {
+        owner: 'platform',
+      },
+    },
+    spec: {
+      minReadySeconds: 10,
+      revisionHistoryLimit: 4,
+      updateStrategy: {
+        type: 'RollingUpdate',
+        rollingUpdate: {
+          maxUnavailable: '25%',
+          maxSurge: 1,
+        },
+      },
+      selector: {
+        matchLabels: {
+          app: 'node-agent',
+        },
+      },
+      template: {
+        spec: {
+          hostNetwork: true,
+          schedulerName: 'daemon-scheduler',
+          enableServiceLinks: false,
+          containers: [
+            {
+              name: 'agent',
+              image: 'agent:v1',
+              resources: {
+                requests: {
+                  cpu: '100m',
+                  memory: '128Mi',
+                },
+                limits: {
+                  cpu: '500m',
+                  memory: '256Mi',
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+    status: {
+      desiredNumberScheduled: 5,
+      currentNumberScheduled: 5,
+      updatedNumberScheduled: 3,
+      numberReady: 4,
+      numberAvailable: 4,
+      numberMisscheduled: 1,
+      observedGeneration: 8,
+      collisionCount: 2,
+    },
+  } as DaemonSet
+
+  it('builds the daemonset overview view model with scheduling and rollout metadata', () => {
+    const overview = buildDaemonSetOverviewViewModel(daemonSet)
+
+    expect(overview.status).toBe('Pending')
+    expect(overview.readyScheduled).toBe(4)
+    expect(overview.desiredScheduled).toBe(5)
+    expect(overview.currentScheduled).toBe(5)
+    expect(overview.updatedScheduled).toBe(3)
+    expect(overview.availableScheduled).toBe(4)
+    expect(overview.misscheduled).toBe(1)
+    expect(overview.observedGeneration).toBe(8)
+    expect(overview.generation).toBe(9)
+    expect(overview.isObserved).toBe(false)
+    expect(overview.maxUnavailable).toBe('25%')
+    expect(overview.maxSurge).toBe(1)
+    expect(overview.minReadySeconds).toBe(10)
+    expect(overview.revisionHistoryLimit).toBe(4)
+    expect(overview.collisionCount).toBe(2)
+    expect(overview.hostNetwork).toBe(true)
+    expect(overview.schedulerName).toBe('daemon-scheduler')
+    expect(overview.serviceLinksEnabled).toBe(false)
+    expect(overview.resourceRequests.memory).toBe('128Mi')
+    expect(overview.resourceLimits.cpu).toBe('500m')
+  })
+})
+
+describe('workload pod ownership helpers', () => {
+  const deployment = {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: 'web',
+      namespace: 'default',
+      uid: 'deploy-1',
+    },
+  } as Deployment
+
+  const replicaSets = [
+    {
+      apiVersion: 'apps/v1',
+      kind: 'ReplicaSet',
+      metadata: {
+        name: 'web-abc123',
+        namespace: 'default',
+        uid: 'rs-1',
+        ownerReferences: [
+          {
+            apiVersion: 'apps/v1',
+            kind: 'Deployment',
+            name: 'web',
+            uid: 'deploy-1',
+            controller: true,
+          },
+        ],
+      },
+    },
+    {
+      apiVersion: 'apps/v1',
+      kind: 'ReplicaSet',
+      metadata: {
+        name: 'other-def456',
+        namespace: 'default',
+        uid: 'rs-2',
+        ownerReferences: [
+          {
+            apiVersion: 'apps/v1',
+            kind: 'Deployment',
+            name: 'other',
+            uid: 'deploy-2',
+            controller: true,
+          },
+        ],
+      },
+    },
+  ] as ReplicaSet[]
+
+  const pods = [
+    {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: 'web-abc123-1',
+        namespace: 'default',
+        ownerReferences: [
+          {
+            apiVersion: 'apps/v1',
+            kind: 'ReplicaSet',
+            name: 'web-abc123',
+            uid: 'rs-1',
+            controller: true,
+          },
+        ],
+      },
+    },
+    {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: 'other-def456-1',
+        namespace: 'default',
+        ownerReferences: [
+          {
+            apiVersion: 'apps/v1',
+            kind: 'ReplicaSet',
+            name: 'other-def456',
+            uid: 'rs-2',
+            controller: true,
+          },
+        ],
+      },
+    },
+  ] as Pod[]
+
+  it('keeps only replica sets controlled by the current deployment', () => {
+    expect(
+      filterReplicaSetsOwnedByDeployment(replicaSets, deployment)?.map(
+        (replicaSet) => replicaSet.metadata?.name
+      )
+    ).toEqual(['web-abc123'])
+  })
+
+  it('keeps only pods that belong to replica sets owned by the deployment', () => {
+    const ownedReplicaSets = filterReplicaSetsOwnedByDeployment(
+      replicaSets,
+      deployment
+    )
+
+    expect(
+      filterPodsOwnedByDeployment(pods, deployment, ownedReplicaSets)?.map(
+        (pod) => pod.metadata?.name
+      )
+    ).toEqual(['web-abc123-1'])
+  })
+
+  it('keeps only pods directly controlled by the matching workload', () => {
+    const daemonSet = {
+      apiVersion: 'apps/v1',
+      kind: 'DaemonSet',
+      metadata: {
+        name: 'agent',
+        namespace: 'kube-system',
+        uid: 'daemonset-1',
+      },
+    } as DaemonSet
+
+    const daemonSetPods = [
+      {
+        apiVersion: 'v1',
+        kind: 'Pod',
+        metadata: {
+          name: 'agent-node-a',
+          namespace: 'kube-system',
+          ownerReferences: [
+            {
+              apiVersion: 'apps/v1',
+              kind: 'DaemonSet',
+              name: 'agent',
+              uid: 'daemonset-1',
+              controller: true,
+            },
+          ],
+        },
+      },
+      {
+        apiVersion: 'v1',
+        kind: 'Pod',
+        metadata: {
+          name: 'agent-node-b',
+          namespace: 'kube-system',
+          ownerReferences: [
+            {
+              apiVersion: 'apps/v1',
+              kind: 'DaemonSet',
+              name: 'other-agent',
+              uid: 'daemonset-2',
+              controller: true,
+            },
+          ],
+        },
+      },
+    ] as Pod[]
+
+    expect(
+      filterPodsOwnedByController(daemonSetPods, 'DaemonSet', daemonSet)?.map(
+        (pod) => pod.metadata?.name
+      )
+    ).toEqual(['agent-node-a'])
+  })
+})
