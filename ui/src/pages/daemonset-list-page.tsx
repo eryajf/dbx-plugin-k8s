@@ -259,7 +259,9 @@ export function DaemonSetListPage() {
           },
         }
       )
-      toast.success('DaemonSet restart initiated')
+      toast.success(
+        t('detail.status.restartInitiated', { resource: 'DaemonSet' })
+      )
       setRestartDaemonSetTarget(null)
       await refreshDaemonSetList()
     } catch (error) {

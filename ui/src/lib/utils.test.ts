@@ -118,7 +118,7 @@ describe('time formatting helpers', () => {
       .mockReturnValue('formatted')
 
     expect(formatChartXTicks('2024-01-03T12:34:56Z', true)).toBe('formatted')
-    expect(spy).toHaveBeenCalledWith(undefined, {
+    expect(spy).toHaveBeenCalledWith('en', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -127,7 +127,7 @@ describe('time formatting helpers', () => {
     spy.mockClear()
 
     expect(formatChartXTicks('2024-01-03T12:34:56Z', false)).toBe('formatted')
-    expect(spy).toHaveBeenCalledWith(undefined, {
+    expect(spy).toHaveBeenCalledWith('en', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,

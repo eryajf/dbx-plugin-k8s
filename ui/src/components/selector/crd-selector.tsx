@@ -93,7 +93,7 @@ export function CRDSelector({
   if (crdsLoading) {
     return (
       <Button variant="outline" disabled className="justify-between">
-        Loading CRDs...
+        {t('common.loading')}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
     )
@@ -102,7 +102,7 @@ export function CRDSelector({
   if (crdsError) {
     return (
       <Button variant="outline" disabled className="justify-between">
-        Failed to load CRDs
+        {t('common.error')}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
     )

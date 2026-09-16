@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo } from 'react'
 import { PersistentVolumeClaim } from 'kubernetes-types/core/v1'
 
@@ -14,7 +15,7 @@ export function PVCSelector({
   selectedPVC,
   onPVCChange,
   namespace,
-  placeholder = 'Select a pvc',
+  placeholder,
   className,
 }: {
   selectedPVC?: string
@@ -23,6 +24,8 @@ export function PVCSelector({
   placeholder?: string
   className?: string
 }) {
+  const { t } = useTranslation()
+
   const { data, isLoading } = useResources('persistentvolumeclaims', namespace)
 
   const sortedPVCs = useMemo(() => {
@@ -36,12 +39,12 @@ export function PVCSelector({
   return (
     <Select value={selectedPVC} onValueChange={onPVCChange}>
       <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder ?? t('selector.selectPvc')} />
       </SelectTrigger>
       <SelectContent>
         {isLoading && (
           <SelectItem disabled value="_loading">
-            Loading pvc...
+            {t('common.loading')}
           </SelectItem>
         )}
         {sortedPVCs?.map((pvc: PersistentVolumeClaim) => (
@@ -51,7 +54,7 @@ export function PVCSelector({
         ))}
         {!isLoading && (!sortedPVCs || sortedPVCs.length === 0) && (
           <SelectItem disabled value="_empty">
-            No pvc found
+            {t('selector.noResults')}
           </SelectItem>
         )}
       </SelectContent>

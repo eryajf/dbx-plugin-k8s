@@ -269,7 +269,9 @@ export function StatefulSetListPage() {
           },
         }
       )
-      toast.success('StatefulSet restart initiated')
+      toast.success(
+        t('detail.status.restartInitiated', { resource: 'StatefulSet' })
+      )
       setRestartStatefulSetTarget(null)
       await refreshStatefulSetList()
     } catch (error) {

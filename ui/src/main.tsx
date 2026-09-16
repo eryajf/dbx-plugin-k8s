@@ -1,9 +1,11 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { useTranslation } from 'react-i18next'
 import { RouterProvider } from 'react-router-dom'
 
 import './index.css'
 import './i18n'
+import { syncHostLanguage } from './i18n/host-language'
 
 import { AppearanceProvider } from './components/appearance-provider'
 import { RuntimeProvider } from './contexts/runtime-context'
@@ -12,26 +14,75 @@ import { clearDBXResourceDiscovery } from './lib/dbx-resource-discovery'
 import { QueryProvider } from './lib/query-provider'
 import { router } from './routes'
 
-export function AppBootstrap() { return <RouterProvider router={router} /> }
+export function AppBootstrap() {
+  return <RouterProvider router={router} />
+}
 function DBXRoot() {
+  const { t } = useTranslation()
   const [connection, setConnection] = useState<string | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
-    const bridge = (window as unknown as {dbxPlugin?: {ready: Promise<void>; context?: {connectionId?: string}; onContext?: (fn: (context: {connectionId?: string}) => void) => () => void}}).dbxPlugin
-    if (!bridge) {setError('DBX Host Bridge unavailable'); return}
+    const bridge = (
+      window as unknown as {
+        dbxPlugin?: {
+          ready: Promise<void>
+          context?: { connectionId?: string }
+          locale?: string
+          onContext?: (
+            fn: (context: { connectionId?: string }) => void
+          ) => () => void
+          onLocaleChange?: (fn: (locale: string) => void) => () => void
+        }
+      }
+    ).dbxPlugin
+    if (!bridge) {
+      setError('DBX Host Bridge unavailable')
+      return
+    }
     let alive = true
-    const update = () => { if (alive) {clearDBXResourceDiscovery(); setConnection(bridge.context?.connectionId || null)} }
+    const update = () => {
+      if (alive) {
+        clearDBXResourceDiscovery()
+        setConnection(bridge.context?.connectionId || null)
+      }
+    }
     const off = bridge.onContext?.(update)
-    window.addEventListener('dbx-plugin-env', update)
-    bridge.ready.then(update).catch(reason => {if (alive) setError(String(reason))})
-    return () => {alive = false; off?.(); window.removeEventListener('dbx-plugin-env', update)}
+    const offLocale = syncHostLanguage(bridge)
+    bridge.ready.then(update).catch((reason) => {
+      if (alive) setError(String(reason))
+    })
+    return () => {
+      alive = false
+      off?.()
+      offLocale?.()
+    }
   }, [])
-  if (error) return <div role="alert" className="p-6">{error}</div>
-  if (!connection) return <div className="p-6 text-muted-foreground">等待 DBX 连接…</div>
-  return <QueryProvider key={connection}>
-    <AppearanceProvider defaultTheme="system" defaultColorTheme="default" defaultFont="maple">
-      <RuntimeProvider><SidebarConfigProvider><AppBootstrap /></SidebarConfigProvider></RuntimeProvider>
-    </AppearanceProvider>
-  </QueryProvider>
+  if (error)
+    return (
+      <div role="alert" className="p-6">
+        {error}
+      </div>
+    )
+  if (!connection)
+    return <div className="p-6 text-muted-foreground">{t('common.loading')}</div>
+  return (
+    <QueryProvider key={connection}>
+      <AppearanceProvider
+        defaultTheme="system"
+        defaultColorTheme="default"
+        defaultFont="maple"
+      >
+        <RuntimeProvider>
+          <SidebarConfigProvider>
+            <AppBootstrap />
+          </SidebarConfigProvider>
+        </RuntimeProvider>
+      </AppearanceProvider>
+    </QueryProvider>
+  )
 }
-createRoot(document.getElementById('root')!).render(<StrictMode><DBXRoot /></StrictMode>)
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <DBXRoot />
+  </StrictMode>
+)

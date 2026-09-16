@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { type ReactNode } from 'react'
 import { FileText, Tags } from 'lucide-react'
 
@@ -74,6 +75,8 @@ export function renderMetadataTooltipContent(
   items?: Record<string, string>,
   emptyLabel = 'None'
 ) {
+  const { t } = useTranslation()
+
   const entries = Object.entries(items || {})
 
   if (entries.length === 0) {
@@ -110,7 +113,9 @@ export function renderMetadataTooltipContent(
         </tbody>
       </table>
       {hiddenCount > 0 ? (
-        <div className="pt-1 text-right opacity-90">+{hiddenCount} more</div>
+        <div className="pt-1 text-right opacity-90">
+          +{hiddenCount} {t('common.more')}
+        </div>
       ) : null}
     </div>
   )

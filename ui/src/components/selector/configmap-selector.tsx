@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo } from 'react'
 import { ConfigMap } from 'kubernetes-types/core/v1'
 
@@ -14,7 +15,7 @@ export function ConfigMapSelector({
   selectedConfigMap,
   onConfigMapChange,
   namespace,
-  placeholder = 'Select a configmap',
+  placeholder,
   className,
 }: {
   selectedConfigMap?: string
@@ -23,6 +24,8 @@ export function ConfigMapSelector({
   placeholder?: string
   className?: string
 }) {
+  const { t } = useTranslation()
+
   const { data, isLoading } = useResources('configmaps', namespace)
 
   const sortedConfigMaps = useMemo(() => {
@@ -36,12 +39,12 @@ export function ConfigMapSelector({
   return (
     <Select value={selectedConfigMap} onValueChange={onConfigMapChange}>
       <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder ?? t('environmentEditor.selectConfigMap')} />
       </SelectTrigger>
       <SelectContent>
         {isLoading && (
           <SelectItem disabled value="_loading">
-            Loading configmaps...
+            {t('common.loading')}
           </SelectItem>
         )}
         {sortedConfigMaps?.map((configMap: ConfigMap) => (
@@ -54,7 +57,7 @@ export function ConfigMapSelector({
         ))}
         {!isLoading && (!sortedConfigMaps || sortedConfigMaps.length === 0) && (
           <SelectItem disabled value="_empty">
-            No configmaps found
+            {t('selector.noResults')}
           </SelectItem>
         )}
       </SelectContent>

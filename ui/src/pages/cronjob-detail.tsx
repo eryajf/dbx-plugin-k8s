@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { useEffect, useMemo, useState } from 'react'
 import {
   IconLoader,
@@ -64,6 +65,8 @@ function ResourceBadges(props: {
   value: ReturnType<typeof aggregateContainerResources>['requests']
   emptyText: string
 }) {
+  const { t } = useTranslation()
+
   const { value, emptyText } = props
 
   if (!value.cpu && !value.memory) {
@@ -74,7 +77,9 @@ function ResourceBadges(props: {
     <div className="flex flex-wrap gap-1.5">
       {value.cpu ? <Badge variant="secondary">CPU: {value.cpu}</Badge> : null}
       {value.memory ? (
-        <Badge variant="secondary">Memory: {value.memory}</Badge>
+        <Badge variant="secondary">
+          {t('detail.fields.memory')}: {value.memory}
+        </Badge>
       ) : null}
     </div>
   )
@@ -89,7 +94,9 @@ function formatTimestampWithRelative(timestamp?: string) {
 }
 
 function formatSeconds(value?: number) {
-  return value === undefined ? undefined : `${value} seconds`
+  return value === undefined
+    ? undefined
+    : i18n.t('monitoringControls.seconds', { count: value })
 }
 
 function getJobStatusBadge(job: Job): JobStatusBadge {
@@ -277,7 +284,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       trackResourceAction('cronjobs', 'yaml_save', {
         result: 'success',
       })
-      toast.success('CronJob YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       await refetchCronJob()
       return true
     } catch (error) {
@@ -297,7 +304,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
 
   const handleToggleSuspend = async () => {
     if (!cronjob || !cronjob.spec) {
-      toast.error('CronJob spec is missing, unable to update suspend state')
+      toast.error(t('cronjobs.missingSpec'))
       return
     }
 
@@ -311,7 +318,11 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         result: 'success',
       })
       toast.success(
-        updatedCronJob.spec?.suspend ? 'CronJob suspended' : 'CronJob resumed'
+        t(
+          updatedCronJob.spec?.suspend
+            ? 'cronjobs.suspendSuccess'
+            : 'cronjobs.resumeSuccess'
+        )
       )
       await Promise.all([refetchCronJob(), refetchJobs()])
     } catch (error) {
@@ -326,7 +337,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
 
   const handleRunNow = async () => {
     if (!cronjob?.spec?.jobTemplate?.spec || !namespace) {
-      toast.error('CronJob template is incomplete, unable to run now')
+      toast.error(t('cronjobs.incompleteTemplate'))
       return
     }
 
@@ -370,7 +381,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       trackResourceAction('cronjobs', 'run_now', {
         result: 'success',
       })
-      toast.success('Job created successfully')
+      toast.success(t('cronjobs.jobCreated'))
       await refetchJobs()
     } catch (error) {
       trackResourceAction('cronjobs', 'run_now', {
@@ -450,7 +461,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
             disabled={isRunningNow}
           >
             <IconPlayerPlayFilled className="w-4 h-4" />
-            Run Now
+            {t('cronjobs.runNow')}
           </Button>
           <Button
             variant="outline"
@@ -597,7 +608,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Job Template</CardTitle>
+                    <CardTitle>{t('cronjobs.jobTemplate')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <LabelsAnno
@@ -611,7 +622,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Pod Template</CardTitle>
+                    <CardTitle>{t('cronjobs.podTemplate')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
@@ -694,7 +705,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No active jobs currently running.
+                        {t('cronjobs.noActiveJobs')}
                       </p>
                     )}
                   </CardContent>
@@ -724,7 +735,9 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Containers ({containers.length})</CardTitle>
+                    <CardTitle>
+                      {t('detail.sections.containers')} ({containers.length})
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -770,7 +783,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
                   <SimpleTable<Job>
                     data={sortedJobs}
                     columns={jobColumns}
-                    emptyMessage="No jobs found for this CronJob"
+                    emptyMessage={t('cronjobs.noJobs')}
                     pagination={{
                       enabled: true,
                       pageSize: 20,
@@ -805,7 +818,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           },
           {
             value: 'history',
-            label: 'History',
+            label: t('common.history'),
             content: (
               <ProResourceHistoryTable
                 resourceType="cronjobs"

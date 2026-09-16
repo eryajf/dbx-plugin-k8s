@@ -33,7 +33,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
         total: cpu.allocatable / 1000,
         requestPercentage: (cpu.requested / cpu.allocatable) * 100,
         limitPercentage: (cpu.limited / cpu.allocatable) * 100,
-        unit: 'cores',
+        unit: t('metric.coreUnit'),
       },
       {
         name: t('monitoring.memoryUsage'),
@@ -109,7 +109,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span className="font-medium text-blue-600">
-                        Requests
+                        {t('monitoring.requests')}
                       </span>
                       <span>
                         {resource.request.toFixed(1)} {resource.unit}
@@ -139,7 +139,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span className="font-medium text-orange-600">
-                        Limits
+                        {t('monitoring.limits')}
                       </span>
                       <span>
                         {resource.limit.toFixed(1)} {resource.unit}

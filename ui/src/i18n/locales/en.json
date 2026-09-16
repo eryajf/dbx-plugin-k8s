@@ -51,7 +51,18 @@
     "light": "Light",
     "dark": "Dark",
     "more": "More",
-    "na": "N/A"
+    "na": "N/A",
+    "version": "Version",
+    "description": "Description",
+    "yaml": "YAML",
+    "unknown": "Unknown",
+    "key": "Key",
+    "value": "Value",
+    "remove": "Remove",
+    "saving": "Saving...",
+    "theme": "Theme",
+    "copyNamespace": "Copy namespace",
+    "noData": "No data"
   },
   "modeToggle": {
     "toggleTheme": "Toggle theme"
@@ -135,7 +146,15 @@
     "showItem": "Show item",
     "hideItem": "Hide item",
     "moveUp": "Move up",
-    "moveDown": "Move down"
+    "moveDown": "Move down",
+    "customize": "Customize sidebar",
+    "customizeTitle": "Customize sidebar",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "createGroup": "Create group",
+    "deleteGroupNote": "This will remove the custom group and its sidebar entries only. No cluster resources will be deleted.",
+    "customGroupItem": "Custom group item",
+    "deleteGroupItemNote": "This will remove the item from custom group \"{{groupName}}\" only."
   },
   "nav": {
     "overview": "Overview",
@@ -181,7 +200,8 @@
     "recentEvents": "Recent Events",
     "resourceCharts": "Resource Charts",
     "failedToLoad": "Failed to load overview data",
-    "unknownError": "Unknown error occurred"
+    "unknownError": "Unknown error occurred",
+    "allReady": "All ready"
   },
   "favorites": {
     "title": "Favorites",
@@ -269,7 +289,16 @@
     "lastSchedule": "Last Schedule",
     "lastSuccess": "Last Success",
     "suspended": "Suspended",
-    "active": "Active"
+    "active": "Active",
+    "jobTemplate": "Job template",
+    "podTemplate": "Pod template",
+    "missingSpec": "CronJob spec is missing, unable to update suspend state",
+    "incompleteTemplate": "CronJob template is incomplete, unable to run now",
+    "suspendSuccess": "CronJob suspended",
+    "resumeSuccess": "CronJob resumed",
+    "jobCreated": "Job created successfully",
+    "noJobs": "No jobs found for this CronJob",
+    "noActiveJobs": "No active jobs currently running."
   },
   "ingresses": {
     "ingressClass": "Ingress Class",
@@ -343,7 +372,9 @@
     "confirmSaveConfig": "Confirm save",
     "confirmSaveConfigTitle": "Confirm save",
     "confirmSaveConfigDescription": "This will update the Ingress configuration in the cluster. Please confirm the edited rules, certificates, IngressClass, labels, and annotations are correct.",
-    "configSaveSuccess": "Ingress config saved successfully"
+    "configSaveSuccess": "Ingress config saved successfully",
+    "ingressClassOptionCount_one": "{{count}} IngressClass option available",
+    "ingressClassOptionCount_other": "{{count}} IngressClass options available"
   },
   "gateways": {
     "gatewayClass": "Gateway Class"
@@ -454,7 +485,8 @@
     "requests": "Requests",
     "limits": "Limits",
     "total": "Total",
-    "available": "Available"
+    "available": "Available",
+    "limitedHistory": "Current data is from metrics-server; historical data is limited."
   },
   "login": {
     "title": "Sign In",
@@ -602,8 +634,13 @@
       "oauth": "Authentication",
       "rbac": "RBAC",
       "users": "User",
-      "apikeys": "API Keys"
-    }
+      "apikeys": "API Keys",
+      "p8s": "Prometheus"
+    },
+    "nav": "Settings",
+    "appearance": "Appearance",
+    "colorTheme": "Color theme",
+    "font": "Font"
   },
   "desktopManagement": {
     "title": "Desktop",
@@ -877,7 +914,8 @@
       "testConnection": "Test Connection",
       "testingConnection": "Testing...",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "save": "Save changes"
     },
     "table": {
       "name": "Name",
@@ -983,7 +1021,13 @@
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
       "enabled": "Enabled",
-      "isDefault": "Set as Default"
+      "isDefault": "Set as Default",
+      "add": {
+        "title": "Add cluster"
+      },
+      "edit": {
+        "title": "Edit cluster"
+      }
     }
   },
   "oauthManagement": {
@@ -1113,7 +1157,10 @@
       "confirm": "Confirm rollback",
       "success": "Successfully rolled back resource",
       "error": "Failed to rollback resource"
-    }
+    },
+    "viewError": "View error",
+    "errorDetails": "Error details",
+    "noErrorMessage": "No error message"
   },
   "pvcs": {
     "volume": "Volume",
@@ -1264,7 +1311,9 @@
       "nodeUncordoned": "Node {{name}} uncordoned successfully",
       "nodeTainted": "Node {{name}} tainted successfully",
       "inProgress": "In Progress",
-      "notSet": "Not set"
+      "notSet": "Not set",
+      "containerUpdated": "Container updated successfully",
+      "noMessage": "No message"
     },
     "tabs": {
       "overview": "Overview",
@@ -1436,7 +1485,6 @@
       "key": "Key",
       "value": "Value",
       "timeAdded": "Time Added",
-      "type": "Type",
       "message": "Message",
       "lastTransitionTime": "Last Transition Time",
       "updatedReplicas": "Updated Replicas",
@@ -1446,7 +1494,10 @@
       "currentScheduled": "Current Scheduled",
       "binaryData": "Binary Data",
       "bytes": "bytes",
-      "na": "N/A"
+      "na": "N/A",
+      "podIPs": "Pod IPs",
+      "serviceAccount": "ServiceAccount",
+      "name": "Name"
     }
   },
   "userMenu": {
@@ -1863,7 +1914,8 @@
   },
   "namespaceList": {
     "manageLabels": "Manage labels",
-    "manageAnnotations": "Manage annotations"
+    "manageAnnotations": "Manage annotations",
+    "editQuota": "Edit quota"
   },
   "deploymentList": {
     "editImage": "Update image version",
@@ -1983,7 +2035,8 @@
     "allContainers": "All Containers",
     "searchContainers": "Search containers...",
     "noContainersFound": "No containers found.",
-    "init": "init"
+    "init": "init",
+    "selectPvc": "Select PVC"
   },
   "podTable": {
     "loading": "Loading pods...",
@@ -2139,7 +2192,12 @@
     "initial": "initial",
     "period": "period",
     "imageId": "Image ID",
-    "containerId": "Container ID"
+    "containerId": "Container ID",
+    "noResources": "No resources configured",
+    "noVolumeMounts": "No volume mounts",
+    "noHealthChecks": "No health checks configured",
+    "optional": "Optional",
+    "moreCount": "… and {{count}} more"
   },
   "environmentEditor": {
     "variables": "Environment Variables",
@@ -2200,7 +2258,9 @@
       "podConfiguration": "Pod Configuration",
       "containersAndResources": "Containers & Resources",
       "editYamlAndCreate": "Edit YAML & Create"
-    }
+    },
+    "containerRequired": "At least one container is required",
+    "nameNamespaceRequired": "Deployment must have a name and namespace"
   },
   "keyValueDataViewer": {
     "noEntries": "No entries",
@@ -2219,7 +2279,31 @@
   "templateManagement": {
     "dialog": {
       "namePlaceholder": "e.g., Pod",
-      "descriptionPlaceholder": "e.g., A basic Pod with a single container"
+      "descriptionPlaceholder": "e.g., A basic Pod with a single container",
+      "createTitle": "Create template",
+      "editTitle": "Edit template",
+      "createDescription": "Add a new resource template",
+      "updateDescription": "Update an existing template"
+    },
+    "title": "Template management",
+    "resourceType": "Template",
+    "description": "Manage resource templates for creating new resources.",
+    "actions": {
+      "add": "Add template"
+    },
+    "messages": {
+      "created": "Template created successfully",
+      "updated": "Template updated successfully",
+      "deleted": "Template deleted successfully"
+    },
+    "errors": {
+      "required": "Name and YAML content are required"
+    },
+    "empty": {
+      "description": "No templates found"
+    },
+    "hints": {
+      "nameImmutable": "The name cannot be changed after creation"
     }
   },
   "namespaceCreateDialog": {
@@ -2228,5 +2312,26 @@
     "namePlaceholder": "For example: dev, staging, production",
     "nameHint": "Namespace names must follow Kubernetes naming rules.",
     "success": "Namespace {{name}} created successfully"
+  },
+  "user": "User",
+  "group": "Group",
+  "log": {
+    "jumpToBottom": "Jump to bottom"
+  },
+  "app": {
+    "name": "Kite"
+  },
+  "serviceList": {
+    "viewSelector": "View selector",
+    "manageLabels": "Manage labels",
+    "manageAnnotations": "Manage annotations"
+  },
+  "colorTheme": {
+    "default": "Default",
+    "eye-care": "Eye care",
+    "darkmatter": "Dark matter",
+    "notebook": "Notebook",
+    "clean-slate": "Clean slate",
+    "claude": "Claude"
   }
 }

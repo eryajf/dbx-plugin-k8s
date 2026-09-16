@@ -1,3 +1,4 @@
+import { languages, normalizeLocale } from '@/i18n/locale'
 import { Languages } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -5,14 +6,10 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-
-const languages = [
-  { code: 'en', name: 'English' },
-  { code: 'zh', name: '中文' },
-]
 
 export function LanguageToggle() {
   const { i18n, t } = useTranslation()
@@ -30,15 +27,16 @@ export function LanguageToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {languages.map((language) => (
-          <DropdownMenuItem
-            key={language.code}
-            onClick={() => handleLanguageChange(language.code)}
-            className={i18n.language === language.code ? 'bg-accent' : ''}
-          >
-            {language.name}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuRadioGroup
+          value={normalizeLocale(i18n.resolvedLanguage || i18n.language)}
+          onValueChange={handleLanguageChange}
+        >
+          {languages.map((language) => (
+            <DropdownMenuRadioItem key={language.code} value={language.code}>
+              {language.name}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -237,7 +237,9 @@ export function DeploymentListPage() {
           },
         }
       )
-      toast.success('Deployment restart initiated')
+      toast.success(
+        t('detail.status.restartInitiated', { resource: 'Deployment' })
+      )
       setRestartDeploymentTarget(null)
       await refreshDeploymentList()
     } catch (error) {

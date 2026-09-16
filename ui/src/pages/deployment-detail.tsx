@@ -161,7 +161,9 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       trackResourceAction('deployments', 'restart', {
         result: 'success',
       })
-      toast.success('Deployment restart initiated')
+      toast.success(
+        t('detail.status.restartInitiated', { resource: 'Deployment' })
+      )
       setIsRestartPopoverOpen(false)
       setRefreshInterval(1000)
     } catch (error) {
@@ -207,7 +209,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       trackResourceAction('deployments', 'yaml_save', {
         result: 'success',
       })
-      toast.success('YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       setRefreshInterval(1000)
       return true
     } catch (error) {
@@ -376,7 +378,11 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             namespace={namespace}
             name={name}
           />
-          <DBXPortForwardButton resource="deployments" namespace={namespace} name={name} />
+          <DBXPortForwardButton
+            resource="deployments"
+            namespace={namespace}
+            name={name}
+          />
           <OpenPodTerminalButton
             namespace={namespace}
             pods={relatedPods}
@@ -552,7 +558,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      Containers (
+                      {t('detail.sections.containers')} (
                       {deployment.spec?.template?.spec?.containers?.length || 0}
                       )
                     </CardTitle>
@@ -677,7 +683,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
           },
           {
             value: 'history',
-            label: 'History',
+            label: t('common.history'),
             content: (
               <ProResourceHistoryTable
                 resourceType="deployments"
@@ -693,7 +699,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                   value: 'volumes',
                   label: (
                     <>
-                      Volumes{' '}
+                      {t('detail.tabs.volumes')}{' '}
                       <Badge variant="secondary">
                         {deployment.spec.template.spec.volumes.length}
                       </Badge>

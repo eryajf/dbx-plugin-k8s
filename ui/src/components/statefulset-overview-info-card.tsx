@@ -64,6 +64,8 @@ function ResourceBadges(props: {
   value: StatefulSetOverviewViewModel['resourceRequests']
   emptyText: string
 }) {
+  const { t } = useTranslation()
+
   const { value, emptyText } = props
 
   if (!value.cpu && !value.memory) {
@@ -74,7 +76,9 @@ function ResourceBadges(props: {
     <div className="flex flex-wrap gap-1.5">
       {value.cpu ? <Badge variant="secondary">CPU: {value.cpu}</Badge> : null}
       {value.memory ? (
-        <Badge variant="secondary">Memory: {value.memory}</Badge>
+        <Badge variant="secondary">
+          {t('detail.fields.memory')}: {value.memory}
+        </Badge>
       ) : null}
     </div>
   )

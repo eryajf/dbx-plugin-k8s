@@ -242,7 +242,7 @@ export function DeploymentCreateDialog({
 
   const removeContainer = (index: number) => {
     if (formData.containers.length <= 1) {
-      toast.error('At least one container is required')
+      toast.error(t('deploymentCreateDialog.containerRequired'))
       return
     }
     setFormData((prev) => ({
@@ -483,7 +483,7 @@ export function DeploymentCreateDialog({
 
       // Validate required fields
       if (!deployment.metadata?.name || !deployment.metadata?.namespace) {
-        toast.error('Deployment must have a name and namespace')
+        toast.error(t('deploymentCreateDialog.nameNamespaceRequired'))
         return
       }
 
@@ -704,7 +704,7 @@ export function DeploymentCreateDialog({
                         updateVolume(index, 'configMapName', val)
                       }
                       namespace={formData.namespace}
-                      placeholder="Select configmap"
+                      placeholder={t('environmentEditor.selectConfigMap')}
                     />
                   )}
 
@@ -716,7 +716,7 @@ export function DeploymentCreateDialog({
                         updateVolume(index, 'secretName', val)
                       }
                       namespace={formData.namespace}
-                      placeholder="Select secret"
+                      placeholder={t('environmentEditor.selectSecret')}
                     />
                   )}
 
@@ -728,7 +728,7 @@ export function DeploymentCreateDialog({
                         updateVolume(index, 'claimName', val)
                       }
                       namespace={formData.namespace}
-                      placeholder="Select PVC"
+                      placeholder={t('selector.selectPvc')}
                     />
                   )}
 
@@ -840,7 +840,7 @@ export function DeploymentCreateDialog({
                         </Label>
                         <div className="space-y-1">
                           <Input
-                            placeholder="CPU (e.g., 100m)"
+                            placeholder="100m"
                             value={containerConfig.resources.requests.cpu}
                             onChange={(e) =>
                               updateContainer(containerIndex, {
@@ -855,7 +855,7 @@ export function DeploymentCreateDialog({
                             }
                           />
                           <Input
-                            placeholder="Memory (e.g., 128Mi)"
+                            placeholder="128Mi"
                             value={containerConfig.resources.requests.memory}
                             onChange={(e) =>
                               updateContainer(containerIndex, {
@@ -877,7 +877,7 @@ export function DeploymentCreateDialog({
                         </Label>
                         <div className="space-y-1">
                           <Input
-                            placeholder="CPU (e.g., 500m)"
+                            placeholder="500m"
                             value={containerConfig.resources.limits.cpu}
                             onChange={(e) =>
                               updateContainer(containerIndex, {
@@ -892,7 +892,7 @@ export function DeploymentCreateDialog({
                             }
                           />
                           <Input
-                            placeholder="Memory (e.g., 256Mi)"
+                            placeholder="256Mi"
                             value={containerConfig.resources.limits.memory}
                             onChange={(e) =>
                               updateContainer(containerIndex, {
@@ -956,9 +956,7 @@ export function DeploymentCreateDialog({
                         onValueChange={(value) =>
                           updateContainer(containerIndex, {
                             pullPolicy: value as
-                              | 'Always'
-                              | 'IfNotPresent'
-                              | 'Never',
+                              'Always' | 'IfNotPresent' | 'Never',
                           })
                         }
                       >
@@ -1249,7 +1247,7 @@ export function DeploymentCreateDialog({
             <div>
               {step > 1 && (
                 <Button variant="outline" onClick={handlePrevious}>
-                  Previous
+                  {t('simpleTable.previous')}
                 </Button>
               )}
             </div>
@@ -1258,11 +1256,11 @@ export function DeploymentCreateDialog({
                 variant="outline"
                 onClick={() => handleDialogChange(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               {step < totalSteps ? (
                 <Button onClick={handleNext} disabled={!validateStep(step)}>
-                  Next
+                  {t('simpleTable.next')}
                 </Button>
               ) : (
                 <Button

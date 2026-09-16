@@ -10,6 +10,11 @@ function assetPath(url) {
   if (relative(root, absolute).startsWith('..')) throw new Error(`Asset outside build directory: ${url}`)
   return absolute
 }
+const startupLabels = {}
+for (const locale of ['az', 'en', 'es', 'it', 'ja', 'ko', 'pt-BR', 'tr', 'zh-CN', 'zh-TW']) {
+  const resource = JSON.parse(await readFile(resolve(root, '../src/i18n/locales', locale + '.json'), 'utf8'))
+  startupLabels[locale.toLowerCase()] = { loading: resource.common.loading, error: resource.common.error }
+}
 let html = await readFile(resolve(root, 'index.html'), 'utf8')
 for (const match of [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*><\/script>/g)]) {
   const js = await readFile(assetPath(match[1]), 'utf8')
@@ -18,9 +23,11 @@ for (const match of [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*><\/scr
   const compressed = gzipSync(js, {level: 9}).toString('base64')
   html = html.replace(match[0], '').replace('</body>', `<script>
 (async () => {
+const labels = ${JSON.stringify(startupLabels)};
+const messages = () => { const locale = String(window.dbxPlugin?.locale || navigator.language || 'en').replace(/_/g, '-').toLowerCase(); return labels[locale] || labels[locale.startsWith('zh') ? (/tw|hk|hant/.test(locale) ? 'zh-tw' : 'zh-cn') : locale.startsWith('pt') ? 'pt-br' : locale.split('-')[0]] || labels.en; };
 try {
-  document.getElementById('root').textContent = '正在加载 Kite 界面…';
-  const reportError = error => { let alert = document.getElementById('dbx-startup-error'); if (!alert) { alert = document.createElement('div'); alert.id = 'dbx-startup-error'; alert.setAttribute('role', 'alert'); document.body.appendChild(alert); } alert.textContent = '页面错误：' + String(error?.message || error); };
+  document.getElementById('root').textContent = messages().loading;
+  const reportError = error => { let alert = document.getElementById('dbx-startup-error'); if (!alert) { alert = document.createElement('div'); alert.id = 'dbx-startup-error'; alert.setAttribute('role', 'alert'); document.body.appendChild(alert); } alert.textContent = messages().error + ': ' + String(error?.message || error); };
   window.addEventListener('error', event => reportError(event.error || event.message));
   window.addEventListener('unhandledrejection', event => reportError(event.reason));
   await window.dbxPlugin.ready;
@@ -36,10 +43,10 @@ try {
 
   const compressed = Uint8Array.from(atob("${compressed}"), character => character.charCodeAt(0));
   const source = await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
-  document.getElementById('root').textContent = '正在初始化 Kite 界面…';
+  document.getElementById('root').textContent = messages().loading;
   const moduleURL = URL.createObjectURL(new Blob([source], {type: 'text/javascript'}));
   try { await import(moduleURL); } finally { URL.revokeObjectURL(moduleURL); }
-} catch (error) { document.getElementById('root').textContent = '页面加载失败：' + String(error); console.error(error); }
+} catch (error) { document.getElementById('root').textContent = messages().error + ': ' + String(error); console.error(error); }
 })();
 </script></body>`)
 

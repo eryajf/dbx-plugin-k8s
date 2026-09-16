@@ -135,7 +135,7 @@ export function StorageResourceDetailShell<T extends ResourceType>(props: {
     try {
       await updateResource(resourceType, name, namespace, content)
       trackResourceAction(resourceType, 'yaml_save', { result: 'success' })
-      toast.success('YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       await handleRefresh()
       return true
     } catch (error) {

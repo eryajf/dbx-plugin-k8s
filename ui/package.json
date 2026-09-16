@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node ../scripts/check-i18n.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
@@ -17,7 +17,10 @@
     "test": "vitest run",
     "test:plugin": "vitest run src/workbench",
     "test:watch": "vitest",
-    "build:watch": "node ../scripts/watch-ui.mjs"
+    "build:watch": "node ../scripts/watch-ui.mjs",
+    "i18n:check": "node ../scripts/check-i18n.mjs",
+    "i18n:report": "node ../scripts/check-i18n.mjs --report",
+    "test:i18n": "node --test ../scripts/check-i18n.test.mjs && vitest run src/i18n src/components/appearance-provider.test.tsx"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Container } from 'kubernetes-types/core/v1'
 import { ChevronDown, ChevronRight, Edit3 } from 'lucide-react'
 
@@ -13,6 +14,7 @@ export function ContainerTable(props: {
   onEditRequest?: (container: Container) => void
   init?: boolean
 }) {
+  const { t } = useTranslation()
   const { container, onContainerUpdate, onEditRequest, init } = props
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -85,7 +87,7 @@ export function ContainerTable(props: {
               {/* Ports */}
               <div>
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Ports
+                  {t('containerInfo.ports')}
                 </Label>
                 <div className="mt-1 min-h-[24px]">
                   {container.ports && container.ports.length > 0 ? (
@@ -113,7 +115,7 @@ export function ContainerTable(props: {
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
-                      No ports exposed
+                      {t('detail.fields.noPortsDefined')}
                     </div>
                   )}
                 </div>
@@ -122,7 +124,7 @@ export function ContainerTable(props: {
               {/* Resources */}
               <div>
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Resources
+                  {t('containerInfo.resources')}
                 </Label>
                 <div className="mt-1 min-h-[24px]">
                   {container.resources &&
@@ -132,7 +134,7 @@ export function ContainerTable(props: {
                       {container.resources.requests && (
                         <div>
                           <div className="text-xs font-medium text-green-600 dark:text-green-400">
-                            Requests
+                            {t('monitoring.requests')}
                           </div>
                           <div className="text-sm space-y-1">
                             {container.resources.requests.cpu && (
@@ -146,7 +148,7 @@ export function ContainerTable(props: {
                             {container.resources.requests.memory && (
                               <div className="flex gap-2">
                                 <span className="text-muted-foreground">
-                                  Memory:
+                                  {t('detail.fields.memory')}:
                                 </span>
                                 <span>
                                   {container.resources.requests.memory}
@@ -159,7 +161,7 @@ export function ContainerTable(props: {
                       {container.resources.limits && (
                         <div>
                           <div className="text-xs font-medium text-red-600 dark:text-red-400">
-                            Limits
+                            {t('monitoring.limits')}
                           </div>
                           <div className="text-sm space-y-1">
                             {container.resources.limits.cpu && (
@@ -173,7 +175,7 @@ export function ContainerTable(props: {
                             {container.resources.limits.memory && (
                               <div className="flex gap-2">
                                 <span className="text-muted-foreground">
-                                  Memory:
+                                  {t('detail.fields.memory')}:
                                 </span>
                                 <span>{container.resources.limits.memory}</span>
                               </div>
@@ -184,7 +186,7 @@ export function ContainerTable(props: {
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
-                      No resource configured
+                      {t('containerInfo.noResources')}
                     </div>
                   )}
                 </div>
@@ -196,7 +198,7 @@ export function ContainerTable(props: {
               (container.envFrom && container.envFrom.length > 0)) && (
               <div className="border-t pt-3">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Environment Variables
+                  {t('containerInfo.environmentVariables')}
                   {container.env &&
                     container.env.length > 0 &&
                     ` (${container.env.length})`}
@@ -221,7 +223,7 @@ export function ContainerTable(props: {
                             )}
                             {envVar.valueFrom && (
                               <span className="text-orange-600 dark:text-orange-400 ml-1">
-                                (from{' '}
+                                ({t('containerInfo.from')}{' '}
                                 {envVar.valueFrom.secretKeyRef
                                   ? 'secret'
                                   : envVar.valueFrom.configMapKeyRef
@@ -237,7 +239,9 @@ export function ContainerTable(props: {
                       ))}
                       {container.env.length > 5 && (
                         <div className="text-xs text-muted-foreground">
-                          ... and {container.env.length - 5} more
+                          {t('containerInfo.moreCount', {
+                            count: container.env.length - 5,
+                          })}
                         </div>
                       )}
                     </div>
@@ -247,7 +251,8 @@ export function ContainerTable(props: {
                   {container.envFrom && container.envFrom.length > 0 && (
                     <div>
                       <div className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-2">
-                        Environment From Sources ({container.envFrom.length})
+                        {t('environmentEditor.environmentFrom')} (
+                        {container.envFrom.length})
                       </div>
                       <div className="space-y-1">
                         {container.envFrom.map(
@@ -270,7 +275,7 @@ export function ContainerTable(props: {
                                         variant="secondary"
                                         className="text-xs"
                                       >
-                                        Optional
+                                        {t('containerInfo.optional')}
                                       </Badge>
                                     )}
                                   </>
@@ -291,14 +296,15 @@ export function ContainerTable(props: {
                                         variant="secondary"
                                         className="text-xs"
                                       >
-                                        Optional
+                                        {t('containerInfo.optional')}
                                       </Badge>
                                     )}
                                   </>
                                 )}
                                 {envFromSource.prefix && (
                                   <span className="text-xs text-muted-foreground">
-                                    (prefix: {envFromSource.prefix})
+                                    ({t('containerInfo.prefix')}:{' '}
+                                    {envFromSource.prefix})
                                   </span>
                                 )}
                               </div>
@@ -318,7 +324,7 @@ export function ContainerTable(props: {
                 {/* Volume Mounts */}
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Volume Mounts
+                    {t('containerInfo.volumeMounts')}
                   </Label>
                   <div className="mt-1 min-h-[24px]">
                     {container.volumeMounts &&
@@ -348,13 +354,15 @@ export function ContainerTable(props: {
                           ))}
                         {container.volumeMounts.length > 3 && (
                           <div className="text-xs text-muted-foreground">
-                            ... and {container.volumeMounts.length - 3} more
+                            {t('containerInfo.moreCount', {
+                              count: container.volumeMounts.length - 3,
+                            })}
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="text-sm text-muted-foreground">
-                        No volume mounts
+                        {t('containerInfo.noVolumeMounts')}
                       </div>
                     )}
                   </div>
@@ -363,7 +371,7 @@ export function ContainerTable(props: {
                 {/* Probes */}
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Health Checks
+                    {t('containerInfo.healthChecks')}
                   </Label>
                   <div className="mt-1 min-h-[24px]">
                     {container.livenessProbe ||
@@ -376,7 +384,7 @@ export function ContainerTable(props: {
                               variant="outline"
                               className="text-xs bg-green-50 dark:bg-green-950"
                             >
-                              Liveness
+                              {t('containerInfo.liveness')}
                             </Badge>
                             <span className="text-muted-foreground text-xs">
                               {container.livenessProbe.httpGet
@@ -385,7 +393,7 @@ export function ContainerTable(props: {
                                   ? 'TCP'
                                   : container.livenessProbe.exec
                                     ? 'Exec'
-                                    : 'Custom'}
+                                    : t('containerInfo.custom')}
                             </span>
                           </div>
                         )}
@@ -395,7 +403,7 @@ export function ContainerTable(props: {
                               variant="outline"
                               className="text-xs bg-blue-50 dark:bg-blue-950"
                             >
-                              Readiness
+                              {t('containerInfo.readiness')}
                             </Badge>
                             <span className="text-muted-foreground text-xs">
                               {container.readinessProbe.httpGet
@@ -404,7 +412,7 @@ export function ContainerTable(props: {
                                   ? 'TCP'
                                   : container.readinessProbe.exec
                                     ? 'Exec'
-                                    : 'Custom'}
+                                    : t('containerInfo.custom')}
                             </span>
                           </div>
                         )}
@@ -414,7 +422,7 @@ export function ContainerTable(props: {
                               variant="outline"
                               className="text-xs bg-yellow-50 dark:bg-yellow-950"
                             >
-                              Startup
+                              {t('containerInfo.startup')}
                             </Badge>
                             <span className="text-muted-foreground text-xs">
                               {container.startupProbe.httpGet
@@ -423,14 +431,14 @@ export function ContainerTable(props: {
                                   ? 'TCP'
                                   : container.startupProbe.exec
                                     ? 'Exec'
-                                    : 'Custom'}
+                                    : t('containerInfo.custom')}
                             </span>
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="text-sm text-muted-foreground">
-                        No health checks configured
+                        {t('containerInfo.noHealthChecks')}
                       </div>
                     )}
                   </div>

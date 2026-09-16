@@ -1,7 +1,4 @@
 {
-  "username": "用户名",
-  "user": "用户",
-  "group": "用户组",
   "common": {
     "loading": "加载中...",
     "error": "错误",
@@ -26,36 +23,22 @@
     "close": "关闭",
     "clear": "清空",
     "add": "添加",
-    "enable": "启用",
-    "disable": "禁用",
-    "enabled": "已启用",
-    "disabled": "已禁用",
-    "update": "更新",
-    "resetPassword": "重置密码",
-    "assign": "分配权限",
-    "assignRoles": "分配角色",
-    "password": "密码",
-    "version": "版本",
-    "createdAt": "创建时间",
-    "copied": "已复制到剪贴板",
-    "viewDetails": "查看详情",
-    "viewYaml": "查看 YAML",
-    "manageLabels": "管理标签",
-    "manageAnnotations": "管理注解",
-    "copyName": "复制名称",
-    "copyImage": "复制镜像",
-    "desired": "期望",
-    "current": "当前",
-    "done": "完成",
     "apply": "应用",
     "applying": "应用中...",
     "new": "新建",
     "all": "全部",
     "retry": "重试",
     "later": "稍后",
-    "required": "此字段为必填项",
-    "description": "描述",
-    "yaml": "YAML",
+    "done": "完成",
+    "desired": "期望",
+    "current": "当前",
+    "viewDetails": "查看详情",
+    "viewYaml": "查看 YAML",
+    "manageLabels": "管理标签",
+    "manageAnnotations": "管理注解",
+    "copyName": "复制名称",
+    "copyImage": "复制镜像",
+    "available": "可用",
     "history": "历史",
     "back": "后退",
     "forward": "前进",
@@ -68,7 +51,18 @@
     "light": "浅色",
     "dark": "深色",
     "more": "更多",
-    "na": "无"
+    "na": "无",
+    "version": "版本",
+    "description": "描述",
+    "yaml": "YAML",
+    "unknown": "未知",
+    "key": "键",
+    "value": "值",
+    "remove": "移除",
+    "saving": "保存中……",
+    "theme": "主题",
+    "copyNamespace": "复制命名空间",
+    "noData": "暂无数据"
   },
   "modeToggle": {
     "toggleTheme": "切换主题"
@@ -104,12 +98,66 @@
     "next": "下一个匹配",
     "noResults": "没有结果"
   },
-  "log": {
-    "jumpToBottom": "跳到底部"
+  "sidebar": {
+    "groups": {
+      "cluster": "集群",
+      "network": "网络",
+      "storage": "存储",
+      "config": "配置",
+      "security": "安全",
+      "workloads": "工作负载",
+      "extension": "扩展"
+    },
+    "short": {
+      "pvcs": "PVCs",
+      "pvs": "PVs"
+    },
+    "layout": "布局",
+    "layout.default": "默认",
+    "layout.compact": "紧凑",
+    "layout.minimal": "极简",
+    "pinnedItems": "置顶项目",
+    "pinned": "置顶",
+    "menuGroups": "菜单分组",
+    "resetToDefault": "重置为默认",
+    "setAsGlobal": "设为全局侧边栏",
+    "setAsGlobalSuccess": "全局侧边栏更新成功",
+    "setAsGlobalError": "全局侧边栏更新失败",
+    "unsetGlobal": "取消全局侧边栏",
+    "unsetGlobalSuccess": "已取消全局侧边栏",
+    "unsetGlobalError": "取消全局侧边栏失败",
+    "newVersionAvailable": "发现新版本",
+    "mobileTitle": "侧边栏",
+    "mobileDescription": "显示移动端侧边栏。",
+    "toggle": "切换侧边栏",
+    "customGroup": "自定义",
+    "hide": "隐藏",
+    "show": "显示",
+    "hideGroup": "隐藏分组",
+    "showGroup": "显示分组",
+    "deleteCustomGroup": "删除自定义分组",
+    "unpin": "取消置顶",
+    "pinToTop": "置顶到顶部",
+    "removeFromGroup": "从分组中移除",
+    "selectCrdToAdd": "选择要添加的 CRD...",
+    "addCrdToGroup": "将 CRD 添加到分组",
+    "groupNamePlaceholder": "分组名称（例如：CRDs）",
+    "createCrdGroup": "创建 CRD 分组",
+    "showItem": "显示项目",
+    "hideItem": "隐藏项目",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "customize": "自定义侧边栏",
+    "customizeTitle": "自定义侧边栏",
+    "expand": "展开",
+    "collapse": "折叠",
+    "createGroup": "创建分组",
+    "deleteGroupNote": "此操作只移除自定义分组及其侧栏条目，不会删除任何集群资源。",
+    "customGroupItem": "自定义分组项目",
+    "deleteGroupItemNote": "此操作只将条目从自定义分组“{{groupName}}”中移除。"
   },
   "nav": {
     "overview": "概览",
-    "workloads": "工作负载",
     "pods": "容器组",
     "deployments": "部署",
     "statefulsets": "有状态副本集",
@@ -136,67 +184,12 @@
     "favorites": "收藏",
     "crds": "自定义资源定义",
     "kubectl": "Kubectl 终端",
-    "settings": "设置",
     "serviceaccounts": "服务账户",
     "roles": "角色",
     "rolebindings": "角色绑定",
     "clusterroles": "集群角色",
     "clusterrolebindings": "集群角色绑定",
     "horizontalpodautoscalers": "HPA"
-  },
-  "sidebar": {
-    "groups": {
-      "cluster": "集群",
-      "network": "网络",
-      "storage": "存储",
-      "config": "配置",
-      "security": "安全",
-      "workloads": "工作负载",
-      "extension": "扩展"
-    },
-    "short": {
-      "pvcs": "PVCs",
-      "pvs": "PVs"
-    },
-    "customize": "自定义侧边栏",
-    "customizeTitle": "自定义侧边栏",
-    "layout": "布局",
-    "layout.default": "默认",
-    "layout.compact": "紧凑",
-    "layout.minimal": "极简",
-    "pinnedItems": "置顶项目",
-    "pinned": "置顶",
-    "menuGroups": "菜单分组",
-    "resetToDefault": "重置为默认",
-    "setAsGlobal": "设为全局侧边栏",
-    "setAsGlobalSuccess": "全局侧边栏更新成功",
-    "setAsGlobalError": "全局侧边栏更新失败",
-    "unsetGlobal": "取消全局侧边栏",
-    "unsetGlobalSuccess": "已取消全局侧边栏",
-    "unsetGlobalError": "取消全局侧边栏失败",
-    "expand": "展开",
-    "collapse": "折叠",
-    "newVersionAvailable": "发现新版本",
-    "mobileTitle": "侧边栏",
-    "mobileDescription": "显示移动端侧边栏。",
-    "toggle": "切换侧边栏",
-    "customGroup": "自定义",
-    "hide": "隐藏",
-    "show": "显示",
-    "hideGroup": "隐藏分组",
-    "showGroup": "显示分组",
-    "deleteCustomGroup": "删除自定义分组",
-    "unpin": "取消置顶",
-    "pinToTop": "置顶到顶部",
-    "removeFromGroup": "从分组中移除",
-    "selectCrdToAdd": "选择要添加的 CRD...",
-    "addCrdToGroup": "将 CRD 添加到分组",
-    "groupNamePlaceholder": "分组名称（例如：CRDs）",
-    "createCrdGroup": "创建 CRD 分组",
-    "showItem": "显示项目",
-    "hideItem": "隐藏项目",
-    "moveUp": "上移",
-    "moveDown": "下移"
   },
   "advancedNetworking": {
     "description": "在一个页面中统一查看网络策略、网关和 HTTP 路由"
@@ -207,7 +200,8 @@
     "recentEvents": "最近事件",
     "resourceCharts": "资源图表",
     "failedToLoad": "加载概览数据失败",
-    "unknownError": "发生未知错误"
+    "unknownError": "发生未知错误",
+    "allReady": "全部就绪"
   },
   "favorites": {
     "title": "收藏",
@@ -295,7 +289,16 @@
     "lastSchedule": "最近调度",
     "lastSuccess": "最近成功",
     "suspended": "已暂停",
-    "active": "活跃"
+    "active": "活跃",
+    "jobTemplate": "Job 模板",
+    "podTemplate": "Pod 模板",
+    "missingSpec": "CronJob 缺少 spec，无法更新暂停状态",
+    "incompleteTemplate": "CronJob 模板不完整，无法立即运行",
+    "suspendSuccess": "CronJob 已暂停",
+    "resumeSuccess": "CronJob 已恢复",
+    "jobCreated": "Job 创建成功",
+    "noJobs": "此 CronJob 没有关联的 Job",
+    "noActiveJobs": "当前没有正在运行的 Job。"
   },
   "ingresses": {
     "ingressClass": "Ingress 类",
@@ -346,6 +349,7 @@
     "removeCertificate": "移除证书",
     "noCertificates": "暂无证书配置",
     "ingressClassOptionCount": "当前集群有 {{count}} 个 IngressClass 可选",
+    "ingressClassOptionCount_plural": "有 {{count}} 个 IngressClass 选项",
     "noIngressClassOptions": "当前集群未发现可选 IngressClass",
     "selectOption": "选择选项",
     "searchOptions": "搜索选项...",
@@ -368,7 +372,9 @@
     "confirmSaveConfig": "确认保存",
     "confirmSaveConfigTitle": "确认保存配置",
     "confirmSaveConfigDescription": "此操作会更新集群中的 Ingress 配置，请确认路由规则、证书、Ingress 类、标签和注解都已检查无误。",
-    "configSaveSuccess": "Ingress 配置已保存"
+    "configSaveSuccess": "Ingress 配置已保存",
+    "ingressClassOptionCount_one": "当前集群有 {{count}} 个 IngressClass 可选",
+    "ingressClassOptionCount_other": "有 {{count}} 个 IngressClass 选项"
   },
   "gateways": {
     "gatewayClass": "网关类"
@@ -466,9 +472,9 @@
     "failed": "失败",
     "unknown": "未知",
     "terminating": "终止中",
-    "crashLoopBackOff": "崩溃循环退避",
-    "containerCreating": "容器创建中",
-    "imagePullBackOff": "镜像拉取退避"
+    "crashLoopBackOff": "CrashLoopBackOff",
+    "containerCreating": "ContainerCreating",
+    "imagePullBackOff": "ImagePullBackOff"
   },
   "monitoring": {
     "cpuUsage": "CPU使用率",
@@ -479,7 +485,8 @@
     "requests": "请求",
     "limits": "限制",
     "total": "总计",
-    "available": "可用"
+    "available": "可用",
+    "limitedHistory": "当前数据来自 metrics-server，可用的历史数据有限。"
   },
   "login": {
     "title": "登录",
@@ -527,9 +534,9 @@
       "generalError": "身份验证过程中发生意外错误。",
       "contactSupport": "请重试或联系支持（如果问题仍然存在）。",
       "invalidCredentials": "用户名或密码无效",
-      "insufficient permissions": "权限不足",
-      "invalid credentials": "用户名或密码无效",
       "unknownError": "发生未知错误",
+      "userDisabled": "用户已禁用",
+      "userDisabledMessage": "您的用户账户已被禁用。请联系管理员了解详情。",
       "notInAllowedGroups": "认证成功，但您的账号不属于 {{provider}} 允许的群组。",
       "notInAllowedGroupsDetails": "请联系管理员将您添加到允许的群组中。"
     }
@@ -586,18 +593,12 @@
     }
   },
   "rbac": {
-    "title": "角色管理",
     "noPermissionCluster": "用户 {{user}} 没有权限在集群 {{cluster}} 上执行 {{verb}} {{resource}}",
     "noPermissionNamespace": "用户 {{user}} 没有权限在集群 {{cluster}} 的命名空间 {{namespace}} 中执行 {{verb}} {{resource}}",
     "accessDenied": "访问被拒绝",
     "insufficientPermissions": "您没有足够的权限执行此操作",
     "allNamespaces": "所有命名空间",
-    "get": "获取",
     "resourceType": "角色",
-    "actions": {
-      "add": "添加角色",
-      "assign": "分配"
-    },
     "table": {
       "clusters": "集群",
       "namespaces": "命名空间",
@@ -608,68 +609,6 @@
     "subject": {
       "user": "用户",
       "group": "用户组"
-    },
-    "assign": {
-      "title": "分配角色",
-      "current": "当前分配",
-      "users": "用户",
-      "groups": "OIDC 用户组",
-      "subjectType": "主体类型",
-      "user": "用户",
-      "group": "OIDC 用户组",
-      "subject": "主体",
-      "subjectPlaceholder": "用户名或用户组名称",
-      "confirmRemoveSelf": "你正在移除自己的角色分配，这可能影响你的权限，确认继续吗？"
-    },
-    "dialog": {
-      "add": {
-        "title": "添加角色"
-      },
-      "edit": {
-        "title": "编辑角色"
-      }
-    },
-    "form": {
-      "name": {
-        "label": "角色名称"
-      },
-      "description": {
-        "label": "描述"
-      },
-      "permissions": {
-        "label": "权限"
-      },
-      "clusters": {
-        "label": "集群"
-      },
-      "namespaces": {
-        "label": "命名空间"
-      },
-      "resources": {
-        "label": "资源"
-      },
-      "verbs": {
-        "label": "动词"
-      }
-    },
-    "empty": {
-      "title": "暂无角色配置",
-      "description": "创建角色以授予权限"
-    },
-    "errors": {
-      "loadFailed": "加载角色失败"
-    },
-    "messages": {
-      "created": "角色创建成功",
-      "updated": "角色更新成功",
-      "deleted": "角色删除成功",
-      "createError": "创建角色失败",
-      "updateError": "更新角色失败",
-      "deleteError": "删除角色失败",
-      "assigned": "分配成功",
-      "assignError": "分配失败",
-      "unassigned": "取消分配成功",
-      "unassignError": "取消分配失败"
     },
     "verb": {
       "get": "获取",
@@ -695,8 +634,13 @@
       "oauth": "认证",
       "rbac": "权限控制",
       "users": "用户",
-      "apikeys": "API 密钥"
-    }
+      "apikeys": "API 密钥",
+      "p8s": "Prometheus"
+    },
+    "nav": "设置",
+    "appearance": "外观",
+    "colorTheme": "配色主题",
+    "font": "字体"
   },
   "desktopManagement": {
     "title": "桌面端",
@@ -840,15 +784,15 @@
     "title": "通用",
     "description": "管理全局功能开关和相关配置。",
     "aiAgent": {
-      "title": "AI Agent",
+      "title": "AI 助手",
       "description": "启用 AI 助手并配置模型与接口地址。",
       "form": {
         "model": "模型",
         "modelHint": "模型既支持手动输入，也可以先拉取服务端模型列表再选择。",
         "provider": "服务提供方",
-        "apiKey": "API Key",
+        "apiKey": "API 密钥",
         "apiKeyPlaceholder": "留空将保持当前 API Key",
-        "baseUrl": "Base URL",
+        "baseUrl": "基础 URL",
         "fetchModels": "获取模型",
         "fetchingModels": "获取中...",
         "searchModels": "搜索模型...",
@@ -881,7 +825,7 @@
       }
     },
     "nodeTerminal": {
-      "title": "Node Terminal",
+      "title": "节点终端",
       "description": "配置 Node Terminal 会话使用的运行镜像。",
       "form": {
         "image": "镜像"
@@ -941,7 +885,6 @@
       "bindPasswordRequired": "LDAP 绑定密码不能为空",
       "userBaseDnRequired": "LDAP 用户 Base DN 不能为空",
       "groupBaseDnRequired": "LDAP 用户组 Base DN 不能为空",
-      "loadFailed": "加载认证设置失败",
       "userFilterPlaceholder": "LDAP 用户过滤器必须且只能包含一个 %s",
       "groupFilterPlaceholder": "LDAP 用户组过滤器必须且只能包含一个 %s"
     },
@@ -962,45 +905,6 @@
       "description": "配置角色和权限"
     },
     "viewAll": "查看所有设置"
-  },
-  "auditLog": {
-    "title": "审计日志",
-    "description": "追踪资源变更记录并查看 YAML 差异",
-    "loading": "正在加载审计日志...",
-    "loadFailed": "加载审计日志失败",
-    "empty": "未找到审计日志",
-    "diffTitle": "YAML 差异",
-    "errorTitle": "错误详情",
-    "noErrorMessage": "没有错误信息",
-    "table": {
-      "time": "时间",
-      "operator": "操作人",
-      "operation": "操作",
-      "resource": "资源",
-      "cluster": "集群",
-      "status": "状态",
-      "actions": "操作"
-    },
-    "status": {
-      "success": "成功",
-      "failed": "失败"
-    },
-    "actions": {
-      "viewError": "查看错误",
-      "viewDiff": "查看差异"
-    },
-    "filters": {
-      "search": "搜索资源名称...",
-      "operation": "全部操作",
-      "allOperations": "全部操作",
-      "cluster": "全部集群",
-      "allClusters": "全部集群",
-      "user": "全部用户",
-      "allUsers": "全部用户"
-    },
-    "operator": {
-      "apiKey": "API 密钥"
-    }
   },
   "clusterManagement": {
     "title": "集群管理",
@@ -1068,27 +972,6 @@
       "unknown": "未检测"
     },
     "deleteConfirmation": "此操作只会移除 kite 中的集群配置，不会删除任何集群资源。",
-    "dialog": {
-      "add": {
-        "title": "添加集群"
-      },
-      "edit": {
-        "title": "编辑集群"
-      },
-      "createTitle": "添加集群",
-      "editTitle": "编辑集群",
-      "name": "名称",
-      "namePlaceholder": "输入集群名称",
-      "description": "描述",
-      "descriptionPlaceholder": "输入集群描述（可选）",
-      "type": "类型",
-      "config": "配置",
-      "configPlaceholder": "在此粘贴 kubeconfig 内容...",
-      "prometheusUrl": "Prometheus URL",
-      "prometheusUrlPlaceholder": "https://prometheus.example.com",
-      "enabled": "启用",
-      "isDefault": "设为默认"
-    },
     "form": {
       "name": {
         "label": "集群名称",
@@ -1124,6 +1007,27 @@
       "inCluster": {
         "note": "此集群使用集群内 ServiceAccount 配置，无需额外的 kubeconfig。"
       }
+    },
+    "dialog": {
+      "createTitle": "添加集群",
+      "editTitle": "编辑集群",
+      "name": "名称",
+      "namePlaceholder": "输入集群名称",
+      "description": "描述",
+      "descriptionPlaceholder": "输入集群描述（可选）",
+      "type": "类型",
+      "config": "配置",
+      "configPlaceholder": "在此粘贴 kubeconfig 内容...",
+      "prometheusUrl": "Prometheus URL",
+      "prometheusUrlPlaceholder": "https://prometheus.example.com",
+      "enabled": "启用",
+      "isDefault": "设为默认",
+      "add": {
+        "title": "添加集群"
+      },
+      "edit": {
+        "title": "编辑集群"
+      }
     }
   },
   "oauthManagement": {
@@ -1140,14 +1044,6 @@
       "issuer": "签发者",
       "status": "状态",
       "actions": "操作"
-    },
-    "status": {
-      "enabled": "已启用",
-      "disabled": "已禁用"
-    },
-    "empty": {
-      "title": "暂无 OAuth 提供商配置",
-      "description": "添加您的第一个 OAuth 提供商"
     },
     "messages": {
       "created": "OAuth 提供商创建成功",
@@ -1176,75 +1072,7 @@
       "userInfoUrl": "用户信息 URL",
       "scopes": "权限范围",
       "issuer": "签发者",
-      "enabled": "启用",
-      "scopesPlaceholder": "openid,profile,email",
-      "issuerPlaceholder": "https://provider.com（自动发现）",
-      "authUrlPlaceholder": "https://provider.com/oauth/authorize",
-      "tokenUrlPlaceholder": "https://provider.com/oauth/token",
-      "userInfoUrlPlaceholder": "https://provider.com/oauth/userinfo",
-      "usernameClaim": "用户名 Claim",
-      "usernameClaimPlaceholder": "例如：preferred_username",
-      "groupsClaim": "用户组 Claim",
-      "groupsClaimPlaceholder": "例如：memberOf",
-      "allowedGroups": "允许的用户组",
-      "allowedGroupsPlaceholder": "例如：admin, developers（逗号分隔）",
-      "or": "或",
-      "section": {
-        "basic": "基本信息",
-        "endpoint": "OAuth 端点",
-        "advanced": "高级设置",
-        "status": "状态"
-      },
-      "validation": {
-        "issuerOrUrl": "请填写 Issuer，或填写完整的 OAuth URL（授权、令牌、用户信息）。"
-      }
-    }
-  },
-  "userManagement": {
-    "title": "用户管理",
-    "resourceType": "用户",
-    "actions": {
-      "add": "添加密码用户",
-      "editUser": "编辑用户",
-      "search": "搜索用户..."
-    },
-    "table": {
-      "id": "ID",
-      "username": "用户名",
-      "name": "名称",
-      "avatar": "头像",
-      "status": "状态",
-      "provider": "身份提供者",
-      "createdAt": "创建时间",
-      "lastLoginAt": "最后登录时间",
-      "roles": "角色"
-    },
-    "dialog": {
-      "editTitle": "编辑用户",
-      "addTitle": "添加密码用户",
-      "resetPassword": "重置密码",
-      "assignRoles": "分配角色"
-    },
-    "empty": {
-      "title": "暂无用户",
-      "description": "添加您的第一个用户以开始使用"
-    },
-    "filters": {
-      "role": "全部角色",
-      "allRoles": "全部角色"
-    },
-    "errors": {
-      "loadFailed": "加载用户失败"
-    },
-    "messages": {
-      "created": "用户创建成功",
-      "updated": "用户更新成功",
-      "deleted": "用户删除成功",
-      "createError": "创建用户失败",
-      "updateError": "更新用户失败",
-      "deleteError": "删除用户失败",
-      "resetPassword": "密码重置成功",
-      "resetPasswordError": "重置密码失败"
+      "enabled": "启用"
     }
   },
   "initialization": {
@@ -1293,6 +1121,10 @@
       "importSuccess": "集群导入成功",
       "importError": "导入集群失败",
       "configRequired": "请提供 kubeconfig 文件"
+    },
+    "completion": {
+      "title": "设置完成！",
+      "message": "即将跳转到概览页面……"
     }
   },
   "resourceHistory": {
@@ -1325,69 +1157,433 @@
       "confirm": "确认回滚",
       "success": "资源回滚成功",
       "error": "资源回滚失败"
+    },
+    "viewError": "查看错误",
+    "errorDetails": "错误详情",
+    "noErrorMessage": "没有错误信息"
+  },
+  "pvcs": {
+    "volume": "卷",
+    "storageClass": "存储类",
+    "capacity": "容量",
+    "accessModes": "访问模式",
+    "copyVolume": "复制卷",
+    "copyStorageClass": "复制存储类"
+  },
+  "pvs": {
+    "storageClass": "存储类",
+    "capacity": "容量",
+    "accessModes": "访问模式",
+    "reclaimPolicy": "回收策略",
+    "claim": "声明",
+    "copyStorageClass": "复制存储类",
+    "copyClaim": "复制声明"
+  },
+  "pvcList": {
+    "manageLabels": "管理 PVC 标签",
+    "manageAnnotations": "管理 PVC 注解"
+  },
+  "pvList": {
+    "manageLabels": "管理 PV 标签",
+    "manageAnnotations": "管理 PV 注解"
+  },
+  "storageClasses": {
+    "provisioner": "供应器",
+    "defaultClass": "默认",
+    "volumeBindingMode": "绑定模式",
+    "allowExpansion": "允许扩容",
+    "parameters": "参数",
+    "mountOptions": "挂载选项",
+    "viewParameters": "查看参数",
+    "viewMountOptions": "查看挂载选项",
+    "copyProvisioner": "复制供应器"
+  },
+  "storageDetails": {
+    "pvcInformation": "PVC 信息",
+    "pvInformation": "PV 信息",
+    "storageClassInformation": "存储类信息",
+    "requestedStorage": "请求容量",
+    "volumeMode": "卷模式",
+    "volumeSource": "卷来源",
+    "volumeSourceDetail": "来源详情",
+    "nodeAffinity": "节点亲和性",
+    "releasedRetainWarning": "该卷处于 Released 状态且回收策略为 Retain，底层存储可能需要手动清理或重新绑定。",
+    "associations": "关联",
+    "consumingPods": "消费该卷的 Pod",
+    "claims": "声明",
+    "volumes": "卷"
+  },
+  "storageCreate": {
+    "storageClassTitle": "创建存储类",
+    "storageClassDescription": "定义用于动态供给的存储类，包括供应器、回收策略、绑定模式和可选驱动参数。",
+    "storageClassSuccess": "存储类 {{name}} 已创建",
+    "templateLabel": "模板",
+    "templateHint": "模板会预填常见 CSI 供应器和参数，创建前仍可按集群实际情况调整所有字段。",
+    "awsAutoModeHint": "EKS Auto Mode 使用不同的 EBS 供应器。除非确认集群不需要，否则建议保留 auto compute 拓扑参数。",
+    "template": {
+      "generic": "通用 CSI / 本地静态卷",
+      "alibabaDisk": "阿里云 ACK 云盘",
+      "tencentCbs": "腾讯云 TKE CBS",
+      "awsEbs": "AWS EBS CSI",
+      "awsEksAutoEbs": "AWS EKS Auto Mode EBS",
+      "awsEfs": "AWS EFS CSI"
+    },
+    "pvcTitle": "创建存储声明",
+    "pvcDescription": "为工作负载申请存储。可通过存储类动态供给，也可按需绑定指定存储卷。",
+    "pvcSuccess": "存储声明 {{name}} 已创建",
+    "pvTitle": "创建存储卷",
+    "pvDescription": "创建由 HostPath、NFS 或 Local 存储提供的静态存储卷。",
+    "pvSuccess": "存储卷 {{name}} 已创建",
+    "requestStorage": "请求容量",
+    "storageClassOptional": "可选存储类",
+    "boundVolumeOptional": "绑定卷（可选）",
+    "sourcePath": "来源路径",
+    "nfsServer": "NFS 服务器",
+    "nodeHostnameOptional": "节点主机名（可选）",
+    "readOnly": "只读",
+    "accessMode": {
+      "rwo": "ReadWriteOnce",
+      "rom": "ReadOnlyMany",
+      "rwm": "ReadWriteMany"
     }
   },
-  "apikeyManagement": {
-    "title": "API 密钥管理",
-    "resourceType": "API 密钥",
-    "description": "管理用于程序化访问的 API 密钥",
-    "actions": {
-      "add": "添加 API 密钥",
-      "copy": "复制",
-      "delete": "删除"
+  "storageEdit": {
+    "resizePVCAction": "调整容量",
+    "resizePVCTitle": "调整存储声明容量",
+    "resizePVCDescription": "更新 PVC 的请求容量。实际扩容能力取决于存储类是否允许扩容以及底层 CSI 驱动支持情况。",
+    "newStorageSize": "新容量",
+    "resizePVCHint": "例如 20Gi。Kubernetes 通常只支持扩容，不支持直接缩容。",
+    "resizePVCSuccess": "存储声明 {{name}} 容量已更新",
+    "reclaimPolicyAction": "编辑回收策略",
+    "reclaimPolicyTitle": "编辑存储卷回收策略",
+    "reclaimPolicyDescription": "调整 PV 释放后的底层存储处理方式。",
+    "reclaimPolicyHint": "Retain 会保留底层数据，Delete 会随 PV 删除底层资源，Recycle 已不推荐使用。",
+    "reclaimPolicySuccess": "存储卷 {{name}} 回收策略已更新",
+    "setDefaultAction": "设为默认存储类",
+    "unsetDefaultAction": "取消默认存储类",
+    "setDefaultSuccess": "存储类 {{name}} 已设为默认",
+    "unsetDefaultSuccess": "存储类 {{name}} 已取消默认"
+  },
+  "resourceKind": {
+    "pod": "Pod",
+    "deployment": "Deployment",
+    "service": "Service",
+    "configmap": "ConfigMap",
+    "secret": "Secret",
+    "node": "Node",
+    "job": "Job",
+    "daemonset": "DaemonSet",
+    "statefulset": "StatefulSet",
+    "cronjob": "CronJob",
+    "resource": "资源"
+  },
+  "detail": {
+    "buttons": {
+      "refresh": "刷新",
+      "delete": "删除",
+      "describe": "详情",
+      "decodeValues": "解码值",
+      "showBase64": "显示 Base64",
+      "scale": "伸缩",
+      "restart": "重启",
+      "drain": "驱逐",
+      "cordon": "设为不可调度",
+      "uncordon": "恢复调度",
+      "taint": "添加污点",
+      "cancel": "取消",
+      "add": "添加",
+      "remove": "移除",
+      "edit": "编辑",
+      "create": "创建",
+      "save": "保存"
     },
-    "table": {
-      "name": "名称",
-      "key": "API 密钥",
-      "createdAt": "创建时间",
-      "lastUsed": "最后使用",
-      "roles": "角色",
-      "actions": "操作"
+    "status": {
+      "loading": "正在加载{{resource}}详情...",
+      "yamlSaved": "YAML 保存成功",
+      "restartInitiated": "{{resource}} 已发起重启",
+      "scaledTo": "{{resource}} 已调整为 {{replicas}} 个副本",
+      "deleted": "{{resource}} 删除成功",
+      "taintKeyRequired": "污点键为必填项",
+      "taintRemoved": "{{resource}} 的污点移除成功",
+      "nodeDrained": "节点 {{name}} 驱逐成功",
+      "nodeDrainInitiated": "节点 {{name}} 已发起驱逐流程",
+      "nodeCordoned": "节点 {{name}} 已设为不可调度",
+      "nodeUncordoned": "节点 {{name}} 已恢复调度",
+      "nodeTainted": "节点 {{name}} 添加污点成功",
+      "inProgress": "进行中",
+      "notSet": "未设置",
+      "containerUpdated": "容器更新成功",
+      "noMessage": "无消息"
+    },
+    "tabs": {
+      "overview": "概览",
+      "yaml": "YAML",
+      "logs": "日志",
+      "terminal": "终端",
+      "files": "文件",
+      "volumes": "卷",
+      "related": "关联",
+      "events": "事件",
+      "monitor": "监控",
+      "history": "历史",
+      "data": "数据"
     },
     "empty": {
-      "title": "暂无 API 密钥",
-      "description": "创建您的第一个 API 密钥以开始使用"
+      "noDataEntries": "暂无数据项",
+      "noBinaryDataEntries": "暂无二进制数据项"
     },
-    "messages": {
-      "created": "API 密钥创建成功",
-      "deleted": "API 密钥删除成功",
-      "createError": "创建 API 密钥失败",
-      "deleteError": "删除 API 密钥失败",
-      "copied": "API 密钥已复制到剪贴板",
-      "copyError": "复制 API 密钥失败"
+    "dialogs": {
+      "drainNode": {
+        "title": "驱逐节点",
+        "description": "安全地将此节点上的所有 Pod 驱逐出去。",
+        "forceDrain": "强制驱逐",
+        "deleteLocalData": "删除本地数据",
+        "ignoreDaemonSets": "忽略 DaemonSet",
+        "help": {
+          "forceDrain": {
+            "label": "说明强制驱逐",
+            "description": "允许驱逐没有控制器管理的独立 Pod。请谨慎开启，因为这类 Pod 删除后不会被自动重建。"
+          },
+          "deleteLocalData": {
+            "label": "说明删除本地数据",
+            "description": "允许驱逐使用 emptyDir 本地临时存储的 Pod。不确定时保持关闭；当错误提示 local storage 或 --delete-emptydir-data 时再开启。"
+          },
+          "ignoreDaemonsets": {
+            "label": "说明忽略 DaemonSet",
+            "description": "驱逐时跳过 DaemonSet 管理的 Pod。Drain 不会删除这些 Pod，它们仍由 DaemonSet 控制器管理。"
+          }
+        },
+        "gracePeriod": "宽限期（秒）",
+        "drainButton": "驱逐节点"
+      },
+      "cordonNode": {
+        "title": "设为不可调度",
+        "description": "将此节点标记为不可调度。",
+        "cordonButton": "设为不可调度"
+      },
+      "taintNode": {
+        "title": "添加污点",
+        "description": "添加污点以阻止 Pod 被调度到该节点。",
+        "key": "键 *",
+        "value": "值",
+        "effect": "效果",
+        "keyPlaceholder": "例如：node.kubernetes.io/maintenance",
+        "valuePlaceholder": "可选值",
+        "addTaintButton": "添加污点"
+      },
+      "scaleDeployment": {
+        "title": "伸缩部署",
+        "description": "调整此部署的副本数量。",
+        "replicas": "副本数",
+        "scaleButton": "调整"
+      },
+      "restartDeployment": {
+        "title": "重启部署",
+        "description": "这会通过为部署模板写入新的重启注解来重启该部署下的所有 Pod。此操作无法撤销。",
+        "restartButton": "重启"
+      },
+      "restartDaemonSet": {
+        "title": "重启守护进程集",
+        "description": "这会重启此 DaemonSet 管理的所有 Pod。此操作无法撤销。",
+        "restartButton": "重启"
+      }
     },
-    "errors": {
-      "loadFailed": "加载 API 密钥失败"
+    "sections": {
+      "statusOverview": "状态概览",
+      "nodeInformation": "节点信息",
+      "resourceUtilization": "资源利用概览",
+      "resourceCapacity": "资源容量",
+      "nodeTaints": "节点污点",
+      "nodeConditions": "节点条件",
+      "deploymentInformation": "部署信息",
+      "statefulSetInformation": "有状态副本集信息",
+      "daemonSetInformation": "守护进程集信息",
+      "jobInformation": "任务信息",
+      "cronJobInformation": "定时任务信息",
+      "podInformation": "容器组信息",
+      "serviceInformation": "服务信息",
+      "configMapInformation": "配置映射信息",
+      "secretInformation": "密钥信息",
+      "resourceInformation": "资源信息",
+      "initContainers": "初始化容器",
+      "containers": "容器",
+      "conditions": "条件",
+      "activeJobs": "活跃任务"
     },
-    "deleteConfirmation": "确定要删除此 API 密钥吗？此操作无法撤销。",
-    "neverUsed": "从未使用",
-    "dialog": {
-      "createTitle": "创建 API 密钥",
-      "editTitle": "编辑 API 密钥",
-      "title": "创建 API 密钥",
-      "description": "创建一个新的 API 密钥以进行程序化访问。",
-      "name": "名称",
-      "nameLabel": "名称",
-      "namePlaceholder": "例如：生产环境 API 密钥",
-      "nameRequired": "名称为必填项",
-      "creating": "创建中...",
-      "createButton": "创建",
-      "keyLabel": "API 密钥",
-      "assignRoles": "分配角色"
+    "sectionDescriptions": {
+      "resourceUtilization": "展示节点当前的资源利用概览，包括 Pod 数量，以及 CPU、内存相对于可分配资源的占用情况，用于快速判断节点当前负载。",
+      "resourceCapacity": "展示节点在 Kubernetes 中上报的资源容量。容量表示节点总量，可分配表示扣除系统与保留资源后，可供工作负载调度和使用的部分。"
+    },
+    "metricSummary": {
+      "podsUsageSummary": "已调度 / 可分配",
+      "cpuUsageSummary": "已使用 / 可分配",
+      "memoryUsageSummary": "已使用 / 可分配"
+    },
+    "fields": {
+      "created": "创建时间",
+      "namespace": "命名空间",
+      "strategy": "策略",
+      "updateStrategy": "更新策略",
+      "serviceName": "服务名称",
+      "podManagementPolicy": "Pod 管理策略",
+      "replicas": "副本数",
+      "currentReplicas": "当前副本",
+      "selector": "选择器",
+      "started": "启动时间",
+      "completionTime": "完成时间",
+      "uid": "UID",
+      "podIP": "Pod IP",
+      "hostIP": "主机 IP",
+      "owner": "所属对象",
+      "parallelism": "并行度",
+      "backoffLimit": "重试上限",
+      "activeDeadlineSeconds": "活动截止秒数",
+      "ttlAfterFinished": "完成后 TTL",
+      "concurrencyPolicy": "并发策略",
+      "startingDeadline": "启动截止时间",
+      "successfulJobsHistory": "成功任务历史数",
+      "failedJobsHistory": "失败任务历史数",
+      "timeZone": "时区",
+      "lastSchedule": "最近调度",
+      "activeJobs": "活跃任务",
+      "ports": "端口",
+      "resourceVersion": "资源版本",
+      "keys": "键数量",
+      "size": "大小",
+      "type": "类型",
+      "role": "角色",
+      "labels": "标签",
+      "annotations": "注解",
+      "internalIP": "内网 IP",
+      "externalIP": "外网 IP",
+      "podCIDR": "Pod CIDR",
+      "kubeletVersion": "Kubelet 版本",
+      "hostname": "主机名",
+      "osImage": "操作系统镜像",
+      "kernelVersion": "内核版本",
+      "architecture": "架构",
+      "containerRuntime": "容器运行时",
+      "kubeProxyVersion": "Kube Proxy 版本",
+      "phase": "阶段",
+      "readyContainers": "就绪容器",
+      "restartCount": "重启次数",
+      "node": "节点",
+      "notAssigned": "未分配",
+      "notStarted": "未启动",
+      "noOwner": "无所属对象",
+      "ready": "就绪",
+      "notReady": "未就绪",
+      "schedulingDisabled": "（已禁用调度）",
+      "capacity": "容量",
+      "allocatable": "可分配",
+      "cpu": "CPU",
+      "memory": "内存",
+      "pods": "Pod 数",
+      "storage": "存储",
+      "noPortsDefined": "未定义端口",
+      "effect": "效果",
+      "key": "键",
+      "value": "值",
+      "timeAdded": "添加时间",
+      "message": "消息",
+      "lastTransitionTime": "最后转换时间",
+      "updatedReplicas": "已更新副本",
+      "availableReplicas": "可用副本",
+      "readyReplicas": "就绪副本",
+      "desiredScheduled": "期望调度数",
+      "currentScheduled": "当前调度数",
+      "binaryData": "二进制数据",
+      "bytes": "字节",
+      "na": "无",
+      "podIPs": "Pod IP",
+      "serviceAccount": "服务账户",
+      "name": "名称"
     }
   },
-  "deleteConfirmation": {
-    "title": "删除{{type}}",
-    "description": "此操作无法撤销。",
-    "aboutToDelete": "您即将删除：",
-    "type": "类型",
-    "typeToConfirm": "输入",
-    "toConfirm": "以确认：",
-    "confirmDeleteKeyword": "确认删除",
-    "wait": "等待",
-    "forceDelete": "强制删除（将宽限期设置为 0）",
-    "finalizerNote": "如果存在 finalizer，3 秒后如果还未被删除，将会自动清理 finalizer",
-    "deleting": "删除中..."
+  "userMenu": {
+    "appearanceSettings": "外观设置",
+    "userMenu": "用户菜单",
+    "via": "通过 {{provider}} 登录",
+    "role": "角色：{{roles}}",
+    "openConfigDirectory": "打开配置目录",
+    "openLogsDirectory": "打开日志目录",
+    "colorTheme": "配色主题",
+    "font": "字体",
+    "system": "系统默认",
+    "logOut": "退出登录",
+    "failedToOpenConfigDirectory": "打开配置目录失败",
+    "failedToOpenLogsDirectory": "打开日志目录失败"
+  },
+  "relatedResources": {
+    "loading": "正在加载关联资源...",
+    "title": "关联资源",
+    "kind": "类型",
+    "name": "名称",
+    "reason": "关系",
+    "references": "引用",
+    "referencedBy": "被引用",
+    "referencesDescription": "当前资源直接使用或指向的资源。",
+    "referencedByDescription": "选择、拥有、路由、扩缩或消费当前资源的其它资源。",
+    "empty": "未找到关联资源",
+    "emptyReferences": "暂无引用资源",
+    "emptyReferencedBy": "暂无资源引用当前对象",
+    "openInNewTab": "在新标签页中打开资源"
+  },
+  "describe": {
+    "button": "详情"
+  },
+  "yamlEditor": {
+    "title": "YAML 配置",
+    "daemonSetTitle": "DaemonSet 配置",
+    "statefulSetTitle": "StatefulSet 配置",
+    "save": "保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "saving": "保存中...",
+    "diffTitle": "确认 YAML 变更",
+    "diffDescription": "保存前，请先确认当前资源 YAML 与本次编辑内容之间的差异。",
+    "continueEditing": "继续编辑",
+    "confirmSave": "确认保存",
+    "invalidYaml": "YAML 格式无效",
+    "loadingEditor": "正在加载编辑器..."
+  },
+  "podFiles": {
+    "uploadedSuccess": "已成功上传 {{name}}",
+    "goToParentDirectory": "返回上一级目录",
+    "goToHomeDirectory": "回到根目录",
+    "currentPath": "当前路径",
+    "refreshFileList": "刷新文件列表",
+    "upload": "上传",
+    "name": "名称",
+    "uid": "UID",
+    "gid": "GID",
+    "size": "大小",
+    "mode": "权限",
+    "modified": "修改时间",
+    "actions": "操作",
+    "loadingFiles": "正在加载文件...",
+    "noFilesFound": "未找到文件",
+    "enterDirectory": "进入目录 {{name}}",
+    "previewFile": "预览文件",
+    "downloadDirectoryArchive": "将目录下载为 .tar 压缩包",
+    "downloadFile": "下载文件",
+    "copyPath": "复制路径",
+    "pathCopied": "路径已复制",
+    "edit": "编辑",
+    "editFile": "编辑文件",
+    "loadingFileContent": "正在加载文件内容...",
+    "fileSaved": "文件已保存",
+    "delete": "删除",
+    "fileDeleted": "文件已删除",
+    "directoryDeleted": "目录已删除",
+    "deleteConfirmTitle": "删除路径",
+    "deleteConfirmDescription": "确认删除 {{path}} 吗？此操作不可撤销。"
+  },
+  "siteHeader": {
+    "createNewResource": "创建新资源",
+    "kubectlTerminal": "Kubectl 终端",
+    "toggleKubectlTerminal": "切换 Kubectl 终端",
+    "settings": "设置"
   },
   "aiChat": {
     "disclaimer": "AI 可能会出错，使用时请仔细确认。",
@@ -1567,454 +1763,18 @@
       }
     }
   },
-  "templateManagement": {
-    "title": "模板管理",
-    "resourceType": "模板",
-    "description": "管理用于创建新资源的资源模板。",
-    "actions": {
-      "add": "添加模板"
-    },
-    "messages": {
-      "created": "模板创建成功",
-      "updated": "模板更新成功",
-      "deleted": "模板删除成功"
-    },
-    "errors": {
-      "required": "名称和 YAML 内容为必填项"
-    },
-    "empty": {
-      "description": "未找到模板"
-    },
-    "dialog": {
-      "createTitle": "创建模板",
-      "editTitle": "编辑模板",
-      "createDescription": "添加一个新的资源模板",
-      "updateDescription": "更新现有模板",
-      "namePlaceholder": "例如：Pod",
-      "descriptionPlaceholder": "例如：带有单个容器的基础 Pod"
-    },
-    "hints": {
-      "nameImmutable": "创建后名称不可更改"
-    }
-  },
-  "pvcs": {
-    "volume": "卷",
-    "storageClass": "存储类",
-    "capacity": "容量",
-    "accessModes": "访问模式",
-    "copyVolume": "复制卷",
-    "copyStorageClass": "复制存储类"
-  },
-  "pvs": {
-    "storageClass": "存储类",
-    "capacity": "容量",
-    "accessModes": "访问模式",
-    "reclaimPolicy": "回收策略",
-    "claim": "声明",
-    "copyStorageClass": "复制存储类",
-    "copyClaim": "复制声明"
-  },
-  "pvcList": {
-    "manageLabels": "管理 PVC 标签",
-    "manageAnnotations": "管理 PVC 注解"
-  },
-  "pvList": {
-    "manageLabels": "管理 PV 标签",
-    "manageAnnotations": "管理 PV 注解"
-  },
-  "storageClasses": {
-    "provisioner": "供应器",
-    "defaultClass": "默认",
-    "volumeBindingMode": "绑定模式",
-    "allowExpansion": "允许扩容",
-    "parameters": "参数",
-    "mountOptions": "挂载选项",
-    "viewParameters": "查看参数",
-    "viewMountOptions": "查看挂载选项",
-    "copyProvisioner": "复制供应器"
-  },
-  "storageDetails": {
-    "pvcInformation": "PVC 信息",
-    "pvInformation": "PV 信息",
-    "storageClassInformation": "存储类信息",
-    "requestedStorage": "请求容量",
-    "volumeMode": "卷模式",
-    "volumeSource": "卷来源",
-    "volumeSourceDetail": "来源详情",
-    "nodeAffinity": "节点亲和性",
-    "releasedRetainWarning": "该卷处于 Released 状态且回收策略为 Retain，底层存储可能需要手动清理或重新绑定。",
-    "associations": "关联",
-    "consumingPods": "消费该卷的 Pod",
-    "claims": "声明",
-    "volumes": "卷"
-  },
-  "storageCreate": {
-    "storageClassTitle": "创建存储类",
-    "storageClassDescription": "定义用于动态供给的存储类，包括供应器、回收策略、绑定模式和可选驱动参数。",
-    "storageClassSuccess": "存储类 {{name}} 已创建",
-    "templateLabel": "模板",
-    "templateHint": "模板会预填常见 CSI 供应器和参数，创建前仍可按集群实际情况调整所有字段。",
-    "awsAutoModeHint": "EKS Auto Mode 使用不同的 EBS 供应器。除非确认集群不需要，否则建议保留 auto compute 拓扑参数。",
-    "template": {
-      "generic": "通用 CSI / 本地静态卷",
-      "alibabaDisk": "阿里云 ACK 云盘",
-      "tencentCbs": "腾讯云 TKE CBS",
-      "awsEbs": "AWS EBS CSI",
-      "awsEksAutoEbs": "AWS EKS Auto Mode EBS",
-      "awsEfs": "AWS EFS CSI"
-    },
-    "pvcTitle": "创建存储声明",
-    "pvcDescription": "为工作负载申请存储。可通过存储类动态供给，也可按需绑定指定存储卷。",
-    "pvcSuccess": "存储声明 {{name}} 已创建",
-    "pvTitle": "创建存储卷",
-    "pvDescription": "创建由 HostPath、NFS 或 Local 存储提供的静态存储卷。",
-    "pvSuccess": "存储卷 {{name}} 已创建",
-    "requestStorage": "请求容量",
-    "storageClassOptional": "可选存储类",
-    "boundVolumeOptional": "绑定卷（可选）",
-    "sourcePath": "来源路径",
-    "nfsServer": "NFS 服务器",
-    "nodeHostnameOptional": "节点主机名（可选）",
-    "readOnly": "只读",
-    "accessMode": {
-      "rwo": "ReadWriteOnce",
-      "rom": "ReadOnlyMany",
-      "rwm": "ReadWriteMany"
-    }
-  },
-  "storageEdit": {
-    "resizePVCAction": "调整容量",
-    "resizePVCTitle": "调整存储声明容量",
-    "resizePVCDescription": "更新 PVC 的请求容量。实际扩容能力取决于存储类是否允许扩容以及底层 CSI 驱动支持情况。",
-    "newStorageSize": "新容量",
-    "resizePVCHint": "例如 20Gi。Kubernetes 通常只支持扩容，不支持直接缩容。",
-    "resizePVCSuccess": "存储声明 {{name}} 容量已更新",
-    "reclaimPolicyAction": "编辑回收策略",
-    "reclaimPolicyTitle": "编辑存储卷回收策略",
-    "reclaimPolicyDescription": "调整 PV 释放后的底层存储处理方式。",
-    "reclaimPolicyHint": "Retain 会保留底层数据，Delete 会随 PV 删除底层资源，Recycle 已不推荐使用。",
-    "reclaimPolicySuccess": "存储卷 {{name}} 回收策略已更新",
-    "setDefaultAction": "设为默认存储类",
-    "unsetDefaultAction": "取消默认存储类",
-    "setDefaultSuccess": "存储类 {{name}} 已设为默认",
-    "unsetDefaultSuccess": "存储类 {{name}} 已取消默认"
-  },
-  "resourceKind": {
-    "pod": "容器组",
-    "deployment": "部署",
-    "service": "服务",
-    "configmap": "配置映射",
-    "secret": "密钥",
-    "node": "节点",
-    "job": "任务",
-    "daemonset": "守护进程集",
-    "statefulset": "有状态副本集",
-    "cronjob": "定时任务",
-    "resource": "资源"
-  },
-  "detail": {
-    "buttons": {
-      "refresh": "刷新",
-      "delete": "删除",
-      "describe": "详情",
-      "decodeValues": "解码值",
-      "showBase64": "显示 Base64",
-      "scale": "伸缩",
-      "restart": "重启",
-      "drain": "驱逐",
-      "cordon": "设为不可调度",
-      "uncordon": "恢复调度",
-      "taint": "添加污点",
-      "cancel": "取消",
-      "add": "添加",
-      "remove": "移除",
-      "edit": "编辑",
-      "create": "创建",
-      "save": "保存"
-    },
-    "status": {
-      "loading": "正在加载{{resource}}详情...",
-      "yamlSaved": "YAML 保存成功",
-      "restartInitiated": "{{resource}} 已发起重启",
-      "scaledTo": "{{resource}} 已调整为 {{replicas}} 个副本",
-      "deleted": "{{resource}} 删除成功",
-      "taintKeyRequired": "污点键为必填项",
-      "taintRemoved": "{{resource}} 的污点移除成功",
-      "nodeDrained": "节点 {{name}} 驱逐成功",
-      "nodeDrainInitiated": "节点 {{name}} 已发起驱逐流程",
-      "nodeCordoned": "节点 {{name}} 已设为不可调度",
-      "nodeUncordoned": "节点 {{name}} 已恢复调度",
-      "nodeTainted": "节点 {{name}} 添加污点成功",
-      "inProgress": "进行中",
-      "notSet": "未设置"
-    },
-    "tabs": {
-      "overview": "概览",
-      "yaml": "YAML",
-      "logs": "日志",
-      "terminal": "终端",
-      "files": "文件",
-      "volumes": "卷",
-      "related": "关联",
-      "events": "事件",
-      "monitor": "监控",
-      "history": "历史",
-      "data": "数据"
-    },
-    "empty": {
-      "noDataEntries": "暂无数据项",
-      "noBinaryDataEntries": "暂无二进制数据项"
-    },
-    "dialogs": {
-      "drainNode": {
-        "title": "驱逐节点",
-        "description": "安全地将此节点上的所有 Pod 驱逐出去。",
-        "forceDrain": "强制驱逐",
-        "deleteLocalData": "删除本地数据",
-        "ignoreDaemonSets": "忽略 DaemonSet",
-        "help": {
-          "forceDrain": {
-            "label": "说明强制驱逐",
-            "description": "允许驱逐没有控制器管理的独立 Pod。请谨慎开启，因为这类 Pod 删除后不会被自动重建。"
-          },
-          "deleteLocalData": {
-            "label": "说明删除本地数据",
-            "description": "允许驱逐使用 emptyDir 本地临时存储的 Pod。不确定时保持关闭；当错误提示 local storage 或 --delete-emptydir-data 时再开启。"
-          },
-          "ignoreDaemonsets": {
-            "label": "说明忽略 DaemonSet",
-            "description": "驱逐时跳过 DaemonSet 管理的 Pod。Drain 不会删除这些 Pod，它们仍由 DaemonSet 控制器管理。"
-          }
-        },
-        "gracePeriod": "宽限期（秒）",
-        "drainButton": "驱逐节点"
-      },
-      "cordonNode": {
-        "title": "设为不可调度",
-        "description": "将此节点标记为不可调度。",
-        "cordonButton": "设为不可调度"
-      },
-      "taintNode": {
-        "title": "添加污点",
-        "description": "添加污点以阻止 Pod 被调度到该节点。",
-        "key": "键 *",
-        "value": "值",
-        "effect": "效果",
-        "keyPlaceholder": "例如：node.kubernetes.io/maintenance",
-        "valuePlaceholder": "可选值",
-        "addTaintButton": "添加污点"
-      },
-      "scaleDeployment": {
-        "title": "伸缩部署",
-        "description": "调整此部署的副本数量。",
-        "replicas": "副本数",
-        "scaleButton": "调整"
-      },
-      "restartDeployment": {
-        "title": "重启部署",
-        "description": "这会通过为部署模板写入新的重启注解来重启该部署下的所有 Pod。此操作无法撤销。",
-        "restartButton": "重启"
-      },
-      "restartDaemonSet": {
-        "title": "重启守护进程集",
-        "description": "这会重启此 DaemonSet 管理的所有 Pod。此操作无法撤销。",
-        "restartButton": "重启"
-      }
-    },
-    "sections": {
-      "statusOverview": "状态概览",
-      "nodeInformation": "节点信息",
-      "resourceUtilization": "资源利用概览",
-      "resourceCapacity": "资源容量",
-      "nodeTaints": "节点污点",
-      "nodeConditions": "节点条件",
-      "deploymentInformation": "部署信息",
-      "statefulSetInformation": "有状态副本集信息",
-      "daemonSetInformation": "守护进程集信息",
-      "jobInformation": "任务信息",
-      "cronJobInformation": "定时任务信息",
-      "podInformation": "容器组信息",
-      "serviceInformation": "服务信息",
-      "configMapInformation": "配置映射信息",
-      "secretInformation": "密钥信息",
-      "resourceInformation": "资源信息",
-      "initContainers": "初始化容器",
-      "containers": "容器",
-      "conditions": "条件",
-      "activeJobs": "活跃任务"
-    },
-    "sectionDescriptions": {
-      "resourceUtilization": "展示节点当前的资源利用概览，包括 Pod 数量，以及 CPU、内存相对于可分配资源的占用情况，用于快速判断节点当前负载。",
-      "resourceCapacity": "展示节点在 Kubernetes 中上报的资源容量。容量表示节点总量，可分配表示扣除系统与保留资源后，可供工作负载调度和使用的部分。"
-    },
-    "metricSummary": {
-      "podsUsageSummary": "已调度 / 可分配",
-      "cpuUsageSummary": "已使用 / 可分配",
-      "memoryUsageSummary": "已使用 / 可分配"
-    },
-    "fields": {
-      "created": "创建时间",
-      "namespace": "命名空间",
-      "strategy": "策略",
-      "updateStrategy": "更新策略",
-      "serviceName": "服务名称",
-      "podManagementPolicy": "Pod 管理策略",
-      "replicas": "副本数",
-      "currentReplicas": "当前副本",
-      "selector": "选择器",
-      "started": "启动时间",
-      "completionTime": "完成时间",
-      "uid": "UID",
-      "podIP": "Pod IP",
-      "hostIP": "主机 IP",
-      "owner": "所属对象",
-      "parallelism": "并行度",
-      "backoffLimit": "重试上限",
-      "activeDeadlineSeconds": "活动截止秒数",
-      "ttlAfterFinished": "完成后 TTL",
-      "concurrencyPolicy": "并发策略",
-      "startingDeadline": "启动截止时间",
-      "successfulJobsHistory": "成功任务历史数",
-      "failedJobsHistory": "失败任务历史数",
-      "timeZone": "时区",
-      "lastSchedule": "最近调度",
-      "activeJobs": "活跃任务",
-      "ports": "端口",
-      "resourceVersion": "资源版本",
-      "keys": "键数量",
-      "size": "大小",
-      "type": "类型",
-      "role": "角色",
-      "labels": "标签",
-      "annotations": "注解",
-      "internalIP": "内网 IP",
-      "externalIP": "外网 IP",
-      "podCIDR": "Pod CIDR",
-      "kubeletVersion": "Kubelet 版本",
-      "hostname": "主机名",
-      "osImage": "操作系统镜像",
-      "kernelVersion": "内核版本",
-      "architecture": "架构",
-      "containerRuntime": "容器运行时",
-      "kubeProxyVersion": "Kube Proxy 版本",
-      "phase": "阶段",
-      "readyContainers": "就绪容器",
-      "restartCount": "重启次数",
-      "node": "节点",
-      "notAssigned": "未分配",
-      "notStarted": "未启动",
-      "noOwner": "无所属对象",
-      "ready": "就绪",
-      "notReady": "未就绪",
-      "schedulingDisabled": "（已禁用调度）",
-      "capacity": "容量",
-      "allocatable": "可分配",
-      "cpu": "CPU",
-      "memory": "内存",
-      "pods": "Pod 数",
-      "storage": "存储",
-      "noPortsDefined": "未定义端口",
-      "effect": "效果",
-      "key": "键",
-      "value": "值",
-      "timeAdded": "添加时间",
-      "type": "类型",
-      "message": "消息",
-      "lastTransitionTime": "最后转换时间",
-      "updatedReplicas": "已更新副本",
-      "availableReplicas": "可用副本",
-      "readyReplicas": "就绪副本",
-      "desiredScheduled": "期望调度数",
-      "currentScheduled": "当前调度数",
-      "binaryData": "二进制数据",
-      "bytes": "字节",
-      "na": "无"
-    }
-  },
-  "userMenu": {
-    "appearanceSettings": "外观设置",
-    "userMenu": "用户菜单",
-    "via": "通过 {{provider}} 登录",
-    "role": "角色：{{roles}}",
-    "openConfigDirectory": "打开配置目录",
-    "openLogsDirectory": "打开日志目录",
-    "colorTheme": "配色主题",
-    "font": "字体",
-    "system": "系统默认",
-    "logOut": "退出登录",
-    "failedToOpenConfigDirectory": "打开配置目录失败",
-    "failedToOpenLogsDirectory": "打开日志目录失败"
-  },
-  "relatedResources": {
-    "loading": "正在加载关联资源...",
-    "title": "关联资源",
-    "kind": "类型",
-    "name": "名称",
-    "reason": "关系",
-    "references": "引用",
-    "referencedBy": "被引用",
-    "referencesDescription": "当前资源直接使用或指向的资源。",
-    "referencedByDescription": "选择、拥有、路由、扩缩或消费当前资源的其它资源。",
-    "empty": "未找到关联资源",
-    "emptyReferences": "暂无引用资源",
-    "emptyReferencedBy": "暂无资源引用当前对象",
-    "openInNewTab": "在新标签页中打开资源"
-  },
-  "describe": {
-    "button": "详情"
-  },
-  "yamlEditor": {
-    "title": "YAML 配置",
-    "daemonSetTitle": "DaemonSet 配置",
-    "statefulSetTitle": "StatefulSet 配置",
-    "save": "保存",
-    "cancel": "取消",
-    "edit": "编辑",
-    "saving": "保存中...",
-    "diffTitle": "确认 YAML 变更",
-    "diffDescription": "保存前，请先确认当前资源 YAML 与本次编辑内容之间的差异。",
-    "continueEditing": "继续编辑",
-    "confirmSave": "确认保存",
-    "invalidYaml": "YAML 格式无效",
-    "loadingEditor": "正在加载编辑器..."
-  },
-  "podFiles": {
-    "uploadedSuccess": "已成功上传 {{name}}",
-    "goToParentDirectory": "返回上一级目录",
-    "goToHomeDirectory": "回到根目录",
-    "currentPath": "当前路径",
-    "refreshFileList": "刷新文件列表",
-    "upload": "上传",
-    "name": "名称",
-    "uid": "UID",
-    "gid": "GID",
-    "size": "大小",
-    "mode": "权限",
-    "modified": "修改时间",
-    "actions": "操作",
-    "loadingFiles": "正在加载文件...",
-    "noFilesFound": "未找到文件",
-    "enterDirectory": "进入目录 {{name}}",
-    "previewFile": "预览文件",
-    "downloadDirectoryArchive": "将目录下载为 .tar 压缩包",
-    "downloadFile": "下载文件",
-    "copyPath": "复制路径",
-    "pathCopied": "路径已复制",
-    "edit": "编辑",
-    "editFile": "编辑文件",
-    "loadingFileContent": "正在加载文件内容...",
-    "fileSaved": "文件已保存",
-    "delete": "删除",
-    "fileDeleted": "文件已删除",
-    "directoryDeleted": "目录已删除",
-    "deleteConfirmTitle": "删除路径",
-    "deleteConfirmDescription": "确认删除 {{path}} 吗？此操作不可撤销。"
-  },
-  "siteHeader": {
-    "createNewResource": "创建新资源",
-    "kubectlTerminal": "Kubectl 终端",
-    "toggleKubectlTerminal": "切换 Kubectl 终端",
-    "settings": "设置"
+  "deleteConfirmation": {
+    "title": "删除{{type}}",
+    "description": "此操作无法撤销。",
+    "aboutToDelete": "您即将删除：",
+    "type": "类型",
+    "typeToConfirm": "输入",
+    "toConfirm": "以确认：",
+    "confirmDeleteKeyword": "确认删除",
+    "wait": "等待",
+    "forceDelete": "强制删除（将宽限期设置为 0）",
+    "finalizerNote": "如果存在 finalizer，3 秒后如果还未被删除，将会自动清理 finalizer",
+    "deleting": "删除中..."
   },
   "createResource": {
     "title": "创建资源",
@@ -2029,7 +1789,7 @@
     "statusDescription": "聚焦 Deployment 副本收敛情况和关键信息，便于快速判断当前发布状态。",
     "currentStatus": "当前状态",
     "readySpec": "就绪 / 期望",
-    "observedGeneration": "Observed / Generation",
+    "observedGeneration": "已观测版本 / 当前版本",
     "rolloutPendingShort": "尚未完全收敛",
     "rolloutPendingTitle": "部署尚未完全收敛",
     "rolloutPendingDescription": "控制器当前观察到的 generation 为 {{observed}}，期望 generation 为 {{generation}}。",
@@ -2089,7 +1849,7 @@
     "unsavedChanges": "存在未保存变更",
     "noPendingChanges": "当前没有待保存变更",
     "mounts": {
-      "volumeMounts": "Volume Mounts",
+      "volumeMounts": "卷挂载",
       "volumeMountsHint": "编辑当前容器挂载到文件系统中的卷。",
       "addMount": "新增挂载",
       "emptyMounts": "当前容器还没有挂载任何卷。",
@@ -2100,23 +1860,23 @@
       "subPath": "子路径",
       "readOnly": "只读挂载",
       "noVolumes": "当前 Pod 模板还没有定义卷，请先在下方新增卷。",
-      "volumes": "Volumes",
+      "volumes": "卷",
       "volumesHint": "编辑 Pod 模板级卷定义。删除仍被引用的卷会被阻止。",
       "addVolume": "新增卷",
       "emptyVolumes": "当前 Pod 模板还没有定义任何卷。",
       "volumeCard": "卷 {{index}}",
       "volumeType": "卷类型",
       "hostPath": "主机路径",
-      "emptyDirMedium": "EmptyDir Medium",
+      "emptyDirMedium": "EmptyDir 存储介质",
       "sizeLimit": "大小限制",
       "volumeInUse": "卷 {{volume}} 仍被以下容器引用：{{containers}}"
     },
     "probes": {
-      "liveness": "Liveness Probe",
+      "liveness": "存活探针",
       "livenessHint": "用于检测容器是否需要重启。",
-      "readiness": "Readiness Probe",
+      "readiness": "就绪探针",
       "readinessHint": "用于决定容器是否接收流量。",
-      "startup": "Startup Probe",
+      "startup": "启动探针",
       "startupHint": "用于处理慢启动容器，避免过早判定失败。",
       "probeType": "探针类型",
       "path": "路径",
@@ -2154,7 +1914,8 @@
   },
   "namespaceList": {
     "manageLabels": "管理标签",
-    "manageAnnotations": "管理注解"
+    "manageAnnotations": "管理注解",
+    "editQuota": "编辑配额"
   },
   "deploymentList": {
     "editImage": "修改镜像版本",
@@ -2274,7 +2035,8 @@
     "allContainers": "所有容器",
     "searchContainers": "搜索容器...",
     "noContainersFound": "未找到容器。",
-    "init": "初始化"
+    "init": "初始化",
+    "selectPvc": "选择 PVC"
   },
   "podTable": {
     "loading": "加载容器组中...",
@@ -2430,7 +2192,12 @@
     "initial": "初始延迟",
     "period": "周期",
     "imageId": "镜像 ID",
-    "containerId": "容器 ID"
+    "containerId": "容器 ID",
+    "noResources": "未配置资源",
+    "noVolumeMounts": "没有卷挂载",
+    "noHealthChecks": "未配置健康检查",
+    "optional": "可选",
+    "moreCount": "……另有 {{count}} 项"
   },
   "environmentEditor": {
     "variables": "环境变量",
@@ -2491,7 +2258,9 @@
       "podConfiguration": "Pod 配置",
       "containersAndResources": "容器与资源",
       "editYamlAndCreate": "编辑 YAML 并创建"
-    }
+    },
+    "containerRequired": "至少需要一个容器",
+    "nameNamespaceRequired": "Deployment 必须指定名称和命名空间"
   },
   "keyValueDataViewer": {
     "noEntries": "没有条目",
@@ -2507,11 +2276,62 @@
   "versionInfo": {
     "viewCommit": "在 GitHub 上查看提交 {{commitId}}"
   },
+  "templateManagement": {
+    "dialog": {
+      "namePlaceholder": "例如：Pod",
+      "descriptionPlaceholder": "例如：带有单个容器的基础 Pod",
+      "createTitle": "创建模板",
+      "editTitle": "编辑模板",
+      "createDescription": "添加一个新的资源模板",
+      "updateDescription": "更新现有模板"
+    },
+    "title": "模板管理",
+    "resourceType": "模板",
+    "description": "管理用于创建新资源的资源模板。",
+    "actions": {
+      "add": "添加模板"
+    },
+    "messages": {
+      "created": "模板创建成功",
+      "updated": "模板更新成功",
+      "deleted": "模板删除成功"
+    },
+    "errors": {
+      "required": "名称和 YAML 内容为必填项"
+    },
+    "empty": {
+      "description": "未找到模板"
+    },
+    "hints": {
+      "nameImmutable": "创建后名称不可更改"
+    }
+  },
   "namespaceCreateDialog": {
     "title": "创建命名空间",
     "description": "输入命名空间名称后即可快速创建。",
     "namePlaceholder": "例如：dev、staging、production",
     "nameHint": "命名空间名称需要符合 Kubernetes 命名规则。",
     "success": "命名空间 {{name}} 创建成功"
+  },
+  "user": "用户",
+  "group": "用户组",
+  "log": {
+    "jumpToBottom": "跳到底部"
+  },
+  "app": {
+    "name": "Kite"
+  },
+  "serviceList": {
+    "viewSelector": "查看选择器",
+    "manageLabels": "管理标签",
+    "manageAnnotations": "管理注解"
+  },
+  "colorTheme": {
+    "default": "默认",
+    "eye-care": "护眼",
+    "darkmatter": "暗物质",
+    "notebook": "笔记本",
+    "clean-slate": "简洁",
+    "claude": "Claude"
   }
 }

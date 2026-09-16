@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo } from 'react'
 import { Secret } from 'kubernetes-types/core/v1'
 
@@ -14,7 +15,7 @@ export function SecretSelector({
   selectedSecret,
   onSecretChange,
   namespace,
-  placeholder = 'Select a secret',
+  placeholder,
   className,
   avoidHelmSecrets = false,
 }: {
@@ -25,6 +26,8 @@ export function SecretSelector({
   className?: string
   avoidHelmSecrets?: boolean
 }) {
+  const { t } = useTranslation()
+
   const { data, isLoading } = useResources('secrets', namespace)
 
   const sortedSecrets = useMemo(() => {
@@ -38,12 +41,12 @@ export function SecretSelector({
   return (
     <Select value={selectedSecret} onValueChange={onSecretChange}>
       <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder ?? t('environmentEditor.selectSecret')} />
       </SelectTrigger>
       <SelectContent>
         {isLoading && (
           <SelectItem disabled value="_loading">
-            Loading secrets...
+            {t('common.loading')}
           </SelectItem>
         )}
         {sortedSecrets
@@ -63,7 +66,7 @@ export function SecretSelector({
           ))}
         {!isLoading && (!sortedSecrets || sortedSecrets.length === 0) && (
           <SelectItem disabled value="_empty">
-            No secrets found
+            {t('selector.noResults')}
           </SelectItem>
         )}
       </SelectContent>

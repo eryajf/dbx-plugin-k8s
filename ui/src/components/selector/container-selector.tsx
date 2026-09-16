@@ -32,7 +32,7 @@ export function ContainerSelector({
   selectedContainer,
   onContainerChange,
   showAllOption = true,
-  placeholder = 'Select container...',
+  placeholder,
 }: ContainerSelectorProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)

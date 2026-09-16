@@ -38,7 +38,7 @@ interface SimpleTableProps<T> {
 export function SimpleTable<T>({
   data,
   columns,
-  emptyMessage = 'No data available',
+  emptyMessage,
   pagination,
   stickyFirstColumn = false,
   stickyLastColumn = false,
@@ -152,7 +152,7 @@ export function SimpleTable<T>({
                 colSpan={columns.length}
                 className="text-center text-muted-foreground"
               >
-                {emptyMessage}
+                {emptyMessage ?? t('common.noData')}
               </TableCell>
             </TableRow>
           ) : (

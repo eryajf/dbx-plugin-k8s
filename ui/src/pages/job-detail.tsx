@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { useEffect, useMemo, useState } from 'react'
 import { IconLoader, IconTrash } from '@tabler/icons-react'
 import { formatDistance } from 'date-fns'
@@ -12,6 +13,7 @@ import { updateResource, useResource, useResources } from '@/lib/api'
 import { aggregateContainerResources, getOwnerInfo } from '@/lib/k8s'
 import {
   formatDate,
+  getDateFnsLocale,
   formatRelativeTimeStrict,
   translateError,
 } from '@/lib/utils'
@@ -57,6 +59,8 @@ function ResourceBadges(props: {
   value: ReturnType<typeof aggregateContainerResources>['requests']
   emptyText: string
 }) {
+  const { t } = useTranslation()
+
   const { value, emptyText } = props
 
   if (!value.cpu && !value.memory) {
@@ -67,7 +71,9 @@ function ResourceBadges(props: {
     <div className="flex flex-wrap gap-1.5">
       {value.cpu ? <Badge variant="secondary">CPU: {value.cpu}</Badge> : null}
       {value.memory ? (
-        <Badge variant="secondary">Memory: {value.memory}</Badge>
+        <Badge variant="secondary">
+          {t('detail.fields.memory')}: {value.memory}
+        </Badge>
       ) : null}
     </div>
   )
@@ -82,7 +88,9 @@ function formatTimestampWithRelative(timestamp?: string) {
 }
 
 function formatSeconds(value?: number) {
-  return value === undefined ? undefined : `${value} seconds`
+  return value === undefined
+    ? undefined
+    : i18n.t('monitoringControls.seconds', { count: value })
 }
 
 function getJobStatusBadge(job?: Job | null): JobStatusBadge {
@@ -120,10 +128,10 @@ const getJobDuration = (job?: Job | null): string => {
 
   if (job.status.completionTime) {
     const end = new Date(job.status.completionTime)
-    return formatDistance(end, start)
+    return formatDistance(end, start, { locale: getDateFnsLocale() })
   }
 
-  return `${formatDistance(new Date(), start)} (running)`
+  return `${formatDistance(new Date(), start, { locale: getDateFnsLocale() })} (${i18n.t('status.running')})`
 }
 
 export function JobDetail(props: { namespace: string; name: string }) {
@@ -168,7 +176,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
       trackResourceAction('jobs', 'yaml_save', {
         result: 'success',
       })
-      toast.success('Job YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       await refetchJob()
       return true
     } catch (error) {
@@ -385,7 +393,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Pod Template</CardTitle>
+                    <CardTitle>{t('cronjobs.podTemplate')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">

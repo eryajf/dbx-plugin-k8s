@@ -119,7 +119,9 @@ export function ResourceLimitsSummary(props: { containers?: Container[] }) {
           variant="secondary"
           className="h-6 shrink-0 rounded-full px-2.5 font-mono tabular-nums whitespace-nowrap"
         >
-          <span className="text-muted-foreground">Memory:</span>
+          <span className="text-muted-foreground">
+            {t('detail.fields.memory')}:
+          </span>
           <span className="sr-only"> </span>
           <span className="text-foreground">{formattedMemory}</span>
         </Badge>

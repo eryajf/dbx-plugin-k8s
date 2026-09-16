@@ -194,6 +194,9 @@ describe('YamlEditor', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /continue editing/i }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
     fireEvent.click(screen.getByRole('button', { name: /overview/i }))
     fireEvent.click(screen.getByRole('button', { name: /^yaml$/i }))
 

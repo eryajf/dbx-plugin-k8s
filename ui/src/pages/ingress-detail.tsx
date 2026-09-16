@@ -1629,7 +1629,7 @@ export function IngressDetail(props: { name: string; namespace?: string }) {
       trackResourceAction('ingresses', 'yaml_save', {
         result: 'success',
       })
-      toast.success('YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       await handleRefresh()
       setIsEditDialogOpen(false)
       return true

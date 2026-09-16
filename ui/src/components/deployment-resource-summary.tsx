@@ -10,6 +10,8 @@ function ResourceLine(props: {
   value: DeploymentResourceSummaryValue
   emptyText: string
 }) {
+  const { t } = useTranslation()
+
   const { label, value, emptyText } = props
 
   return (
@@ -21,7 +23,9 @@ function ResourceLine(props: {
             <Badge variant="secondary">CPU: {value.cpu}</Badge>
           ) : null}
           {value.memory ? (
-            <Badge variant="secondary">Memory: {value.memory}</Badge>
+            <Badge variant="secondary">
+              {t('detail.fields.memory')}: {value.memory}
+            </Badge>
           ) : null}
         </div>
       ) : (

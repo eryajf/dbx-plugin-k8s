@@ -204,7 +204,7 @@ export function NodeDetail(props: { name: string }) {
       trackResourceAction('nodes', 'yaml_save', {
         result: 'success',
       })
-      toast.success('YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       return true
     } catch (error) {
       console.error('Failed to save YAML:', error)
@@ -285,7 +285,7 @@ export function NodeDetail(props: { name: string }) {
 
   const handleTaint = async () => {
     if (!taintData.key.trim()) {
-      toast.error('Taint key is required')
+      toast.error(t('detail.status.taintKeyRequired'))
       return
     }
 
@@ -314,7 +314,7 @@ export function NodeDetail(props: { name: string }) {
   const handleUntaint = async (key?: string) => {
     const taintKey = key || untaintKey
     if (!taintKey.trim()) {
-      toast.error('Taint key is required')
+      toast.error(t('detail.status.taintKeyRequired'))
       return
     }
 
@@ -1081,7 +1081,7 @@ export function NodeDetail(props: { name: string }) {
                                 <p className="text-xs text-muted-foreground truncate">
                                   {condition.message ||
                                     condition.reason ||
-                                    'No message'}
+                                    t('detail.status.noMessage')}
                                 </p>
                               </div>
                               <Badge variant="outline" className="text-xs">

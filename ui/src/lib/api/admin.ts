@@ -488,7 +488,8 @@ export interface AppearancePreferencePayload {
     | 'clean-slate'
     | 'claude'
   font: 'system' | 'maple' | 'jetbrains'
-  language: 'en' | 'zh'
+  language:
+    'az' | 'en' | 'es' | 'it' | 'ja' | 'ko' | 'pt-BR' | 'tr' | 'zh-CN' | 'zh-TW'
 }
 
 export const getAppearancePreference = async (): Promise<

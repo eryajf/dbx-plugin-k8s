@@ -241,6 +241,7 @@ describe('ResourceTable batch delete confirmation', () => {
       />
     )
 
+    expect(screen.getByRole('checkbox', { name: 'Select All (1)' })).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Select row'))
 
     const batchDeleteButton = screen.getByRole('button', {

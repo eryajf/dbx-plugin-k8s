@@ -33,9 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 type KeyValueMap = Record<string, string>
 type PersistentVolumeAccessMode =
-  | 'ReadWriteOnce'
-  | 'ReadOnlyMany'
-  | 'ReadWriteMany'
+  'ReadWriteOnce' | 'ReadOnlyMany' | 'ReadWriteMany'
 type StorageVolumeBindingMode = 'Immediate' | 'WaitForFirstConsumer'
 type StorageClassTemplateId =
   | 'generic'

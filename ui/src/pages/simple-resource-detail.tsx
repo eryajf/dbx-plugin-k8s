@@ -61,7 +61,7 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
       trackResourceAction(resourceType, 'yaml_save', {
         result: 'success',
       })
-      toast.success('YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       // Refresh data after successful save
       await handleRefresh()
       return true

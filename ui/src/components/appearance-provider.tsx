@@ -1,6 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import i18n from '@/i18n'
+import {
+  normalizeLocale as normalizeLanguage,
+  type SupportedLocale,
+} from '@/i18n/locale'
 
 import {
   getAppearancePreference,
@@ -78,7 +82,7 @@ export function useAppearance() {
 
 type ThemeOption = 'dark' | 'light' | 'system'
 type FontOption = 'system' | 'maple' | 'jetbrains'
-type LanguageOption = 'en' | 'zh'
+type LanguageOption = SupportedLocale
 
 function isThemeOption(value: unknown): value is ThemeOption {
   return value === 'dark' || value === 'light' || value === 'system'
@@ -90,10 +94,6 @@ function isColorThemeOption(value: unknown): value is ColorTheme {
 
 function isFontOption(value: unknown): value is FontOption {
   return value === 'system' || value === 'maple' || value === 'jetbrains'
-}
-
-function normalizeLanguage(value: string | undefined): LanguageOption {
-  return value?.startsWith('zh') ? 'zh' : 'en'
 }
 
 function parseAppearancePreference(
@@ -158,7 +158,11 @@ function AppearancePersistenceBridge() {
           if (parsedPreference.font !== font) {
             setFont(parsedPreference.font)
           }
-          if (parsedPreference.language !== language) {
+          // DBX owns the language; a delayed saved preference must not override it.
+          if (
+            !('dbxPlugin' in window) &&
+            parsedPreference.language !== language
+          ) {
             await i18n.changeLanguage(parsedPreference.language)
           }
         }

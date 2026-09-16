@@ -138,6 +138,34 @@ describe('AppearanceProvider', () => {
     ).toBe('var(--font-sans)')
   })
 
+  it('does not restore saved Chinese over the DBX host English language', async () => {
+    storedAppearancePreference = JSON.stringify({
+      theme: 'dark',
+      colorTheme: 'claude',
+      font: 'maple',
+      language: 'zh',
+    })
+    Object.defineProperty(window, 'dbxPlugin', {
+      configurable: true,
+      value: { locale: 'en' },
+    })
+    try {
+      render(
+        <AppearanceProvider>
+          <AppearanceConsumer />
+        </AppearanceProvider>
+      )
+      await waitFor(() =>
+        expect(screen.getByTestId('state')).toHaveTextContent(
+          'dark/dark/claude/maple'
+        )
+      )
+      expect(i18n.resolvedLanguage).toBe('en')
+    } finally {
+      Reflect.deleteProperty(window, 'dbxPlugin')
+    }
+  })
+
   it('loads and persists appearance settings through the desktop preferences endpoint', async () => {
     storedAppearancePreference = JSON.stringify({
       theme: 'dark',
@@ -168,7 +196,7 @@ describe('AppearanceProvider', () => {
     })
 
     await waitFor(() =>
-      expect(i18n.resolvedLanguage || i18n.language).toBe('zh')
+      expect(i18n.resolvedLanguage || i18n.language).toBe('zh-CN')
     )
     expect(localStorage.getItem('appearance-theme')).toBe('dark')
     expect(localStorage.getItem('appearance-color')).toBe('claude')
@@ -187,7 +215,7 @@ describe('AppearanceProvider', () => {
       theme: 'dark',
       colorTheme: 'claude',
       font: 'system',
-      language: 'zh',
+      language: 'zh-CN',
     })
   })
 })

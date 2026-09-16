@@ -132,7 +132,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       trackResourceAction('statefulsets', 'yaml_save', {
         result: 'success',
       })
-      toast.success('StatefulSet YAML saved successfully')
+      toast.success(t('detail.status.yamlSaved'))
       setRefreshInterval(1000)
       return true
     } catch (error) {
@@ -216,7 +216,9 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       trackResourceAction('statefulsets', 'restart', {
         result: 'success',
       })
-      toast.success('StatefulSet restart initiated')
+      toast.success(
+        t('detail.status.restartInitiated', { resource: 'StatefulSet' })
+      )
       setIsRestartPopoverOpen(false)
       setRefreshInterval(1000)
     } catch (error) {
@@ -264,7 +266,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         result: 'success',
         container_kind: init ? 'init' : 'app',
       })
-      toast.success('Container updated successfully')
+      toast.success(t('detail.status.containerUpdated'))
       setRefreshInterval(1000)
     } catch (error) {
       console.error('Failed to update container:', error)
@@ -582,7 +584,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
                   value: 'volumes',
                   label: (
                     <>
-                      Volumes
+                      {t('detail.tabs.volumes')}
                       {spec.template.spec.volumes && (
                         <Badge variant="secondary">
                           {spec.template.spec.volumes.length}
@@ -630,7 +632,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
           },
           {
             value: 'history',
-            label: 'History',
+            label: t('common.history'),
             content: (
               <ProResourceHistoryTable
                 resourceType="statefulsets"

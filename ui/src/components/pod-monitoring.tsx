@@ -153,7 +153,7 @@ export function PodMonitoring({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {data?.fallback && (
           <div className="xl:col-span-2 rounded bg-yellow-100 text-yellow-800 px-4 py-2 text-sm border border-yellow-300">
-            Current data is from metrics-server, limited historical data.
+            {t('monitoring.limitedHistory')}
           </div>
         )}
         <CPUUsageChart

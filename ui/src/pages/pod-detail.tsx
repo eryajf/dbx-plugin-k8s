@@ -104,6 +104,8 @@ function ResourceBadges(props: {
   value: { cpu?: string; memory?: string }
   emptyText: string
 }) {
+  const { t } = useTranslation()
+
   const { value, emptyText } = props
 
   if (!value.cpu && !value.memory) {
@@ -114,7 +116,9 @@ function ResourceBadges(props: {
     <div className="flex flex-wrap gap-1.5">
       {value.cpu ? <Badge variant="secondary">CPU: {value.cpu}</Badge> : null}
       {value.memory ? (
-        <Badge variant="secondary">Memory: {value.memory}</Badge>
+        <Badge variant="secondary">
+          {t('detail.fields.memory')}: {value.memory}
+        </Badge>
       ) : null}
     </div>
   )
@@ -309,7 +313,11 @@ export function PodDetail(props: { namespace: string; name: string }) {
             namespace={namespace}
             name={name}
           />
-          <DBXPortForwardButton resource="pods" namespace={namespace} name={name} />
+          <DBXPortForwardButton
+            resource="pods"
+            namespace={namespace}
+            name={name}
+          />
           <OpenPodTerminalButton
             namespace={namespace}
             pod={pod}

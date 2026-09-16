@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Suspense } from 'react'
 
 import { MonacoEditor } from '@/lib/monaco-loader'
@@ -21,6 +22,8 @@ export function SimpleYamlEditor({
   disabled = false,
   height = '400px',
 }: SimpleYamlEditorProps) {
+  const { t } = useTranslation()
+
   const { actualTheme, colorTheme } = useAppearance()
   const themeMode = actualTheme === 'dark' ? 'dark' : 'light'
   const backgroundColor = useMonacoBackgroundColor(
@@ -36,7 +39,7 @@ export function SimpleYamlEditor({
             className="flex items-center justify-center h-full text-muted-foreground"
             style={{ height }}
           >
-            Loading editor...
+            {t('yamlEditor.loadingEditor')}
           </div>
         }
       >

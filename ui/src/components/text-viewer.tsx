@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Suspense } from 'react'
 
 import { MonacoEditor } from '@/lib/monaco-loader'
@@ -19,6 +20,8 @@ export function TextViewer({
   title = 'Text',
   className,
 }: TextViewerProps) {
+  const { t } = useTranslation()
+
   const { actualTheme, colorTheme } = useAppearance()
   const themeMode = actualTheme === 'dark' ? 'dark' : 'light'
   const backgroundColor = useMonacoBackgroundColor(
@@ -42,7 +45,7 @@ export function TextViewer({
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center text-muted-foreground">
-                  Loading editor...
+                  {t('yamlEditor.loadingEditor')}
                 </div>
               }
             >

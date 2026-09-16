@@ -388,7 +388,7 @@ export function ResourceTable<T>({
             (table.getIsSomePageRowsSelected() && 'indeterminate')
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label={t('resourceTable.selectAll', 'Select all')}
+          aria-label={t('resourceTable.selectAll', { count: table.getRowModel().rows.length })}
         />
       ),
       cell: ({ row }) => (

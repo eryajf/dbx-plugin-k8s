@@ -32,14 +32,14 @@ const CPUUsageChart = React.memo((prop: CpuUsageChartProps) => {
     () =>
       ({
         cpu: {
-          label: 'CPU (cores)',
+          label: `CPU (${t('metric.coreUnit')})`,
           theme: {
             light: 'hsl(220, 70%, 50%)',
             dark: 'hsl(210, 80%, 60%)',
           },
         },
       }) satisfies ChartConfig,
-    []
+    [t]
   )
 
   const cpuChartData = React.useMemo(() => {

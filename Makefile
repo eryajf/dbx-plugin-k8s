@@ -1,4 +1,4 @@
-.PHONY: test frontend build dev package
+.PHONY: test frontend build dev package dbxp
 
 test:
 	cd backend && GOCACHE=$${GOCACHE:-/tmp/dbx-plugin-k8s-gocache} go test -mod=readonly ./...
@@ -13,4 +13,8 @@ dev:
 	dbx-plugin dev --path . --port $${PORT:-5190}
 
 package:
+	dbx-plugin package . --output-dir $${OUTPUT_DIR:-dist}
+
+# Build the complete plugin and emit a local-platform .dbxp candidate.
+dbxp: build
 	dbx-plugin package . --output-dir $${OUTPUT_DIR:-dist}

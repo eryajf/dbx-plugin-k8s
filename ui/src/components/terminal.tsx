@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { lazy, Suspense } from 'react'
 
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +11,8 @@ const TerminalContent = lazy(async () => {
 })
 
 export function Terminal(props: TerminalProps) {
+  const { t } = useTranslation()
+
   return (
     <Suspense
       fallback={
@@ -19,7 +22,7 @@ export function Terminal(props: TerminalProps) {
               props.embedded ? 'h-full min-h-0' : 'h-[400px]'
             }`}
           >
-            Loading terminal...
+            {t('common.loading')}
           </CardContent>
         </Card>
       }

@@ -346,7 +346,9 @@ describe('DeploymentListPage', () => {
       'api: nginx:1.0 | sidecar: busybox:1.0'
     )
     expect(renderedRow.container).toHaveTextContent('CPU: 0.8')
-    expect(renderedRow.container).toHaveTextContent('Memory: 0.4Gi')
+    expect(renderedRow.container).toHaveTextContent(
+      'detail.fields.memory: 0.4Gi'
+    )
     expect(renderedRow.container).toHaveTextContent(
       `${formatDate(deployment.metadata!.creationTimestamp!)} (${formatRelativeTimeStrict(
         deployment.metadata!.creationTimestamp!

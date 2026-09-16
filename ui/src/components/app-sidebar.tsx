@@ -1,4 +1,3 @@
-import { useCluster } from '@/hooks/use-cluster'
 import * as React from 'react'
 import { useMemo } from 'react'
 import Icon from '@/assets/icon.png'
@@ -12,7 +11,6 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -28,10 +26,10 @@ import { Collapsible, CollapsibleTrigger } from './ui/collapsible'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
-  const { clusters, currentCluster } = useCluster()
   const location = useLocation()
   const { isMobile, setOpenMobile, state } = useSidebar()
-  const { config, isLoading, getIconComponent, toggleGroupCollapse } = useSidebarConfig()
+  const { config, isLoading, getIconComponent, toggleGroupCollapse } =
+    useSidebarConfig()
   const isIconCollapsed = !isMobile && state === 'collapsed'
 
   const pinnedItems = useMemo(() => {
@@ -219,17 +217,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         ))}
       </SidebarContent>
-
-      <SidebarFooter>
-        <div
-          className={`
-            flex items-center gap-2 rounded-md border border-border/60 bg-gradient-to-r from-muted/40 to-muted/20 px-2 py-1.5 backdrop-blur-sm
-            group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-1.5
-          `}
-        >
-          <span className="truncate text-xs text-muted-foreground" title="DBX connection">{clusters[0]?.name || currentCluster || t('clusterSelector.noneAvailable', 'No connection')}</span>
-        </div>
-      </SidebarFooter>
     </Sidebar>
   )
 }
