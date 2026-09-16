@@ -3,10 +3,10 @@
   "manifest_version": 1,
   "id": "io.dbx.kubernetes",
   "name": "Kubernetes Manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "eryajf",
   "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
-  "icon": "assets/plugin.svg",
+  "icon": "assets/plugin.png",
   "engines": {
     "dbx": ">=0.5.68",
     "host_api": "1"
@@ -28,7 +28,7 @@
       "type": "connection-provider",
       "id": "io.dbx.kubernetes.connection",
       "label": "Kubernetes cluster",
-      "icon": "assets/plugin.svg",
+      "icon": "assets/plugin.png",
       "database_type": "kubernetes",
       "description": "Connect to a Kubernetes cluster using kubeconfig.",
       "fields": [

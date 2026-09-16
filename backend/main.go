@@ -242,7 +242,7 @@ func main() {
 	p := &plugin{connections: connection.New(), sessions: sessions.New()}
 	defer p.connections.Close()
 	defer p.sessions.Close()
-	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.kubernetes", Version: "0.1.0", Capabilities: []string{"connections", "events"}}, p)
+	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.kubernetes", Version: "0.1.1", Capabilities: []string{"connections", "events"}}, p)
 	if e := s.Serve(); e != nil {
 		log.Fatal(e)
 	}

@@ -29,7 +29,7 @@ type Client struct {
 func New(config *rest.Config, namespace, contextName string) (*Client, error) {
 	cfg := rest.CopyConfig(config)
 	cfg.Timeout = 0
-	cfg.UserAgent = "dbx-plugin-k8s/0.1.0"
+	cfg.UserAgent = "dbx-plugin-k8s/0.1.1"
 	transport, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, err
