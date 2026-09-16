@@ -18,7 +18,7 @@ jobs:
     uses: t8y2/dbx/.github/workflows/plugin-release-reusable.yml@plugin-cli-v0.1.6
     with:
       release-tag: ${{ github.event.release.tag_name || inputs.release-tag }}
-      package-command: npm --prefix ui install && npm --prefix ui run build && dbx-plugin package .
+      package-command: corepack enable && corepack pnpm --dir ui install --frozen-lockfile && corepack pnpm --dir ui run build && dbx-plugin package .
       package-path: dist/*.dbxp
       metadata-path: dist/*.artifact.json
       plugin-cli-version: 0.1.6
