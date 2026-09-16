@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/t8y2/dbx/plugin-sdk-v1/plugins/manifest.schema.json",
   "manifest_version": 1,
-  "id": "io.dbx.kubernetes",
+  "id": "io.dbx.k8s",
   "name": "Kubernetes Manager",
   "version": "0.1.1",
   "publisher": "eryajf",
@@ -26,7 +26,7 @@
   "contributions": [
     {
       "type": "connection-provider",
-      "id": "io.dbx.kubernetes.connection",
+      "id": "io.dbx.k8s.connection",
       "label": "Kubernetes cluster",
       "icon": "assets/plugin.png",
       "database_type": "kubernetes",
@@ -115,7 +115,7 @@
           "binding": "config"
         }
       ],
-      "workbench": "io.dbx.kubernetes.workbench",
+      "workbench": "io.dbx.k8s.workbench",
       "capabilities": [
         "test",
         "connect",
@@ -124,7 +124,7 @@
     },
     {
       "type": "workbench",
-      "id": "io.dbx.kubernetes.workbench",
+      "id": "io.dbx.k8s.workbench",
       "label": "Kubernetes Workbench",
       "description": "Browse and operate Kubernetes resources."
     }
@@ -134,7 +134,7 @@
       "name": "Kubernetes 管理",
       "description": "在 DBX 中管理 Kubernetes 集群、工作负载和资源。",
       "contributions": {
-        "io.dbx.kubernetes.connection": {
+        "io.dbx.k8s.connection": {
           "label": "Kubernetes 集群",
           "fields": {
             "display_name": {
@@ -157,7 +157,7 @@
             }
           }
         },
-        "io.dbx.kubernetes.workbench": {
+        "io.dbx.k8s.workbench": {
           "label": "Kubernetes 工作台"
         }
       }

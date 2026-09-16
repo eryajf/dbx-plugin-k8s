@@ -77,7 +77,7 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 		p.connections.Remove(id)
 		return map[string]any{"success": true}, nil
 	case "dbx-plugin-k8s/ping":
-		return map[string]any{"ok": true, "plugin": "io.dbx.kubernetes", "language": "go"}, nil
+		return map[string]any{"ok": true, "plugin": "io.dbx.k8s", "language": "go"}, nil
 	case "favorite/list", "favorite/update":
 		return p.handleFavorites(method, v, raw)
 	case "ui/preferences-get", "ui/preferences-set":
@@ -242,7 +242,7 @@ func main() {
 	p := &plugin{connections: connection.New(), sessions: sessions.New()}
 	defer p.connections.Close()
 	defer p.sessions.Close()
-	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.kubernetes", Version: "0.1.1", Capabilities: []string{"connections", "events"}}, p)
+	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.1", Capabilities: []string{"connections", "events"}}, p)
 	if e := s.Serve(); e != nil {
 		log.Fatal(e)
 	}
