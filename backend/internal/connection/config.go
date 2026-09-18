@@ -27,6 +27,18 @@ type Resolved struct {
 func object(v any) map[string]any { m, _ := v.(map[string]any); return m }
 func text(v any) string           { s, _ := v.(string); return s }
 
+func boolean(values ...any) bool {
+	for _, value := range values {
+		if b, ok := value.(bool); ok {
+			return b
+		}
+		if text(value) == "true" {
+			return true
+		}
+	}
+	return false
+}
+
 func ID(values map[string]any) string {
 	id := text(values["connectionId"])
 	if id == "" {
@@ -71,6 +83,19 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		}
 		return ""
 	}
+	mode := get("auth_mode")
+	if mode == "" {
+		if secret("kubeconfig") != "" || get("kubeconfig_path") != "" || get("kubeconfigPath") != "" {
+			mode = "kubeconfig"
+		} else if secret("client_cert") != "" || secret("client_key") != "" {
+			mode = "client_cert"
+		} else {
+			mode = "token"
+		}
+	}
+	if mode != "kubeconfig" && mode != "token" && mode != "client_cert" {
+		return nil, errors.New("auth_mode must be kubeconfig, token, or client_cert")
+	}
 	resolved := &Resolved{ID: ID(values), Namespace: get("namespace"), ContextName: get("context"), Timeout: 30 * time.Second}
 	if seconds := get("timeout_s"); seconds != "" {
 		n, err := strconv.Atoi(seconds)
@@ -84,12 +109,19 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		}
 		resolved.Timeout = time.Duration(n) * time.Second
 	}
-	configText := secret("kubeconfig")
 	path := get("kubeconfig_path")
 	if path == "" {
 		path = get("kubeconfigPath")
 	}
-	if configText != "" || path != "" {
+	configText := ""
+	if mode == "kubeconfig" {
+		// A picked file is authoritative. This avoids silently using stale secret
+		// content when the user changes the file in the connection form.
+		if path == "" {
+			configText = secret("kubeconfig")
+		}
+	}
+	if mode == "kubeconfig" && (configText != "" || path != "") {
 		var loader clientcmd.ClientConfig
 		overrides := &clientcmd.ConfigOverrides{CurrentContext: resolved.ContextName}
 		if resolved.Namespace != "" {
@@ -133,6 +165,9 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		}
 		resolved.Namespace = ns
 	} else {
+		if mode == "kubeconfig" {
+			return nil, errors.New("provide kubeconfig or kubeconfig path")
+		}
 		server := get("server")
 		if server == "" {
 			server = get("host")
@@ -155,7 +190,7 @@ func Resolve(values map[string]any) (*Resolved, error) {
 	}
 	// Executable credential plugins require a separate opt-in: importing an
 	// untrusted kubeconfig must not run local commands merely to test a connection.
-	if resolved.Config.ExecProvider != nil && get("allow_exec") != "true" {
+	if resolved.Config.ExecProvider != nil && !boolean(external["allow_exec"], conn["allow_exec"], values["allow_exec"]) {
 		return nil, errors.New("kubeconfig uses an executable credential plugin; enable allow_exec only for a trusted kubeconfig")
 	}
 	insecure := get("insecure_skip_tls_verify") == "true"

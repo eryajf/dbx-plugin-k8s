@@ -23,6 +23,28 @@ dbx-plugin dev --path . --port 5190
 
 Open the loopback URL printed by the command. Add a connection using the kubeconfig content from `kubectl config view --raw`, then click **Test** and **Connect**. The workbench should load namespaces and resource lists. Keep this terminal open: backend RPC errors and sidecar startup failures are printed there. Development connection data is stored under `.dbx-dev/` and is ignored by Git.
 
+### Connection modes
+
+The connection form asks for an **Authentication** mode and only shows the fields that mode needs:
+
+| Mode | Fields | Backend behaviour |
+| --- | --- | --- |
+| **Kubeconfig** | Kubeconfig file picker, Kubeconfig YAML, context, exec opt-in | Merges the kubeconfig with the context/namespace overrides |
+| **API Server + Token** | API Server, Bearer token, CA certificate | Builds a `rest.Config` from the endpoint and token |
+| **API Server + Client Certificate** | API Server, client cert, client key, CA certificate | Builds a `rest.Config` from the endpoint and client credentials |
+
+Timeout, default namespace, and read-only are shared by every mode.
+
+Optional context selection, exec credential opt-in, request timeout, TLS verification, and default namespace settings are grouped under **Show advanced options** and stay collapsed by default.
+
+In Kubeconfig mode the **Kubeconfig file** field opens a local file picker. Desktop hosts store the chosen absolute path and the backend reads the file itself; browser hosts cannot resolve a client path, so DBX loads the file content into the Kubeconfig box instead. Pasting kubeconfig YAML directly always works too.
+
+### Host version requirements
+
+Conditional fields (`visible_when` / `required_when`) require DBX `>=0.6.13`, and the file picker (`picker`) requires the DBX release that ships it, which is why `engines.dbx` is pinned to `>=0.6.16`. Hosts older than those releases **reject the manifest**, so do not lower `engines.dbx` unless the form stops using those features.
+
+> The bundled `dbx-plugin` development host (CLI 0.1.9) validates but does not render either feature: it shows every field unconditionally and offers no file picker. Verify the mode switching and the picker in a real DBX build before shipping.
+
 Before DBX integration, run the two local checks:
 
 ```bash

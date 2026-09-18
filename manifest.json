@@ -1,14 +1,14 @@
 {
-  "$schema": "https://raw.githubusercontent.com/t8y2/dbx/plugin-sdk-v1/plugins/manifest.schema.json",
+  "$schema": "https://raw.githubusercontent.com/t8y2/dbx/main/plugins/manifest.schema.json",
   "manifest_version": 1,
   "id": "io.dbx.k8s",
   "name": "Kubernetes Manager",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "eryajf",
   "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
   "icon": "assets/plugin.png",
   "engines": {
-    "dbx": ">=0.5.68",
+    "dbx": ">=0.6.16",
     "host_api": "1"
   },
   "permissions": [
@@ -41,63 +41,101 @@
           "required": true
         },
         {
+          "key": "auth_mode",
+          "label": "Authentication",
+          "type": "select",
+          "default": "kubeconfig",
+          "binding": "config",
+          "required": true,
+          "options": [
+            { "label": "Kubeconfig", "value": "kubeconfig" },
+            { "label": "API Server + Token", "value": "token" },
+            { "label": "API Server + Client Certificate", "value": "client_cert" }
+          ],
+          "description": "Choose how to authenticate to the cluster."
+        },
+        {
+          "key": "kubeconfig_path",
+          "label": "Kubeconfig file",
+          "type": "text",
+          "binding": "config",
+          "picker": {
+            "kind": "file",
+            "accept": [".yaml", ".yml"],
+            "content_field": "kubeconfig"
+          },
+          "visible_when": { "field": "auth_mode", "one_of": ["kubeconfig"] },
+          "placeholder": "Choose a local kubeconfig file",
+          "description": "Desktop keeps the chosen file path; web hosts load its content into the Kubeconfig box below."
+        },
+        {
           "key": "kubeconfig",
           "label": "Kubeconfig",
           "type": "textarea",
           "binding": "secret",
-          "required": true,
-          "description": "Kubeconfig YAML stored in DBX secret store."
+          "visible_when": { "field": "auth_mode", "one_of": ["kubeconfig"] },
+          "description": "Kubeconfig YAML stored in DBX secret store. Load from a file or paste it here."
         },
         {
           "key": "server",
-          "label": "API Server (optional)",
+          "label": "API Server",
           "type": "text",
           "binding": "config",
-          "description": "Use with token or client certificate when kubeconfig is not provided."
+          "visible_when": { "field": "auth_mode", "one_of": ["token", "client_cert"] },
+          "required_when": { "field": "auth_mode", "one_of": ["token", "client_cert"] },
+          "placeholder": "https://kubernetes.example.com:6443"
         },
         {
           "key": "token",
           "label": "Bearer token",
           "type": "password",
-          "binding": "secret"
+          "binding": "secret",
+          "visible_when": { "field": "auth_mode", "one_of": ["token"] },
+          "required_when": { "field": "auth_mode", "one_of": ["token"] }
         },
         {
           "key": "ca_cert",
           "label": "CA certificate (PEM)",
           "type": "textarea",
-          "binding": "secret"
+          "binding": "secret",
+          "visible_when": { "field": "auth_mode", "one_of": ["token", "client_cert"] },
+          "description": "Optional cluster CA certificate for TLS verification."
         },
         {
           "key": "client_cert",
           "label": "Client certificate (PEM)",
           "type": "textarea",
-          "binding": "secret"
+          "binding": "secret",
+          "visible_when": { "field": "auth_mode", "one_of": ["client_cert"] },
+          "required_when": { "field": "auth_mode", "one_of": ["client_cert"] }
         },
         {
           "key": "client_key",
           "label": "Client key (PEM)",
           "type": "textarea",
-          "binding": "secret"
+          "binding": "secret",
+          "visible_when": { "field": "auth_mode", "one_of": ["client_cert"] },
+          "required_when": { "field": "auth_mode", "one_of": ["client_cert"] }
+        },
+        {
+          "key": "show_advanced",
+          "label": "Show advanced options",
+          "type": "boolean",
+          "default": false,
+          "binding": "config",
+          "description": "Show optional context, timeout, namespace, and TLS settings."
         },
         {
           "key": "context",
           "label": "Kubeconfig context",
           "type": "text",
-          "binding": "config"
-        },
-        {
-          "key": "timeout_s",
-          "label": "Timeout (seconds)",
-          "type": "number",
-          "default": 30,
-          "binding": "config"
-        },
-        {
-          "key": "insecure_skip_tls_verify",
-          "label": "Skip TLS verification",
-          "type": "boolean",
-          "default": false,
-          "binding": "config"
+          "binding": "config",
+          "visible_when": {
+            "all_of": [
+              { "field": "show_advanced", "one_of": ["true"] },
+              { "field": "auth_mode", "one_of": ["kubeconfig"] }
+            ]
+          }
         },
         {
           "key": "allow_exec",
@@ -105,14 +143,42 @@
           "type": "boolean",
           "default": false,
           "binding": "config",
+          "visible_when": {
+            "all_of": [
+              { "field": "show_advanced", "one_of": ["true"] },
+              { "field": "auth_mode", "one_of": ["kubeconfig"] }
+            ]
+          },
           "description": "Only enable for trusted kubeconfig files."
+        },
+        {
+          "key": "timeout_s",
+          "label": "Timeout (seconds)",
+          "type": "number",
+          "default": 30,
+          "binding": "config",
+          "visible_when": { "field": "show_advanced", "one_of": ["true"] }
+        },
+        {
+          "key": "insecure_skip_tls_verify",
+          "label": "Skip TLS verification",
+          "type": "boolean",
+          "default": false,
+          "binding": "config",
+          "visible_when": {
+            "all_of": [
+              { "field": "show_advanced", "one_of": ["true"] },
+              { "field": "auth_mode", "one_of": ["token", "client_cert"] }
+            ]
+          }
         },
         {
           "key": "namespace",
           "label": "Default namespace",
           "type": "text",
           "default": "default",
-          "binding": "config"
+          "binding": "config",
+          "visible_when": { "field": "show_advanced", "one_of": ["true"] }
         }
       ],
       "workbench": "io.dbx.k8s.workbench",
@@ -140,20 +206,68 @@
             "display_name": {
               "label": "连接名称"
             },
-            "kubeconfig": {
-              "label": "Kubeconfig"
+            "auth_mode": {
+              "label": "认证方式",
+              "description": "选择连接集群所使用的认证方式。",
+              "options": {
+                "kubeconfig": "Kubeconfig",
+                "token": "API Server + Token",
+                "client_cert": "API Server + 客户端证书"
+              }
             },
-            "server": {"label": "API Server（可选）"},
-            "token": {"label": "Bearer Token"},
-            "ca_cert": {"label": "CA 证书（PEM）"},
-            "client_cert": {"label": "客户端证书（PEM）"},
-            "client_key": {"label": "客户端私钥（PEM）"},
-            "context": {"label": "Kubeconfig Context"},
-            "timeout_s": {"label": "超时时间（秒）"},
-            "insecure_skip_tls_verify": {"label": "跳过 TLS 校验"},
-            "allow_exec": {"label": "允许执行 Kubeconfig 凭据插件"},
+            "kubeconfig_path": {
+              "label": "配置文件",
+              "placeholder": "选择本地 Kubeconfig 文件",
+              "description": "点击选择本地 kubeconfig 文件：桌面端记录文件路径，网页端会自动把文件内容填入下方输入框。"
+            },
+            "kubeconfig": {
+              "label": "Kubeconfig",
+              "description": "文件或内容至少填写一项；Kubeconfig YAML 会存入 DBX 密钥库。"
+            },
+            "server": {
+              "label": "API Server",
+              "placeholder": "https://kubernetes.example.com:6443",
+              "description": "填写 Kubernetes API Server 地址。"
+            },
+            "token": {
+              "label": "Token",
+              "description": "填写用于访问集群的 Bearer Token。"
+            },
+            "ca_cert": {
+              "label": "CA 证书",
+              "description": "可选：用于 TLS 校验的集群 CA 证书。"
+            },
+            "client_cert": {
+              "label": "客户端证书",
+              "description": "填写 PEM 格式的客户端证书。"
+            },
+            "client_key": {
+              "label": "客户端私钥",
+              "description": "填写 PEM 格式的客户端私钥。"
+            },
+            "show_advanced": {
+              "label": "显示高级选项",
+              "description": "显示 Context、超时、命名空间和 TLS 等可选配置。"
+            },
+            "context": {
+              "label": "Context",
+              "description": "留空时使用 kubeconfig 当前 Context。"
+            },
+            "timeout_s": {
+              "label": "超时（秒）",
+              "description": "连接和请求的最长等待时间。"
+            },
+            "insecure_skip_tls_verify": {
+              "label": "跳过 TLS",
+              "description": "仅在使用自签名证书且确认风险时启用。"
+            },
+            "allow_exec": {
+              "label": "允许 exec",
+              "description": "仅对可信 kubeconfig 启用。"
+            },
             "namespace": {
-              "label": "默认命名空间"
+              "label": "命名空间",
+              "description": "未填写时使用 default。"
             }
           }
         },

@@ -36,6 +36,15 @@ func TestRejectUnknownContext(t *testing.T) {
 		t.Fatal("expected missing context error")
 	}
 }
+func TestResolveFlatKubeconfigWithoutAuthMode(t *testing.T) {
+	r, err := Resolve(map[string]any{"kubeconfig": sampleConfig, "context": "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Config.Host != "https://cluster.example" || r.ContextName != "production" {
+		t.Fatalf("flat kubeconfig payload not resolved correctly: host=%s context=%s", r.Config.Host, r.ContextName)
+	}
+}
 func TestCredentialsMustNotComeFromExternalConfig(t *testing.T) {
 	_, err := Resolve(map[string]any{"connection": map[string]any{"external_config": map[string]any{"server": "https://example.com", "token": "secret"}}})
 	if err == nil {
