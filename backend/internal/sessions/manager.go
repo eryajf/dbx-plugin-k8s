@@ -44,6 +44,8 @@ type session struct {
 	ready                bool
 	ports                []portforward.ForwardedPort
 	lastRead             time.Time
+	cleanup              func()
+	cleanupOnce          sync.Once
 }
 
 func (s *session) Write(p []byte) (int, error) {
@@ -70,10 +72,14 @@ func (s *session) finish(err error) {
 		s.err = err.Error()
 	}
 	input := s.input
+	cleanup := s.cleanup
 	s.mu.Unlock()
 	s.cancel()
 	if input != nil {
 		input.Close()
+	}
+	if cleanup != nil {
+		s.cleanupOnce.Do(cleanup)
 	}
 }
 func (s *session) read() Result {
@@ -112,17 +118,21 @@ func New() *Manager {
 			case <-ctx.Done():
 				return
 			case <-t.C:
+				var expired []*session
 				m.mu.Lock()
 				for id, s := range m.all {
 					s.mu.Lock()
 					idle := time.Since(s.lastRead) > 30*time.Minute
 					s.mu.Unlock()
 					if idle {
-						s.finish(nil)
+						expired = append(expired, s)
 						delete(m.all, id)
 					}
 				}
 				m.mu.Unlock()
+				for _, s := range expired {
+					s.finish(nil)
+				}
 			}
 		}
 	}()
@@ -147,6 +157,18 @@ func (m *Manager) open(parent context.Context, connection, kind string) (*sessio
 	go func() { <-ctx.Done(); s.finish(nil) }()
 	return s, nil
 }
+
+func (s *session) setCleanup(cleanup func()) {
+	s.mu.Lock()
+	closed := s.closed
+	s.cleanup = cleanup
+	s.mu.Unlock()
+	if closed {
+		if cleanup != nil {
+			s.cleanupOnce.Do(cleanup)
+		}
+	}
+}
 func (m *Manager) get(connection, id string) (*session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -170,21 +192,29 @@ func (m *Manager) remove(connection, id string) error {
 }
 func (m *Manager) CloseConnection(id string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	var sessions []*session
 	for key, s := range m.all {
 		if s.connection == id {
-			s.finish(nil)
+			sessions = append(sessions, s)
 			delete(m.all, key)
 		}
+	}
+	m.mu.Unlock()
+	for _, s := range sessions {
+		s.finish(nil)
 	}
 }
 func (m *Manager) Close() {
 	m.cancel()
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	sessions := make([]*session, 0, len(m.all))
 	for id, s := range m.all {
-		s.finish(nil)
+		sessions = append(sessions, s)
 		delete(m.all, id)
+	}
+	m.mu.Unlock()
+	for _, s := range sessions {
+		s.finish(nil)
 	}
 }
 
@@ -201,7 +231,11 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 	case "pod/logs-open":
 		return m.logs(ctx, c, connection, raw)
 	case "pod/exec-open":
-		return m.exec(c, connection, raw)
+		return m.exec(ctx, c, connection, raw)
+	case "node/exec-open":
+		return m.nodeExec(ctx, c, connection, raw)
+	case "kubectl/exec-open":
+		return m.kubectlExec(ctx, c, connection, raw)
 	case "resource/watch":
 		return m.watch(c, connection, raw)
 	case "port-forward/open":
@@ -237,7 +271,7 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 		return s.read(), nil
 	case "pod/logs-close", "pod/exec-close", "resource/watch-close", "port-forward/close", "session/close":
 		return map[string]bool{"closed": true}, m.remove(connection, p.SessionID)
-	case "pod/exec-write":
+	case "pod/exec-write", "terminal/exec-write":
 		if s.kind != "exec" {
 			return nil, fmt.Errorf("not an exec session")
 		}
@@ -267,7 +301,7 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 			s.finish(nil)
 			return nil, fmt.Errorf("terminal input timed out")
 		}
-	case "pod/exec-resize":
+	case "pod/exec-resize", "terminal/exec-resize":
 		if s.kind != "exec" || p.Cols == 0 || p.Rows == 0 {
 			return nil, fmt.Errorf("invalid terminal size or session")
 		}

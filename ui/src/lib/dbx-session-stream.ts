@@ -29,17 +29,35 @@ export function startSessionStream(transport: DBXTransport, method: string, para
 }
 export type TerminalSocket = {readyState: number; onopen: (() => void) | null; onmessage: ((event: {data: string}) => void) | null; onerror: ((error: unknown) => void) | null; onclose: ((event: {code: number}) => void) | null; send: (data: string) => void; close: () => void}
 export function createDBXTerminalSocket(transport: DBXTransport, params: Record<string, unknown>): TerminalSocket {
+  const type = params.type === 'node' || params.type === 'kubectl' ? params.type : 'pod'
+  const openMethod = type === 'node' ? 'node/exec-open' : type === 'kubectl' ? 'kubectl/exec-open' : 'pod/exec-open'
+  const openParams = type === 'node'
+    ? {node: params.nodeName}
+    : type === 'kubectl'
+      ? {}
+      : {namespace: params.namespace, name: params.name, container: params.container, command: ['sh', '-c', 'bash || sh'], tty: true}
+  let closed = false
   const socket: TerminalSocket = {readyState: 0, onopen: null, onmessage: null, onerror: null, onclose: null, send(data) {
-    const message = JSON.parse(data)
-    if (message.type === 'ping') return
-    const method = message.type === 'resize' ? 'pod/exec-resize' : 'pod/exec-write'
-    void stream.send(method, message.type === 'resize' ? {cols: message.cols, rows: message.rows} : {data: message.data}).catch(error => socket.onerror?.(error))
-  }, close() {stream.close(); socket.readyState = 3; socket.onclose?.({code: 1000})}}
-  const stream = startSessionStream(transport, 'pod/exec-open', {...params, command: ['sh'], tty: true}, {
-    onOpen: () => {socket.readyState = 1; socket.onopen?.()},
+    try {
+      const message = JSON.parse(data)
+      if (message.type === 'ping') return
+      const method = message.type === 'resize' ? 'terminal/exec-resize' : 'terminal/exec-write'
+      void stream.send(method, message.type === 'resize' ? {cols: message.cols, rows: message.rows} : {data: message.data}).catch(error => socket.onerror?.(error))
+    } catch (error) {
+      socket.onerror?.(error)
+    }
+  }, close() {
+    if (closed) return
+    closed = true
+    stream.close()
+    socket.readyState = 3
+    socket.onclose?.({code: 1000})
+  }}
+  const stream = startSessionStream(transport, openMethod, openParams, {
+    onOpen: () => {if (closed) return; socket.readyState = 1; socket.onopen?.()},
     onData: data => socket.onmessage?.({data: JSON.stringify({type: 'stdout', data})}),
-    onError: error => socket.onmessage?.({data: JSON.stringify({type: 'error', data: error.message})}),
-    onClose: () => {socket.readyState = 3; socket.onclose?.({code: 1000})}
+    onError: error => {socket.onmessage?.({data: JSON.stringify({type: 'error', data: error.message})}); if (!closed) {closed = true; socket.readyState = 3; socket.onclose?.({code: 1006})}},
+    onClose: () => {if (!closed) {closed = true; socket.readyState = 3; socket.onclose?.({code: 1000})}}
   })
   return socket
 }

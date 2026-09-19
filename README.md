@@ -91,6 +91,19 @@ dbx-plugin package .
 
 The command builds the native backend for the current host, stages `manifest.json`, `assets/`, and `ui/`, then writes an unsigned target-specific `.dbxp` candidate plus matching `.artifact.json` into `dist/`.
 
+### Automatic local packages
+
+`scripts/auto-package.mjs` rebuilds and repackages only when something that affects the packaged bytes changed, and bumps the patch version so each `.dbxp` installs next to the previous one:
+
+```bash
+node scripts/auto-package.mjs           # rebuild when sources changed, otherwise exit immediately
+node scripts/auto-package.mjs --force   # rebuild regardless
+node scripts/auto-package.mjs --check   # report whether a rebuild is pending, build nothing
+node scripts/auto-package.mjs --json    # machine-readable summary
+```
+
+A workspace hook in `.zcode/config.json` runs it on every ZCode turn, so ordinary edits leave a fresh package in `dist/` without any manual step. The run log is `dist/auto-package.log`, and `dist/.auto-package-state.json` records the fingerprint and the package it produced. A build that fails to produce a package rolls the version back, so `manifest.json` never moves past a version that does not exist.
+
 ## Release
 
 1. Publish a GitHub Release. The generated workflow builds unsigned candidates for every target.

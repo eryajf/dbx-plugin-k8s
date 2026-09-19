@@ -128,6 +128,8 @@ export function useFeature(feature: LicenseFeatureKey) {
   const context = useContext(LicenseContext)
   // Standalone previews have no license context. Missing capabilities remain
   // disabled; useLicense still requires a provider for full account access.
-  if ((globalThis as unknown as {dbxPlugin?: unknown}).dbxPlugin) return ['resource.batchActions', 'export.advanced'].includes(feature)
+  if ((globalThis as unknown as {dbxPlugin?: unknown}).dbxPlugin) {
+    return ['resource.batchActions', 'export.advanced', 'terminal.node', 'terminal.kubectl'].includes(feature)
+  }
   return context?.features.has(feature) ?? false
 }

@@ -104,8 +104,8 @@ export class DBXTransport {
     return {totalNodes: summary.nodes, readyNodes: summary.readyNodes, totalPods: summary.pods, runningPods: summary.podPhases.Running || 0, totalNamespaces: summary.namespaces, totalServices: services.items.length, prometheusEnabled: false, resource}
   }
 }
-export function getDBXTransport(): DBXTransport | null {
+export function getDBXTransport(connectionId?: string): DBXTransport | null {
   const bridge = (globalThis as unknown as {dbxPlugin?: {invoke: DBXInvoke; context?: {connectionId?: string}}}).dbxPlugin
-  const id = bridge?.context?.connectionId
+  const id = connectionId || bridge?.context?.connectionId
   return bridge && id ? new DBXTransport((method, params) => bridge.invoke(method, params), id) : null
 }

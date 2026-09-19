@@ -120,7 +120,7 @@ func (m *Manager) logs(ctx context.Context, c *kube.Client, connection string, r
 	}()
 	return map[string]string{"sessionId": s.id}, nil
 }
-func (m *Manager) exec(c *kube.Client, connection string, raw json.RawMessage) (any, error) {
+func (m *Manager) exec(ctx context.Context, c *kube.Client, connection string, raw json.RawMessage) (any, error) {
 	var p struct {
 		Namespace string   `json:"namespace"`
 		Name      string   `json:"name"`
@@ -139,7 +139,7 @@ func (m *Manager) exec(c *kube.Client, connection string, raw json.RawMessage) (
 		return nil, err
 	}
 	u := client.CoreV1().RESTClient().Post().Resource("pods").Namespace(p.Namespace).Name(p.Name).SubResource("exec").VersionedParams(&core.PodExecOptions{Container: p.Container, Command: p.Command, Stdin: true, Stdout: true, Stderr: !p.TTY, TTY: p.TTY}, scheme.ParameterCodec).URL()
-	executor, err := remotecommand.NewSPDYExecutor(cfg, "POST", u)
+	executor, err := kube.NewRemoteCommandExecutor(cfg, u)
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +158,47 @@ func (m *Manager) exec(c *kube.Client, connection string, raw json.RawMessage) (
 			options.Stderr = s
 		}
 		s.finish(executor.StreamWithContext(s.ctx, options))
+	}()
+	return map[string]string{"sessionId": s.id}, nil
+}
+
+// openAgentExec starts an interactive shell in an already-created agent Pod.
+// Agent lifecycle is owned by the session so closing the terminal also removes
+// the temporary Pod.
+func (m *Manager) openAgentExec(ctx context.Context, c *kube.Client, connection, namespace, pod, container string, cleanup func()) (any, error) {
+	client, cfg, err := streamCore(c)
+	if err != nil {
+		return nil, err
+	}
+	u := client.CoreV1().RESTClient().Post().Resource("pods").Namespace(namespace).Name(pod).SubResource("exec").VersionedParams(&core.PodExecOptions{
+		Container: container,
+		Command:   []string{"sh", "-c", "bash || sh"},
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       true,
+	}, scheme.ParameterCodec).URL()
+	executor, err := kube.NewRemoteCommandExecutor(cfg, u)
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	s, err := m.open(c.Context, connection, "exec")
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	s.setCleanup(cleanup)
+	input, writer := io.Pipe()
+	s.mu.Lock()
+	s.input = writer
+	s.mu.Unlock()
+	go func() {
+		defer input.Close()
+		err := executor.StreamWithContext(s.ctx, remotecommand.StreamOptions{
+			Stdin: input, Stdout: s, Stderr: s, Tty: true, TerminalSizeQueue: s,
+		})
+		s.finish(err)
 	}()
 	return map[string]string{"sessionId": s.id}, nil
 }

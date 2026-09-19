@@ -82,6 +82,11 @@ function canHandleDesktopNavigation(windowName: string) {
   return windowName === '' || isMainDesktopWindowName(windowName)
 }
 
+function isDBXPluginHost() {
+  return typeof window !== 'undefined' &&
+    Boolean((window as Window & { dbxPlugin?: unknown }).dbxPlugin)
+}
+
 function updateNavigationState(
   previous: NavigationState,
   nextEntry: NavigationEntry,
@@ -155,6 +160,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     entries: [toEntry(location)],
     index: 0,
   }))
+  // DBX embeds the plugin in a desktop host but does not expose the legacy
+  // desktop runtime flag. Keyboard navigation must still work in that host.
+  const keyboardNavigationEnabled = isDesktop || isDBXPluginHost()
 
   useEffect(() => {
     const nextEntry = toEntry(location)
@@ -229,7 +237,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   }, [goBack, goForward, isDesktop])
 
   useEffect(() => {
-    if (!isDesktop) {
+    if (!keyboardNavigationEnabled) {
       return
     }
 
@@ -294,9 +302,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [goBack, goForward, isDesktop])
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
+  }, [goBack, goForward, keyboardNavigationEnabled])
 
   useEffect(() => {
     if (!isMainDesktopWindow) {

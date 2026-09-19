@@ -9,10 +9,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 const syncDesktopNavigationStateMock = vi.fn(() => Promise.resolve())
 let desktopWindowName = 'main'
+let desktopRuntime = true
 
 vi.mock('@/contexts/runtime-context', () => ({
   useRuntime: () => ({
-    isDesktop: true,
+    isDesktop: desktopRuntime,
     isReady: true,
   }),
 }))
@@ -75,6 +76,8 @@ function renderNavigation(initialEntries: string[] = ['/']) {
 describe('NavigationProvider', () => {
   beforeEach(() => {
     desktopWindowName = 'main'
+    desktopRuntime = true
+    delete (window as Window & { dbxPlugin?: unknown }).dbxPlugin
   })
 
   it('supports multi-step back and forward history', async () => {
@@ -156,6 +159,39 @@ describe('NavigationProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('location')).toHaveTextContent('/apps/a')
+    })
+  })
+
+  it.each([
+    [
+      'bracket',
+      { key: '[', code: 'BracketLeft', metaKey: true },
+      { key: ']', code: 'BracketRight', metaKey: true },
+    ],
+    [
+      'Alt+Arrow',
+      { key: 'ArrowLeft', code: 'ArrowLeft', altKey: true },
+      { key: 'ArrowRight', code: 'ArrowRight', altKey: true },
+    ],
+  ])('handles %s shortcuts inside the DBX plugin host', async (_name, back, forward) => {
+    const user = userEvent.setup()
+    desktopRuntime = false
+    ;(window as Window & { dbxPlugin?: unknown }).dbxPlugin = {}
+    renderNavigation()
+
+    await user.click(screen.getByRole('button', { name: 'apps' }))
+    await user.click(screen.getByRole('button', { name: 'app detail' }))
+
+    fireEvent.keyDown(document, back)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location').textContent).toBe('/apps')
+    })
+
+    fireEvent.keyDown(document, forward)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location').textContent).toBe('/apps/a')
     })
   })
 

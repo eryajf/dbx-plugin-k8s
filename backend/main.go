@@ -83,7 +83,7 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 	case "ui/preferences-get", "ui/preferences-set":
 		return p.handlePreferences(method, v, raw)
 	}
-	if (strings.HasSuffix(method, "-read") && method != "pod/file-read") || strings.HasSuffix(method, "-close") || method == "session/read" || method == "session/close" || method == "pod/exec-write" || method == "pod/exec-resize" || method == "port-forward/close" {
+	if (strings.HasSuffix(method, "-read") && method != "pod/file-read") || strings.HasSuffix(method, "-close") || method == "session/read" || method == "session/close" || method == "pod/exec-write" || method == "pod/exec-resize" || method == "terminal/exec-write" || method == "terminal/exec-resize" || method == "port-forward/close" {
 		sid, ok := v["sessionId"].(string)
 		if !ok || strings.TrimSpace(sid) == "" {
 			return nil, dbx.NewError(-32602, "sessionId is required")
@@ -128,8 +128,12 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 			out, e = operations.Handle(ctx, c, method, raw)
 		}
 	case strings.HasPrefix(method, "workload/"), strings.HasPrefix(method, "node/"), strings.HasPrefix(method, "cronjob/"):
-		out, e = operations.Handle(ctx, c, method, raw)
-	case strings.HasPrefix(method, "pod/"), strings.HasPrefix(method, "session/"), strings.HasPrefix(method, "port-forward/"):
+		if method == "node/exec-open" {
+			out, e = p.sessions.Handle(ctx, c, id, method, raw)
+		} else {
+			out, e = operations.Handle(ctx, c, method, raw)
+		}
+	case strings.HasPrefix(method, "pod/"), strings.HasPrefix(method, "session/"), strings.HasPrefix(method, "port-forward/"), strings.HasPrefix(method, "terminal/"), strings.HasPrefix(method, "kubectl/"):
 		out, e = p.sessions.Handle(ctx, c, id, method, raw)
 	default:
 		return nil, dbx.MethodNotFound(method)
@@ -167,7 +171,7 @@ func knownMethod(method string) bool {
 		"kube/cluster-info", "kube/discover", "kube/namespaces", "kube/overview", "kube/metrics", "kube/recent-events", "kube/search",
 		"resource/list", "resource/get", "resource/create", "resource/update", "resource/patch", "resource/delete", "resource/describe", "resource/related", "resource/apply", "resource/search", "resource/watch", "resource/watch-read", "resource/watch-close",
 		"node/cordon", "node/uncordon", "node/drain", "workload/restart", "workload/scale", "workload/history", "workload/rollback", "cronjob/trigger", "cronjob/suspend",
-		"pod/files-list", "pod/file-read", "pod/file-write", "pod/file-delete", "pod/logs-open", "pod/logs-read", "pod/logs-close", "pod/exec-open", "pod/exec-read", "pod/exec-write", "pod/exec-resize", "pod/exec-close", "session/read", "session/close", "port-forward/open", "port-forward/list", "port-forward/close", "favorite/list", "favorite/update":
+		"pod/files-list", "pod/file-read", "pod/file-write", "pod/file-delete", "pod/logs-open", "pod/logs-read", "pod/logs-close", "pod/exec-open", "pod/exec-read", "pod/exec-write", "pod/exec-resize", "pod/exec-close", "node/exec-open", "kubectl/exec-open", "terminal/exec-write", "terminal/exec-resize", "session/read", "session/close", "port-forward/open", "port-forward/list", "port-forward/close", "favorite/list", "favorite/update":
 		return true
 	}
 	return false
@@ -178,7 +182,7 @@ func rpcVerb(method string) string {
 		return "get"
 	case "resource/apply", "workload/restart", "workload/scale", "workload/rollback", "cronjob/suspend", "node/cordon", "node/uncordon":
 		return "patch"
-	case "cronjob/trigger", "pod/exec-open", "port-forward/open", "node/drain":
+	case "cronjob/trigger", "pod/exec-open", "node/exec-open", "kubectl/exec-open", "port-forward/open", "node/drain":
 		return "create"
 	}
 	_, verb, _ := strings.Cut(method, "/")

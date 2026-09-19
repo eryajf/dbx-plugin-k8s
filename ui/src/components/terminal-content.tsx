@@ -506,8 +506,16 @@ export function Terminal({
               currentCluster
             )
     const wsUrl = getWebSocketUrl(wsPath)
-    const dbxTransport = getDBXTransport()
-    const websocket = dbxTransport && type === 'pod' ? createDBXTerminalSocket(dbxTransport, {namespace, name: selectedPod, container: selectedContainer}) : new WebSocket(wsUrl)
+    const dbxTransport = getDBXTransport(clusterName)
+    const websocket = dbxTransport
+      ? createDBXTerminalSocket(dbxTransport, {
+          type,
+          namespace,
+          name: selectedPod,
+          container: selectedContainer,
+          nodeName,
+        })
+      : new WebSocket(wsUrl)
     wsRef.current = websocket
 
     websocket.onopen = () => {
@@ -561,7 +569,7 @@ export function Terminal({
       terminal.writeln('')
     }
 
-    websocket.onmessage = (event) => {
+    websocket.onmessage = (event: { data: string }) => {
       try {
         const message = JSON.parse(event.data)
         const dataSize = new Blob([event.data]).size
@@ -592,13 +600,13 @@ export function Terminal({
       }
     }
 
-    websocket.onerror = (error) => {
+    websocket.onerror = (error: unknown) => {
       console.error('WebSocket error:', error)
       terminal.writeln('\x1b[31mWebSocket connection error\x1b[0m')
       setIsConnected(false)
     }
 
-    websocket.onclose = (event) => {
+    websocket.onclose = (event: { code: number }) => {
       setIsConnected(false)
       setNetworkSpeed({ upload: 0, download: 0 })
       if (speedUpdateTimerRef.current) {

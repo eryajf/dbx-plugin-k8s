@@ -29,7 +29,12 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
-import { deleteResource, useResources, useResourcesWatch } from '@/lib/api'
+import {
+  deleteResource,
+  useClusterInfo,
+  useResources,
+  useResourcesWatch,
+} from '@/lib/api'
 import {
   loadResourceTablePreference,
   loadWorkspacePreference,
@@ -37,6 +42,7 @@ import {
   updateWorkspacePreference,
 } from '@/lib/desktop-preferences'
 import { cn } from '@/lib/utils'
+import { useCluster } from '@/hooks/use-cluster'
 import { useFeature } from '@/hooks/use-license'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -105,6 +111,7 @@ export function ResourceTable<T>({
   getRowContextMenuItems,
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
+  const { currentCluster } = useCluster()
   const canUseBatchActions = useFeature('resource.batchActions')
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
@@ -154,18 +161,24 @@ export function ResourceTable<T>({
     resourceType ?? (resourceName.toLowerCase() as ResourceType)
   ).toString()
 
+  const connectionId = currentCluster || ''
+  const { data: clusterInfo, isLoading: clusterInfoLoading } = useClusterInfo(
+    connectionId,
+    { enabled: !clusterScope }
+  )
   const [selectedNamespace, setSelectedNamespace] = useState<
     string | undefined
-  >(() => {
-    // Try to get the stored namespace from localStorage
-    const storedNamespace = localStorage.getItem(
-      localStorage.getItem('current-cluster') + 'selectedNamespace'
-    )
-    return clusterScope
-      ? undefined // No namespace for cluster scope
-      : storedNamespace || 'default' // Default to 'default' if not set
-  })
-  const effectiveNamespace = clusterScope ? undefined : selectedNamespace
+  >(undefined)
+  const [namespaceReady, setNamespaceReady] = useState(clusterScope)
+  const [namespaceResolvedFor, setNamespaceResolvedFor] = useState<
+    string | null
+  >(null)
+  const namespaceResolutionRef = React.useRef(0)
+  const namespaceIsReady =
+    clusterScope ||
+    (namespaceReady && namespaceResolvedFor === connectionId)
+  const effectiveNamespace =
+    namespaceIsReady ? selectedNamespace : undefined
   const [useSSE, setUseSSE] = useState(false)
   const columnVisibilityReadyRef = React.useRef(false)
   const lastPersistedColumnVisibilityRef = React.useRef<string | null>(null)
@@ -181,7 +194,7 @@ export function ResourceTable<T>({
     {
       refreshInterval: useSSE ? 0 : refreshInterval, // disable polling when SSE
       reduce: true, // Fetch reduced data for performance
-      disable: useSSE, // do not query when using SSE
+      disable: useSSE || !namespaceIsReady,
     }
   )
 
@@ -197,51 +210,86 @@ export function ResourceTable<T>({
     (resourceType ??
       (resourceName.toLowerCase() as ResourceType)) as ResourceType,
     effectiveNamespace,
-    { reduce: true, enabled: useSSE }
+    { reduce: true, enabled: useSSE && namespaceIsReady }
   )
 
   useEffect(() => {
-    if (clusterScope || selectedNamespace !== undefined) {
+    const resolutionId = ++namespaceResolutionRef.current
+    if (clusterScope) {
+      setSelectedNamespace(undefined)
+      setNamespaceReady(true)
+      setNamespaceResolvedFor(null)
       return
     }
-    const storedNamespace = localStorage.getItem(
-      localStorage.getItem('current-cluster') + 'selectedNamespace'
-    )
-    setSelectedNamespace(storedNamespace || 'default')
-  }, [clusterScope, selectedNamespace])
+    setNamespaceReady(false)
+    setNamespaceResolvedFor(null)
+    if (!connectionId) {
+      setSelectedNamespace('default')
+      setNamespaceReady(true)
+      setNamespaceResolvedFor('')
+      return
+    }
+    if (clusterInfoLoading) {
+      return
+    }
+
+    const loadNamespace = async () => {
+      let workspacePreference:
+        | Awaited<ReturnType<typeof loadWorkspacePreference>>
+        | undefined
+      try {
+        workspacePreference = await loadWorkspacePreference()
+      } catch (error) {
+        console.error('Failed to load workspace namespace preference:', error)
+      }
+
+      if (
+        resolutionId !== namespaceResolutionRef.current ||
+        !connectionId
+      ) {
+        return
+      }
+
+      const selectedByCluster = workspacePreference?.selectedNamespaceByCluster
+      const hasRemoteSelection = Boolean(
+        selectedByCluster &&
+          Object.prototype.hasOwnProperty.call(selectedByCluster, connectionId)
+      )
+      const localStorageKey = `${connectionId}selectedNamespace`
+      const hasLocalSelection = localStorage.getItem(localStorageKey) !== null
+      const configuredNamespace = clusterInfo?.namespace?.trim()
+      const resolvedNamespace = hasRemoteSelection
+        ? selectedByCluster?.[connectionId]
+        : hasLocalSelection
+          ? localStorage.getItem(localStorageKey) || 'default'
+          : configuredNamespace || 'default'
+
+      setSelectedNamespace(resolvedNamespace || 'default')
+      setNamespaceReady(true)
+      setNamespaceResolvedFor(connectionId)
+    }
+
+    void loadNamespace()
+  }, [clusterInfo?.namespace, clusterInfoLoading, clusterScope, connectionId])
 
   useEffect(() => {
     let cancelled = false
 
     const loadPreferences = async () => {
-      const currentCluster = localStorage.getItem('current-cluster')
-      if (!currentCluster) {
+      if (!connectionId) {
         columnVisibilityReadyRef.current = true
         return
       }
 
       try {
-        const [workspacePreference, resourceTablePreference] =
-          await Promise.all([
-            loadWorkspacePreference(),
-            loadResourceTablePreference(),
-          ])
+        const resourceTablePreference = await loadResourceTablePreference()
 
         if (cancelled) {
           return
         }
 
-        if (
-          !clusterScope &&
-          workspacePreference.selectedNamespaceByCluster[currentCluster]
-        ) {
-          setSelectedNamespace(
-            workspacePreference.selectedNamespaceByCluster[currentCluster]
-          )
-        }
-
         const remoteColumnVisibility =
-          resourceTablePreference.columnVisibilityByCluster[currentCluster]?.[
+          resourceTablePreference.columnVisibilityByCluster[connectionId]?.[
             resourceStorageKey
           ]
         if (remoteColumnVisibility) {
@@ -270,7 +318,7 @@ export function ResourceTable<T>({
     return () => {
       cancelled = true
     }
-  }, [clusterScope, resourceStorageKey])
+  }, [clusterScope, connectionId, resourceStorageKey])
 
   // (moved below after error is defined)
 
@@ -345,7 +393,10 @@ export function ResourceTable<T>({
   const handleNamespaceChange = useCallback(
     (value: string) => {
       if (setSelectedNamespace) {
-        const currentCluster = localStorage.getItem('current-cluster') || ''
+        namespaceResolutionRef.current += 1
+        setNamespaceReady(true)
+        setNamespaceResolvedFor(connectionId)
+        const currentCluster = connectionId
         localStorage.setItem(`${currentCluster}selectedNamespace`, value)
         setSelectedNamespace(value)
         if (currentCluster) {
@@ -367,7 +418,7 @@ export function ResourceTable<T>({
         setSearchQuery('')
       }
     },
-    [setSelectedNamespace, pagination.pageSize]
+    [connectionId, pagination.pageSize]
   )
 
   const handleDeleteDialogChange = useCallback((open: boolean) => {

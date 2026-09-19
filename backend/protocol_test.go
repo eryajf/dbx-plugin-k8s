@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/eryajf/dbx-plugin-k8s/internal/connection"
 	"github.com/eryajf/dbx-plugin-k8s/internal/kube"
@@ -59,6 +59,29 @@ func TestProtocolRejectsInvalidRequests(t *testing.T) {
 		})
 	}
 }
+
+func TestTerminalMethodsAreRegisteredAndValidateSessions(t *testing.T) {
+	p := testPlugin(t)
+	for _, method := range []string{"node/exec-open", "kubectl/exec-open"} {
+		_, err := call(p, method, `{}`)
+		if err == nil || err.Message != "missing connectionId" {
+			t.Fatalf("%s was not routed through the plugin: %#v", method, err)
+		}
+	}
+	for _, method := range []string{"terminal/exec-write", "terminal/exec-resize"} {
+		_, err := call(p, method, `{"connectionId":"test"}`)
+		if err == nil || err.Message != "sessionId is required" {
+			t.Fatalf("%s did not validate session id: %#v", method, err)
+		}
+	}
+}
+
+func TestRPCVerbForNodeDrainIsCreate(t *testing.T) {
+	if got := rpcVerb("node/drain"); got != "create" {
+		t.Fatalf("rpcVerb(node/drain) = %q, want create", got)
+	}
+}
+
 func TestClusterInfoRoute(t *testing.T) {
 	p := testPlugin(t)
 	out, err := call(p, "kube/cluster-info", `{"connectionId":"test"}`)

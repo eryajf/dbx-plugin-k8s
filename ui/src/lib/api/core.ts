@@ -23,6 +23,28 @@ import { fetchAPI } from './shared'
 
 type ResourcesItems<T extends ResourceType> = ResourcesTypeMap[T]['items']
 
+export interface ClusterInfo {
+  success?: boolean
+  connectionId?: string
+  version?: string
+  platform?: string
+  context?: string
+  namespace?: string
+  message?: string
+}
+
+export function useClusterInfo(
+  connectionId?: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) {
+  return useQuery({
+    queryKey: ['cluster-info', connectionId],
+    queryFn: () => fetchAPI<ClusterInfo>('/cluster-info'),
+    enabled: Boolean(connectionId) && (options?.enabled ?? true),
+    staleTime: options?.staleTime ?? 30000,
+  })
+}
+
 export const fetchResources = <T>(
   resource: string,
   namespace?: string,

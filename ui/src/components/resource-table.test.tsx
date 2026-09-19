@@ -10,6 +10,8 @@ import { ResourceTable } from './resource-table'
 
 const deleteResourceMock = vi.fn()
 const useFeatureMock = vi.fn()
+const useResourcesMock = vi.fn()
+const useClusterInfoMock = vi.fn()
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
@@ -17,21 +19,33 @@ vi.mock('@/lib/api', async () => {
   return {
     ...actual,
     deleteResource: (...args: unknown[]) => deleteResourceMock(...args),
-    useResources: () => ({
-      isLoading: false,
-      data: [
-        {
-          metadata: {
-            name: 'demo',
-            namespace: 'default',
-            uid: 'deploy-1',
+    useClusterInfo: (...args: unknown[]) => {
+      useClusterInfoMock(...args)
+      return {
+        data: { namespace: 'ops' },
+        isLoading: false,
+        isError: false,
+        error: null,
+      }
+    },
+    useResources: (...args: unknown[]) => {
+      useResourcesMock(...args)
+      return {
+        isLoading: false,
+        data: [
+          {
+            metadata: {
+              name: 'demo',
+              namespace: 'default',
+              uid: 'deploy-1',
+            },
           },
-        },
-      ],
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    }),
+        ],
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }
+    },
     useResourcesWatch: () => ({
       data: undefined,
       isLoading: false,
@@ -46,6 +60,10 @@ vi.mock('@/hooks/use-license', () => ({
   useFeature: (feature: string) => useFeatureMock(feature),
 }))
 
+vi.mock('@/hooks/use-cluster', () => ({
+  useCluster: () => ({ currentCluster: 'test-cluster' }),
+}))
+
 describe('ResourceTable batch delete confirmation', () => {
   beforeEach(() => {
     ;(
@@ -58,7 +76,10 @@ describe('ResourceTable batch delete confirmation', () => {
       unobserve() {}
     } as unknown as new (callback: ResizeObserverCallback) => ResizeObserver
     localStorage.setItem('current-cluster', 'test-cluster')
+    localStorage.removeItem('test-clusterselectedNamespace')
     deleteResourceMock.mockReset()
+    useResourcesMock.mockReset()
+    useClusterInfoMock.mockReset()
     deleteResourceMock.mockResolvedValue(undefined)
     useFeatureMock.mockReset()
     useFeatureMock.mockReturnValue(true)
@@ -252,5 +273,61 @@ describe('ResourceTable batch delete confirmation', () => {
       'title',
       'Requires Kite Desktop Pro'
     )
+  })
+
+  it('uses the connected cluster default namespace when no selection is saved', async () => {
+    void i18n.changeLanguage('en')
+
+    const columnHelper = createColumnHelper<Deployment>()
+
+    render(
+      <ResourceTable
+        resourceName="Deployments"
+        resourceType="deployments"
+        columns={[
+          columnHelper.accessor('metadata.name', {
+            header: 'Name',
+            cell: ({ row }) => row.original.metadata?.name,
+          }),
+        ]}
+      />
+    )
+
+    await waitFor(() => {
+      expect(useResourcesMock).toHaveBeenCalledWith(
+        'deployments',
+        'ops',
+        expect.objectContaining({ disable: false })
+      )
+    })
+    expect(screen.getByText('ops')).toBeInTheDocument()
+  })
+
+  it('keeps a saved namespace ahead of the connected cluster default', async () => {
+    localStorage.setItem('test-clusterselectedNamespace', 'qa')
+
+    const columnHelper = createColumnHelper<Deployment>()
+
+    render(
+      <ResourceTable
+        resourceName="Deployments"
+        resourceType="deployments"
+        columns={[
+          columnHelper.accessor('metadata.name', {
+            header: 'Name',
+            cell: ({ row }) => row.original.metadata?.name,
+          }),
+        ]}
+      />
+    )
+
+    await waitFor(() => {
+      expect(useResourcesMock).toHaveBeenCalledWith(
+        'deployments',
+        'qa',
+        expect.objectContaining({ disable: false })
+      )
+    })
+    expect(screen.getByText('qa')).toBeInTheDocument()
   })
 })

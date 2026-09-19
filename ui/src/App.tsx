@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 
 import { AppSidebar } from './components/app-sidebar'
+import { FloatingTerminal } from './components/floating-terminal'
 import { GlobalSearch } from './components/global-search'
 import {
   GlobalSearchProvider,
@@ -122,6 +123,7 @@ function AppContent() {
         </SidebarInset>
       </SidebarProvider>
       <GlobalSearch open={isOpen} mode={mode} onOpenChange={closeSearch} />
+      <FloatingTerminal />
       <Toaster />
     </>
   )
@@ -147,15 +149,15 @@ function AppProviders({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <TerminalProvider>
-      <ClusterProvider>
+    <ClusterProvider>
+      <TerminalProvider>
         <NavigationProvider>
             <GlobalSearchProvider>
               <PageFindProvider>{children}</PageFindProvider>
             </GlobalSearchProvider>
         </NavigationProvider>
-      </ClusterProvider>
-    </TerminalProvider>
+      </TerminalProvider>
+    </ClusterProvider>
   )
 }
 

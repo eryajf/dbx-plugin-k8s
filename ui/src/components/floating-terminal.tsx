@@ -69,7 +69,6 @@ export function FloatingTerminal() {
     if (!activeSession) return ''
 
     return [
-      activeSession.clusterName,
       activeSession.namespace,
       activeSession.containerName,
     ]
@@ -84,6 +83,7 @@ export function FloatingTerminal() {
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (isMinimized || isFullscreen) return
+      e.preventDefault()
       dragging.current = true
       startY.current = e.clientY
       startH.current = height
@@ -94,6 +94,7 @@ export function FloatingTerminal() {
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return
+    e.preventDefault()
     const maxHeight = window.innerHeight * 0.5
     const newH = Math.min(
       maxHeight,
@@ -102,7 +103,8 @@ export function FloatingTerminal() {
     setHeight(newH)
   }, [])
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((e?: React.PointerEvent) => {
+    e?.preventDefault()
     dragging.current = false
   }, [])
 
@@ -139,14 +141,12 @@ export function FloatingTerminal() {
   if (!isOpen) return null
 
   const panelClassName = isFullscreen
-    ? 'fixed inset-0 z-50 flex flex-col bg-background shadow-2xl'
+    ? 'fixed inset-0 z-50 flex flex-col bg-background'
     : isMinimized
       ? [
-          'fixed bottom-0 right-0 z-50 flex flex-col border-t bg-background shadow-2xl',
-          'left-0 md:left-[var(--sidebar-width)]',
-          'group-has-[[data-slot=sidebar][data-state=collapsed]]/sidebar-wrapper:md:left-[var(--sidebar-width-icon)]',
+          'fixed bottom-3 right-3 z-50 flex w-[calc(100%-1.5rem)] max-w-[520px] flex-col rounded-xl border bg-background shadow-xl',
         ].join(' ')
-      : 'fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t bg-background shadow-2xl'
+    : 'fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-background'
 
   return (
     <div
@@ -158,14 +158,20 @@ export function FloatingTerminal() {
       {/* Drag handle */}
       {!isMinimized && !isFullscreen && (
         <div
-          className="absolute -top-1 left-0 right-0 h-2 cursor-ns-resize z-10"
+          className="absolute -top-1 left-0 right-0 z-10 h-2 cursor-ns-resize select-none touch-none"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         />
       )}
 
-      <div className="flex min-h-10 shrink-0 items-center justify-between gap-3 border-b bg-muted/50 px-3 py-1">
+      <div
+        className={cn(
+          'flex min-h-10 shrink-0 items-center justify-between gap-3 border-b bg-muted/50 px-3 py-1',
+          isMinimized && 'rounded-xl border-b-0 py-1.5'
+        )}
+      >
         <button
           className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm font-semibold text-foreground transition-opacity hover:opacity-70"
           onClick={handleMinimize}
@@ -289,9 +295,6 @@ export function FloatingTerminal() {
                   <Monitor className="h-3.5 w-3.5 shrink-0" />
                 )}
                 <span className="min-w-0 flex-1 truncate">{session.title}</span>
-                <span className="hidden shrink-0 text-[11px] text-muted-foreground xl:inline">
-                  {session.clusterName}
-                </span>
                 <span
                   className="h-2 w-2 shrink-0 rounded-full bg-green-500"
                   aria-hidden="true"

@@ -1,9 +1,11 @@
 import { lazy, Suspense, useState } from 'react'
-import { Plus, Settings } from 'lucide-react'
+import { Plus, Settings, TerminalSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useFeature } from '@/hooks/use-license'
+import { useTerminal } from '@/contexts/terminal-context'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -30,6 +32,9 @@ export function SiteHeader() {
   const navigate = useNavigate()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const { t } = useTranslation()
+  const { openTerminal, sessions } = useTerminal()
+  const canUseKubectlTerminal = useFeature('terminal.kubectl')
+  const hasKubectlSession = sessions.some((session) => session.type === 'kubectl')
   return (
     <>
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -47,6 +52,21 @@ export function SiteHeader() {
               onClick={() => setCreateDialogOpen(true)}
               aria-label={t('siteHeader.createNewResource')}
             />
+            {canUseKubectlTerminal && (
+              <button
+                type="button"
+                onClick={() => openTerminal('button')}
+                title={t('siteHeader.kubectlTerminal', 'Kubectl terminal')}
+                aria-label={t('siteHeader.toggleKubectlTerminal', 'Toggle kubectl terminal')}
+                className={`flex items-center justify-center rounded-sm p-1 transition-colors ${
+                  hasKubectlSession
+                    ? 'text-green-500 hover:text-green-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <TerminalSquare className="h-5 w-5" />
+              </button>
+            )}
             {!isMobile && (
               <>
                 <Separator

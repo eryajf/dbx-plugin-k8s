@@ -48,9 +48,18 @@
           "binding": "config",
           "required": true,
           "options": [
-            { "label": "Kubeconfig", "value": "kubeconfig" },
-            { "label": "API Server + Token", "value": "token" },
-            { "label": "API Server + Client Certificate", "value": "client_cert" }
+            {
+              "label": "Kubeconfig",
+              "value": "kubeconfig"
+            },
+            {
+              "label": "API Server + Token",
+              "value": "token"
+            },
+            {
+              "label": "API Server + Client Certificate",
+              "value": "client_cert"
+            }
           ],
           "description": "Choose how to authenticate to the cluster."
         },
@@ -61,10 +70,18 @@
           "binding": "config",
           "picker": {
             "kind": "file",
-            "accept": [".yaml", ".yml"],
+            "accept": [
+              ".yaml",
+              ".yml"
+            ],
             "content_field": "kubeconfig"
           },
-          "visible_when": { "field": "auth_mode", "one_of": ["kubeconfig"] },
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "kubeconfig"
+            ]
+          },
           "placeholder": "Choose a local kubeconfig file",
           "description": "Desktop keeps the chosen file path; web hosts load its content into the Kubeconfig box below."
         },
@@ -73,7 +90,12 @@
           "label": "Kubeconfig",
           "type": "textarea",
           "binding": "secret",
-          "visible_when": { "field": "auth_mode", "one_of": ["kubeconfig"] },
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "kubeconfig"
+            ]
+          },
           "description": "Kubeconfig YAML stored in DBX secret store. Load from a file or paste it here."
         },
         {
@@ -81,8 +103,20 @@
           "label": "API Server",
           "type": "text",
           "binding": "config",
-          "visible_when": { "field": "auth_mode", "one_of": ["token", "client_cert"] },
-          "required_when": { "field": "auth_mode", "one_of": ["token", "client_cert"] },
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "token",
+              "client_cert"
+            ]
+          },
+          "required_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "token",
+              "client_cert"
+            ]
+          },
           "placeholder": "https://kubernetes.example.com:6443"
         },
         {
@@ -90,15 +124,31 @@
           "label": "Bearer token",
           "type": "password",
           "binding": "secret",
-          "visible_when": { "field": "auth_mode", "one_of": ["token"] },
-          "required_when": { "field": "auth_mode", "one_of": ["token"] }
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "token"
+            ]
+          },
+          "required_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "token"
+            ]
+          }
         },
         {
           "key": "ca_cert",
           "label": "CA certificate (PEM)",
           "type": "textarea",
           "binding": "secret",
-          "visible_when": { "field": "auth_mode", "one_of": ["token", "client_cert"] },
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "token",
+              "client_cert"
+            ]
+          },
           "description": "Optional cluster CA certificate for TLS verification."
         },
         {
@@ -106,16 +156,36 @@
           "label": "Client certificate (PEM)",
           "type": "textarea",
           "binding": "secret",
-          "visible_when": { "field": "auth_mode", "one_of": ["client_cert"] },
-          "required_when": { "field": "auth_mode", "one_of": ["client_cert"] }
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "client_cert"
+            ]
+          },
+          "required_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "client_cert"
+            ]
+          }
         },
         {
           "key": "client_key",
           "label": "Client key (PEM)",
           "type": "textarea",
           "binding": "secret",
-          "visible_when": { "field": "auth_mode", "one_of": ["client_cert"] },
-          "required_when": { "field": "auth_mode", "one_of": ["client_cert"] }
+          "visible_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "client_cert"
+            ]
+          },
+          "required_when": {
+            "field": "auth_mode",
+            "one_of": [
+              "client_cert"
+            ]
+          }
         },
         {
           "key": "show_advanced",
@@ -132,8 +202,18 @@
           "binding": "config",
           "visible_when": {
             "all_of": [
-              { "field": "show_advanced", "one_of": ["true"] },
-              { "field": "auth_mode", "one_of": ["kubeconfig"] }
+              {
+                "field": "show_advanced",
+                "one_of": [
+                  "true"
+                ]
+              },
+              {
+                "field": "auth_mode",
+                "one_of": [
+                  "kubeconfig"
+                ]
+              }
             ]
           }
         },
@@ -145,8 +225,18 @@
           "binding": "config",
           "visible_when": {
             "all_of": [
-              { "field": "show_advanced", "one_of": ["true"] },
-              { "field": "auth_mode", "one_of": ["kubeconfig"] }
+              {
+                "field": "show_advanced",
+                "one_of": [
+                  "true"
+                ]
+              },
+              {
+                "field": "auth_mode",
+                "one_of": [
+                  "kubeconfig"
+                ]
+              }
             ]
           },
           "description": "Only enable for trusted kubeconfig files."
@@ -157,7 +247,12 @@
           "type": "number",
           "default": 30,
           "binding": "config",
-          "visible_when": { "field": "show_advanced", "one_of": ["true"] }
+          "visible_when": {
+            "field": "show_advanced",
+            "one_of": [
+              "true"
+            ]
+          }
         },
         {
           "key": "insecure_skip_tls_verify",
@@ -167,8 +262,19 @@
           "binding": "config",
           "visible_when": {
             "all_of": [
-              { "field": "show_advanced", "one_of": ["true"] },
-              { "field": "auth_mode", "one_of": ["token", "client_cert"] }
+              {
+                "field": "show_advanced",
+                "one_of": [
+                  "true"
+                ]
+              },
+              {
+                "field": "auth_mode",
+                "one_of": [
+                  "token",
+                  "client_cert"
+                ]
+              }
             ]
           }
         },
@@ -178,7 +284,12 @@
           "type": "text",
           "default": "default",
           "binding": "config",
-          "visible_when": { "field": "show_advanced", "one_of": ["true"] }
+          "visible_when": {
+            "field": "show_advanced",
+            "one_of": [
+              "true"
+            ]
+          }
         }
       ],
       "workbench": "io.dbx.k8s.workbench",

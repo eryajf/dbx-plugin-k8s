@@ -3,6 +3,7 @@ import type { Container, Pod } from 'kubernetes-types/core/v1'
 
 import { trackEvent } from '@/lib/analytics'
 import { getCurrentAnalyticsPageKey } from '@/lib/analytics-route'
+import { ClusterContext } from './cluster-context'
 
 export type TerminalSessionType = 'node' | 'pod' | 'kubectl'
 
@@ -49,6 +50,8 @@ const TerminalContext = createContext<TerminalContextType | undefined>(
 )
 
 export function TerminalProvider({ children }: { children: ReactNode }) {
+  const clusterContext = useContext(ClusterContext)
+  const currentCluster = clusterContext?.currentCluster ?? null
   const [sessions, setSessions] = useState<TerminalSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -60,7 +63,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   )
 
   const openSession = (spec: TerminalSessionSpec) => {
-    const session = createTerminalSession(spec)
+    const session = createTerminalSession(spec, currentCluster)
     const alreadyExists = sessions.some((item) => item.id === session.id)
 
     setSessions((current) => {
@@ -181,14 +184,14 @@ export function useTerminal() {
   return context
 }
 
-function createTerminalSession(spec: TerminalSessionSpec): TerminalSession {
+function createTerminalSession(spec: TerminalSessionSpec, currentCluster: string | null): TerminalSession {
   const clusterName =
-    spec.clusterName ?? localStorage.getItem('current-cluster') ?? 'default'
+    spec.clusterName ?? currentCluster ?? localStorage.getItem('current-cluster') ?? 'default'
   const id = createTerminalSessionId(spec, clusterName)
   return {
     ...spec,
     id,
-    title: spec.title ?? createTerminalTitle(spec),
+    title: createTerminalTitle(spec),
     clusterName,
     createdAt: Date.now(),
   }
@@ -214,9 +217,19 @@ function createTerminalTitle(spec: TerminalSessionSpec) {
   }
 
   if (spec.type === 'node') {
-    return spec.nodeName ?? 'Node terminal'
+    return spec.nodeName ?? spec.title ?? 'Node terminal'
   }
 
-  const containerSuffix = spec.containerName ? ` · ${spec.containerName}` : ''
-  return `${spec.podName ?? 'Pod'}${containerSuffix}`
+  // Pod sessions may be opened from a workload or a row context menu, where
+  // callers historically supplied a source string as the title (for example
+  // `pod/<name>`). Keep the visible label tied to the actual Kubernetes
+  // object so internal source/session identifiers never leak into the UI.
+  if (spec.podName) {
+    const containerSuffix = spec.containerName
+      ? ` · ${spec.containerName}`
+      : ''
+    return `${spec.podName}${containerSuffix}`
+  }
+
+  return spec.title ?? 'Pod'
 }

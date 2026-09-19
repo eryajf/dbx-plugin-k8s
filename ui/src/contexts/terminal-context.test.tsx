@@ -54,7 +54,10 @@ function TerminalConsumer() {
       </span>
       <span data-testid="sessions">
         {sessions
-          .map((session) => `${session.id}|${session.clusterName}`)
+          .map(
+            (session) =>
+              `${session.id}|${session.clusterName}|${session.title}`
+          )
           .join(',')}
       </span>
       <button type="button" onClick={() => openTerminal()}>
@@ -68,6 +71,7 @@ function TerminalConsumer() {
             namespace: 'default',
             podName: 'web-abc',
             containerName: 'nginx',
+            title: 'pod/web-abc',
           })
         }
       >
@@ -143,7 +147,7 @@ describe('TerminalProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open pod' }))
     await waitFor(() => {
       expect(screen.getByTestId('sessions')).toHaveTextContent(
-        'cluster-a:pod:default:web-abc::nginx|cluster-a'
+        'cluster-a:pod:default:web-abc::nginx|cluster-a|web-abc · nginx'
       )
     })
 
@@ -151,7 +155,7 @@ describe('TerminalProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open pod' }))
     await waitFor(() => {
       expect(screen.getByTestId('sessions')).toHaveTextContent(
-        'cluster-b:pod:default:web-abc::nginx|cluster-b'
+        'cluster-b:pod:default:web-abc::nginx|cluster-b|web-abc · nginx'
       )
     })
   })
