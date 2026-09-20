@@ -1,4 +1,5 @@
 /dist/
+ui/dist/
 /.dbx-dev/
 .dbx-repository-signing-key.env
 .DS_Store
