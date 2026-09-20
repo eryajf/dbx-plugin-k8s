@@ -3,7 +3,7 @@
   "manifest_version": 1,
   "id": "io.dbx.k8s",
   "name": "Kubernetes Manager",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "eryajf",
   "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
   "icon": "assets/plugin.png",

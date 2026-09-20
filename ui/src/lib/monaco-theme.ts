@@ -98,6 +98,17 @@ export function defineMonacoBackgroundThemes(
 }
 
 export function defineMonacoLogThemes(monaco: MonacoModule) {
+  for (const mode of ['dark', 'light'] as const) {
+    defineThemeIfNeeded(monaco, `log-viewer-${mode}`, `log-viewer-${mode}`, {
+      base: mode === 'dark' ? 'vs-dark' : 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': mode === 'dark' ? '#000000' : '#ffffff',
+        'editor.foreground': mode === 'dark' ? '#eeeeee' : '#202020',
+      },
+    })
+  }
   for (const [themeKey, theme] of Object.entries(TERMINAL_THEMES)) {
     defineThemeIfNeeded(
       monaco,

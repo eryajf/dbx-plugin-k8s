@@ -1,74 +1,74 @@
-import { DBXPortForwardButton } from '@/components/dbx-port-forward-button'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { DBXPortForwardButton } from "@/components/dbx-port-forward-button";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   IconLoader,
   IconReload,
   IconScale,
   IconTrash,
-} from '@tabler/icons-react'
-import * as yaml from 'js-yaml'
-import { Deployment } from 'kubernetes-types/apps/v1'
-import { Container } from 'kubernetes-types/core/v1'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+} from "@tabler/icons-react";
+import * as yaml from "js-yaml";
+import { Deployment } from "kubernetes-types/apps/v1";
+import { Container } from "kubernetes-types/core/v1";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
-import { trackResourceAction } from '@/lib/analytics'
+import { trackResourceAction } from "@/lib/analytics";
 import {
   patchResource,
   updateResource,
   useResource,
   useResources,
   useResourcesWatch,
-} from '@/lib/api'
+} from "@/lib/api";
 import {
   buildDeploymentOverviewViewModel,
   filterPodsOwnedByDeployment,
   filterReplicaSetsOwnedByDeployment,
   getDeploymentStatus,
   toSimpleContainer,
-} from '@/lib/k8s'
-import { formatDate, translateError } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/lib/k8s";
+import { formatDate, translateError } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
-import { ContainerEditDialog } from '@/components/container-edit-dialog'
-import { ContainerTable } from '@/components/container-table'
-import { DeploymentOverviewInfoCard } from '@/components/deployment-overview-info-card'
-import { DescribeDialog } from '@/components/describe-dialog'
-import { ErrorMessage } from '@/components/error-message'
-import { EventTable } from '@/components/event-table'
-import { ProResourceHistoryTable } from '@/components/license/pro-resource-history-table'
-import { LogViewer } from '@/components/log-viewer'
-import { OpenPodTerminalButton } from '@/components/open-pod-terminal-button'
-import { PodMonitoring } from '@/components/pod-monitoring'
-import { PodTable } from '@/components/pod-table'
-import { RefreshButton } from '@/components/refresh-button'
-import { RelatedResourcesTable } from '@/components/related-resource-table'
-import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
-import { VolumeTable } from '@/components/volume-table'
-import { YamlEditor } from '@/components/yaml-editor'
+} from "@/components/ui/popover";
+import { ResponsiveTabs } from "@/components/ui/responsive-tabs";
+import { ContainerEditDialog } from "@/components/container-edit-dialog";
+import { ContainerTable } from "@/components/container-table";
+import { DeploymentOverviewInfoCard } from "@/components/deployment-overview-info-card";
+import { DescribeDialog } from "@/components/describe-dialog";
+import { ErrorMessage } from "@/components/error-message";
+import { EventTable } from "@/components/event-table";
+import { ProResourceHistoryTable } from "@/components/license/pro-resource-history-table";
+import { LogViewer } from "@/components/log-viewer";
+import { OpenPodTerminalButton } from "@/components/open-pod-terminal-button";
+import { PodMonitoring } from "@/components/pod-monitoring";
+import { PodTable } from "@/components/pod-table";
+import { RefreshButton } from "@/components/refresh-button";
+import { RelatedResourcesTable } from "@/components/related-resource-table";
+import { ResourceDeleteConfirmationDialog } from "@/components/resource-delete-confirmation-dialog";
+import { VolumeTable } from "@/components/volume-table";
+import { YamlEditor } from "@/components/yaml-editor";
 
 export function DeploymentDetail(props: { namespace: string; name: string }) {
-  const { namespace, name } = props
-  const [scaleReplicas, setScaleReplicas] = useState<number>(1)
-  const [yamlContent, setYamlContent] = useState('')
-  const [isSavingYaml, setIsSavingYaml] = useState(false)
-  const [isScalePopoverOpen, setIsScalePopoverOpen] = useState(false)
-  const [isRestartPopoverOpen, setIsRestartPopoverOpen] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [refreshInterval, setRefreshInterval] = useState<number>(0)
-  const [isContainerEditorOpen, setIsContainerEditorOpen] = useState(false)
-  const [selectedContainerName, setSelectedContainerName] = useState<string>()
-  const { t } = useTranslation()
+  const { namespace, name } = props;
+  const [scaleReplicas, setScaleReplicas] = useState<number>(1);
+  const [yamlContent, setYamlContent] = useState("");
+  const [isSavingYaml, setIsSavingYaml] = useState(false);
+  const [isScalePopoverOpen, setIsScalePopoverOpen] = useState(false);
+  const [isRestartPopoverOpen, setIsRestartPopoverOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState<number>(0);
+  const [isContainerEditorOpen, setIsContainerEditorOpen] = useState(false);
+  const [selectedContainerName, setSelectedContainerName] = useState<string>();
+  const { t } = useTranslation();
 
   // Fetch deployment data
   const {
@@ -77,195 +77,214 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     isError: isDeploymentError,
     error: deploymentError,
     refetch: refetchDeployment,
-  } = useResource('deployments', name, namespace, {
+  } = useResource("deployments", name, namespace, {
     refreshInterval,
-  })
+  });
 
   const labelSelector = deployment?.spec?.selector.matchLabels
     ? Object.entries(deployment.spec.selector.matchLabels)
         .map(([key, value]) => `${key}=${value}`)
-        .join(',')
-    : undefined
+        .join(",")
+    : undefined;
   const { data: watchedPods, isLoading: isLoadingPods } = useResourcesWatch(
-    'pods',
+    "pods",
     namespace,
     {
       labelSelector,
       reduce: false,
       enabled: !!deployment?.spec?.selector.matchLabels,
-    }
-  )
+    },
+  );
+  // The watch stream can take a moment to deliver its initial snapshot. Fetch
+  // the current list in parallel so Pods and Logs are mounted immediately.
+  const { data: initialPods, isLoading: isLoadingInitialPods } = useResources(
+    "pods",
+    namespace,
+    {
+      labelSelector,
+      reduce: false,
+      disable: !labelSelector,
+      refreshInterval,
+    },
+  );
   const { data: watchedReplicaSets, isLoading: isLoadingReplicaSets } =
-    useResources('replicasets', namespace, {
+    useResources("replicasets", namespace, {
       labelSelector,
       disable: !deployment?.metadata?.uid || !labelSelector,
       refreshInterval,
-    })
+    });
   const relatedReplicaSets = useMemo(
     () => filterReplicaSetsOwnedByDeployment(watchedReplicaSets, deployment),
-    [deployment, watchedReplicaSets]
-  )
+    [deployment, watchedReplicaSets],
+  );
   const relatedPods = useMemo(
     () =>
-      filterPodsOwnedByDeployment(watchedPods, deployment, relatedReplicaSets),
-    [deployment, relatedReplicaSets, watchedPods]
-  )
-  const isLoadingRelatedPods = isLoadingPods || isLoadingReplicaSets
+      filterPodsOwnedByDeployment(
+        watchedPods ?? initialPods,
+        deployment,
+        relatedReplicaSets,
+      ),
+    [deployment, initialPods, relatedReplicaSets, watchedPods],
+  );
+  const isLoadingRelatedPods =
+    (isLoadingPods && !initialPods) ||
+    isLoadingInitialPods ||
+    isLoadingReplicaSets;
 
   useEffect(() => {
     if (deployment) {
-      setYamlContent(yaml.dump(deployment, { indent: 2 }))
-      setScaleReplicas(deployment.spec?.replicas || 1)
+      setYamlContent(yaml.dump(deployment, { indent: 2 }));
+      setScaleReplicas(deployment.spec?.replicas || 1);
     }
-  }, [deployment])
+  }, [deployment]);
 
   // Auto-reset refresh interval when deployment reaches stable state
   useEffect(() => {
     if (deployment) {
-      const status = getDeploymentStatus(deployment)
+      const status = getDeploymentStatus(deployment);
       const isStable =
-        status === 'Available' ||
-        status === 'Scaled Down' ||
-        status === 'Paused'
+        status === "Available" ||
+        status === "Scaled Down" ||
+        status === "Paused";
 
       if (isStable) {
         const timer = setTimeout(() => {
-          setRefreshInterval(0)
-        }, 2000)
-        return () => clearTimeout(timer)
+          setRefreshInterval(0);
+        }, 2000);
+        return () => clearTimeout(timer);
       } else {
-        setRefreshInterval(1000)
+        setRefreshInterval(1000);
       }
     }
-  }, [deployment, refreshInterval])
+  }, [deployment, refreshInterval]);
 
   const handleRefresh = () => {
-    trackResourceAction('deployments', 'refresh')
-    setRefreshKey((prev) => prev + 1)
-    refetchDeployment()
-  }
+    trackResourceAction("deployments", "refresh");
+    setRefreshKey((prev) => prev + 1);
+    refetchDeployment();
+  };
 
   const handleRestart = useCallback(async () => {
-    if (!deployment) return
+    if (!deployment) return;
 
     try {
-      const updatedDeployment = { ...deployment } as Deployment
+      const updatedDeployment = { ...deployment } as Deployment;
 
       if (!updatedDeployment.spec!.template?.metadata?.annotations) {
-        updatedDeployment!.spec!.template!.metadata!.annotations = {}
+        updatedDeployment!.spec!.template!.metadata!.annotations = {};
       }
       updatedDeployment.spec!.template!.metadata!.annotations![
-        'kite.kubernetes.io/restartedAt'
-      ] = new Date().toISOString()
-      await updateResource('deployments', name, namespace, updatedDeployment)
-      trackResourceAction('deployments', 'restart', {
-        result: 'success',
-      })
+        "kite.kubernetes.io/restartedAt"
+      ] = new Date().toISOString();
+      await updateResource("deployments", name, namespace, updatedDeployment);
+      trackResourceAction("deployments", "restart", {
+        result: "success",
+      });
       toast.success(
-        t('detail.status.restartInitiated', { resource: 'Deployment' })
-      )
-      setIsRestartPopoverOpen(false)
-      setRefreshInterval(1000)
+        t("detail.status.restartInitiated", { resource: "Deployment" }),
+      );
+      setIsRestartPopoverOpen(false);
+      setRefreshInterval(1000);
     } catch (error) {
-      console.error('Failed to restart deployment:', error)
-      trackResourceAction('deployments', 'restart', {
-        result: 'error',
-      })
-      toast.error(translateError(error, t))
+      console.error("Failed to restart deployment:", error);
+      trackResourceAction("deployments", "restart", {
+        result: "error",
+      });
+      toast.error(translateError(error, t));
     }
-  }, [t, deployment, name, namespace])
+  }, [t, deployment, name, namespace]);
 
   const handleScale = useCallback(async () => {
-    if (!deployment) return
+    if (!deployment) return;
 
     try {
       const updatedDeployment = {
         spec: {
           replicas: scaleReplicas,
         },
-      }
-      await patchResource('deployments', name, namespace, updatedDeployment)
-      trackResourceAction('deployments', 'scale', {
-        result: 'success',
+      };
+      await patchResource("deployments", name, namespace, updatedDeployment);
+      trackResourceAction("deployments", "scale", {
+        result: "success",
         scaled_up: scaleReplicas > (deployment.spec?.replicas || 0),
-      })
-      toast.success(`Deployment scaled to ${scaleReplicas} replicas`)
-      setIsScalePopoverOpen(false)
-      setRefreshInterval(1000)
+      });
+      toast.success(`Deployment scaled to ${scaleReplicas} replicas`);
+      setIsScalePopoverOpen(false);
+      setRefreshInterval(1000);
     } catch (error) {
-      console.error('Failed to restart deployment:', error)
-      trackResourceAction('deployments', 'scale', {
-        result: 'error',
+      console.error("Failed to restart deployment:", error);
+      trackResourceAction("deployments", "scale", {
+        result: "error",
         scaled_up: scaleReplicas > (deployment.spec?.replicas || 0),
-      })
-      toast.error(translateError(error, t))
+      });
+      toast.error(translateError(error, t));
     }
-  }, [t, deployment, name, namespace, scaleReplicas])
+  }, [t, deployment, name, namespace, scaleReplicas]);
 
   const handleSaveYaml = async (content: Deployment) => {
-    setIsSavingYaml(true)
+    setIsSavingYaml(true);
     try {
-      await updateResource('deployments', name, namespace, content)
-      trackResourceAction('deployments', 'yaml_save', {
-        result: 'success',
-      })
-      toast.success(t('detail.status.yamlSaved'))
-      setRefreshInterval(1000)
-      return true
+      await updateResource("deployments", name, namespace, content);
+      trackResourceAction("deployments", "yaml_save", {
+        result: "success",
+      });
+      toast.success(t("detail.status.yamlSaved"));
+      setRefreshInterval(1000);
+      return true;
     } catch (error) {
-      console.error('Failed to save YAML:', error)
-      trackResourceAction('deployments', 'yaml_save', {
-        result: 'error',
-      })
-      toast.error(translateError(error, t))
-      return false
+      console.error("Failed to save YAML:", error);
+      trackResourceAction("deployments", "yaml_save", {
+        result: "error",
+      });
+      toast.error(translateError(error, t));
+      return false;
     } finally {
-      setIsSavingYaml(false)
+      setIsSavingYaml(false);
     }
-  }
+  };
 
   const handleYamlChange = (content: string) => {
-    setYamlContent(content)
-  }
+    setYamlContent(content);
+  };
 
   const openContainerEditor = useCallback(
     (containerName?: string) => {
       const nextContainerName =
         containerName ||
         deployment?.spec?.template?.spec?.containers?.[0]?.name ||
-        undefined
+        undefined;
 
-      trackResourceAction('deployments', 'container_edit_open', {
+      trackResourceAction("deployments", "container_edit_open", {
         has_explicit_target: Boolean(containerName),
-      })
-      setSelectedContainerName(nextContainerName)
-      setIsContainerEditorOpen(true)
+      });
+      setSelectedContainerName(nextContainerName);
+      setIsContainerEditorOpen(true);
     },
-    [deployment]
-  )
+    [deployment],
+  );
 
   const handleContainerUpdate = async (
     updatedContainer: Container,
-    init = false
+    init = false,
   ) => {
-    if (!deployment) return
+    if (!deployment) return;
 
     try {
       // Create a deep copy of the deployment
-      const updatedDeployment = { ...deployment }
+      const updatedDeployment = { ...deployment };
 
       if (init) {
         // Update the specific container in the deployment spec
         if (updatedDeployment.spec?.template?.spec?.initContainers) {
           const containerIndex =
             updatedDeployment.spec.template.spec.initContainers.findIndex(
-              (c) => c.name === updatedContainer.name
-            )
+              (c) => c.name === updatedContainer.name,
+            );
 
           if (containerIndex >= 0) {
             updatedDeployment.spec.template.spec.initContainers[
               containerIndex
-            ] = updatedContainer
+            ] = updatedContainer;
           }
         }
       } else {
@@ -273,56 +292,56 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         if (updatedDeployment.spec?.template?.spec?.containers) {
           const containerIndex =
             updatedDeployment.spec.template.spec.containers.findIndex(
-              (c) => c.name === updatedContainer.name
-            )
+              (c) => c.name === updatedContainer.name,
+            );
 
           if (containerIndex >= 0) {
             updatedDeployment.spec.template.spec.containers[containerIndex] =
-              updatedContainer
+              updatedContainer;
           }
         }
       }
 
       // Call the update API
-      await updateResource('deployments', name, namespace, updatedDeployment)
-      trackResourceAction('deployments', 'container_update', {
-        result: 'success',
-        container_kind: init ? 'init' : 'app',
-      })
-      toast.success(`Container ${updatedContainer.name} updated successfully`)
-      setRefreshInterval(1000)
+      await updateResource("deployments", name, namespace, updatedDeployment);
+      trackResourceAction("deployments", "container_update", {
+        result: "success",
+        container_kind: init ? "init" : "app",
+      });
+      toast.success(`Container ${updatedContainer.name} updated successfully`);
+      setRefreshInterval(1000);
     } catch (error) {
-      console.error('Failed to update container:', error)
-      trackResourceAction('deployments', 'container_update', {
-        result: 'error',
-        container_kind: init ? 'init' : 'app',
-      })
-      toast.error(translateError(error, t))
+      console.error("Failed to update container:", error);
+      trackResourceAction("deployments", "container_update", {
+        result: "error",
+        container_kind: init ? "init" : "app",
+      });
+      toast.error(translateError(error, t));
     }
-  }
+  };
 
   const handleDeploymentSave = useCallback(
     async (updatedDeployment: Deployment) => {
       try {
-        await updateResource('deployments', name, namespace, updatedDeployment)
-        trackResourceAction('deployments', 'container_update', {
-          result: 'success',
-          container_kind: 'app',
-        })
-        toast.success(t('containerEditor.saveSuccess'))
-        setRefreshInterval(1000)
+        await updateResource("deployments", name, namespace, updatedDeployment);
+        trackResourceAction("deployments", "container_update", {
+          result: "success",
+          container_kind: "app",
+        });
+        toast.success(t("containerEditor.saveSuccess"));
+        setRefreshInterval(1000);
       } catch (error) {
-        console.error('Failed to update deployment:', error)
-        trackResourceAction('deployments', 'container_update', {
-          result: 'error',
-          container_kind: 'app',
-        })
-        toast.error(translateError(error, t))
-        throw error
+        console.error("Failed to update deployment:", error);
+        trackResourceAction("deployments", "container_update", {
+          result: "error",
+          container_kind: "app",
+        });
+        toast.error(translateError(error, t));
+        throw error;
       }
     },
-    [name, namespace, t]
-  )
+    [name, namespace, t],
+  );
 
   if (isLoadingDeployment) {
     return (
@@ -332,31 +351,31 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <div className="flex items-center justify-center gap-2">
               <IconLoader className="animate-spin" />
               <span>
-                {t('detail.status.loading', {
-                  resource: t('resourceKind.deployment'),
+                {t("detail.status.loading", {
+                  resource: t("resourceKind.deployment"),
                 })}
               </span>
             </div>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   if (isDeploymentError || !deployment) {
     return (
       <ErrorMessage
-        resourceName={'Deployment'}
+        resourceName={"Deployment"}
         error={deploymentError}
         refetch={handleRefresh}
       />
-    )
+    );
   }
 
-  const { status } = deployment
-  const overview = buildDeploymentOverviewViewModel(deployment)
+  const { status } = deployment;
+  const overview = buildDeploymentOverviewViewModel(deployment);
   const containerCount =
-    deployment.spec?.template?.spec?.containers?.length || 0
+    deployment.spec?.template?.spec?.containers?.length || 0;
 
   return (
     <div className="space-y-2">
@@ -365,13 +384,13 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         <div className="min-w-0">
           <h1 className="text-lg font-bold">{name}</h1>
           <p className="text-muted-foreground">
-            {t('detail.fields.namespace')}:{' '}
+            {t("detail.fields.namespace")}:{" "}
             <span className="font-medium">{namespace}</span>
           </p>
         </div>
         <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <RefreshButton variant="outline" size="sm" onClick={handleRefresh}>
-            {t('detail.buttons.refresh')}
+            {t("detail.buttons.refresh")}
           </RefreshButton>
           <DescribeDialog
             resourceType="deployments"
@@ -397,22 +416,22 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconScale className="w-4 h-4" />
-                {t('detail.buttons.scale')}
+                {t("detail.buttons.scale")}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="space-y-4">
                 <div className="space-y-2">
                   <h4 className="font-medium">
-                    {t('detail.dialogs.scaleDeployment.title')}
+                    {t("detail.dialogs.scaleDeployment.title")}
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    {t('detail.dialogs.scaleDeployment.description')}
+                    {t("detail.dialogs.scaleDeployment.description")}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="replicas">
-                    {t('detail.dialogs.scaleDeployment.replicas')}
+                    {t("detail.dialogs.scaleDeployment.replicas")}
                   </Label>
                   <div className="flex items-center gap-1">
                     <Button
@@ -448,7 +467,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                 </div>
                 <Button onClick={handleScale} className="w-full">
                   <IconScale className="w-4 h-4 mr-2" />
-                  {t('detail.dialogs.scaleDeployment.scaleButton')}
+                  {t("detail.dialogs.scaleDeployment.scaleButton")}
                 </Button>
               </div>
             </PopoverContent>
@@ -460,17 +479,17 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconReload className="w-4 h-4" />
-                {t('detail.buttons.restart')}
+                {t("detail.buttons.restart")}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="space-y-4">
                 <div className="space-y-2">
                   <h4 className="font-medium">
-                    {t('detail.dialogs.restartDeployment.title')}
+                    {t("detail.dialogs.restartDeployment.title")}
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    {t('detail.dialogs.restartDeployment.description')}
+                    {t("detail.dialogs.restartDeployment.description")}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -479,17 +498,17 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     onClick={() => setIsRestartPopoverOpen(false)}
                     className="flex-1"
                   >
-                    {t('detail.buttons.cancel')}
+                    {t("detail.buttons.cancel")}
                   </Button>
                   <Button
                     onClick={() => {
-                      handleRestart()
-                      setIsRestartPopoverOpen(false)
+                      handleRestart();
+                      setIsRestartPopoverOpen(false);
                     }}
                     className="flex-1"
                   >
                     <IconReload className="w-4 h-4 mr-2" />
-                    {t('detail.dialogs.restartDeployment.restartButton')}
+                    {t("detail.dialogs.restartDeployment.restartButton")}
                   </Button>
                 </div>
               </div>
@@ -501,7 +520,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             onClick={() => setIsDeleteDialogOpen(true)}
           >
             <IconTrash className="w-4 h-4" />
-            {t('detail.buttons.delete')}
+            {t("detail.buttons.delete")}
           </Button>
         </div>
       </div>
@@ -509,8 +528,8 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       <ResponsiveTabs
         tabs={[
           {
-            value: 'overview',
-            label: t('detail.tabs.overview'),
+            value: "overview",
+            label: t("detail.tabs.overview"),
             content: (
               <div className="space-y-4">
                 <DeploymentOverviewInfoCard
@@ -525,7 +544,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     <Card>
                       <CardHeader>
                         <CardTitle>
-                          {t('detail.sections.initContainers')} (
+                          {t("detail.sections.initContainers")} (
                           {
                             deployment.spec?.template?.spec?.initContainers
                               ?.length
@@ -544,11 +563,11 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                                   onContainerUpdate={(updatedContainer) =>
                                     handleContainerUpdate(
                                       updatedContainer,
-                                      true
+                                      true,
                                     )
                                   }
                                 />
-                              )
+                              ),
                             )}
                           </div>
                         </div>
@@ -558,7 +577,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      {t('detail.sections.containers')} (
+                      {t("detail.sections.containers")} (
                       {deployment.spec?.template?.spec?.containers?.length || 0}
                       )
                     </CardTitle>
@@ -575,32 +594,32 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                                 openContainerEditor(selectedContainer.name)
                               }
                             />
-                          )
+                          ),
                         )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {relatedPods ? (
-                  <PodTable
-                    pods={relatedPods}
-                    isLoading={isLoadingRelatedPods}
-                    labelSelector={labelSelector}
-                    title={
-                      <>
-                        Pods{' '}
-                        <Badge variant="secondary">{relatedPods.length}</Badge>
-                      </>
-                    }
-                  />
-                ) : null}
+                <PodTable
+                  pods={relatedPods ?? []}
+                  isLoading={isLoadingRelatedPods}
+                  labelSelector={labelSelector}
+                  title={
+                    <>
+                      Pods{" "}
+                      <Badge variant="secondary">
+                        {relatedPods?.length ?? 0}
+                      </Badge>
+                    </>
+                  }
+                />
 
                 {/* Conditions */}
                 {status?.conditions && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>{t('detail.sections.conditions')}</CardTitle>
+                      <CardTitle>{t("detail.sections.conditions")}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
@@ -611,9 +630,9 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                           >
                             <Badge
                               variant={
-                                condition.status === 'True'
-                                  ? 'default'
-                                  : 'secondary'
+                                condition.status === "True"
+                                  ? "default"
+                                  : "secondary"
                               }
                             >
                               {condition.type}
@@ -623,7 +642,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                               {formatDate(
                                 condition.lastTransitionTime ||
                                   condition.lastUpdateTime ||
-                                  ''
+                                  "",
                               )}
                             </span>
                           </div>
@@ -636,54 +655,50 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             ),
           },
           {
-            value: 'yaml',
-            label: t('detail.tabs.yaml'),
+            value: "yaml",
+            label: t("detail.tabs.yaml"),
             content: (
-              <YamlEditor<'deployments'>
+              <YamlEditor<"deployments">
                 key={refreshKey}
                 value={yamlContent}
-                title={t('yamlEditor.title')}
+                title={t("yamlEditor.title")}
                 onSave={handleSaveYaml}
                 onChange={handleYamlChange}
                 isSaving={isSavingYaml}
               />
             ),
           },
-          ...(relatedPods
-            ? [
-                {
-                  value: 'logs',
-                  label: t('detail.tabs.logs'),
-                  content: (
-                    <div className="space-y-6">
-                      <LogViewer
-                        namespace={namespace}
-                        pods={relatedPods}
-                        containers={deployment.spec?.template.spec?.containers}
-                        initContainers={
-                          deployment.spec?.template.spec?.initContainers
-                        }
-                        labelSelector={labelSelector}
-                      />
-                    </div>
-                  ),
-                },
-              ]
-            : []),
           {
-            value: 'Related',
-            label: t('detail.tabs.related'),
+            value: "logs",
+            label: t("detail.tabs.logs"),
+            content: (
+              <div className="space-y-6">
+                <LogViewer
+                  namespace={namespace}
+                  pods={relatedPods ?? []}
+                  containers={deployment.spec?.template.spec?.containers}
+                  initContainers={
+                    deployment.spec?.template.spec?.initContainers
+                  }
+                  labelSelector={labelSelector}
+                />
+              </div>
+            ),
+          },
+          {
+            value: "Related",
+            label: t("detail.tabs.related"),
             content: (
               <RelatedResourcesTable
-                resource={'deployments'}
+                resource={"deployments"}
                 name={name}
                 namespace={namespace}
               />
             ),
           },
           {
-            value: 'history',
-            label: t('common.history'),
+            value: "history",
+            label: t("common.history"),
             content: (
               <ProResourceHistoryTable
                 resourceType="deployments"
@@ -696,10 +711,10 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
           ...(deployment.spec?.template?.spec?.volumes
             ? [
                 {
-                  value: 'volumes',
+                  value: "volumes",
                   label: (
                     <>
-                      {t('detail.tabs.volumes')}{' '}
+                      {t("detail.tabs.volumes")}{" "}
                       <Badge variant="secondary">
                         {deployment.spec.template.spec.volumes.length}
                       </Badge>
@@ -711,7 +726,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                       volumes={deployment.spec?.template?.spec?.volumes}
                       containers={toSimpleContainer(
                         deployment.spec?.template?.spec?.initContainers,
-                        deployment.spec?.template?.spec?.containers
+                        deployment.spec?.template?.spec?.containers,
                       )}
                       isLoading={isLoadingDeployment}
                     />
@@ -720,8 +735,8 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
               ]
             : []),
           {
-            value: 'events',
-            label: t('detail.tabs.events'),
+            value: "events",
+            label: t("detail.tabs.events"),
             content: (
               <EventTable
                 resource="deployments"
@@ -731,8 +746,8 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             ),
           },
           {
-            value: 'monitor',
-            label: t('detail.tabs.monitor'),
+            value: "monitor",
+            label: t("detail.tabs.monitor"),
             content: (
               <PodMonitoring
                 namespace={namespace}
@@ -752,7 +767,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         resourceName={name}
         resourceType="deployments"
         namespace={namespace}
-        confirmationValue={t('deleteConfirmation.confirmDeleteKeyword')}
+        confirmationValue={t("deleteConfirmation.confirmDeleteKeyword")}
       />
       {isContainerEditorOpen ? (
         <ContainerEditDialog
@@ -766,5 +781,5 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         />
       ) : null}
     </div>
-  )
+  );
 }
