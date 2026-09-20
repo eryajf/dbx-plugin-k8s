@@ -2126,7 +2126,16 @@
     "loadingEditor": "Editör yükleniyor...",
     "downloadFailed": "Günlükler kaydedilemedi. DBX sürümünü güncelleyip tekrar deneyin.",
     "downloadSuccess": "Günlükler başarıyla kaydedildi.",
-    "downloadCanceled": "Günlük indirme iptal edildi."
+    "downloadCanceled": "Günlük indirme iptal edildi.",
+    "findMatchCase": "Büyük/küçük harfe duyarlı",
+    "findMatchWholeWord": "Tam sözcüğü eşleştir",
+    "findUseRegex": "Düzenli ifade kullan",
+    "findInSelection": "Seçimde bul",
+    "findPrevious": "Önceki eşleşme",
+    "findNext": "Sonraki eşleşme",
+    "findClose": "Kapat",
+    "pauseScrolling": "Günlük kaydırmayı duraklat",
+    "resumeScrolling": "Günlük kaydırmayı sürdür"
   },
   "monitoringControls": {
     "selectTimeRange": "Zaman aralığını seçin",

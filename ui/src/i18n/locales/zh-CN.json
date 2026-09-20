@@ -2126,7 +2126,16 @@
     "loadingEditor": "正在加载编辑器...",
     "downloadFailed": "日志保存失败，请确认 DBX 支持文件保存（必要时更新 DBX）后重试。",
     "downloadSuccess": "日志保存成功。",
-    "downloadCanceled": "已取消下载日志。"
+    "downloadCanceled": "已取消下载日志。",
+    "findMatchCase": "区分大小写",
+    "findMatchWholeWord": "全字匹配",
+    "findUseRegex": "使用正则表达式",
+    "findInSelection": "在选区中查找",
+    "findPrevious": "上一个匹配",
+    "findNext": "下一个匹配",
+    "findClose": "关闭",
+    "pauseScrolling": "暂停日志滚动",
+    "resumeScrolling": "继续日志滚动"
   },
   "monitoringControls": {
     "selectTimeRange": "选择时间范围",

@@ -2126,7 +2126,16 @@
     "loadingEditor": "Caricamento editor...",
     "downloadFailed": "Impossibile salvare i log. Aggiornare DBX e riprovare.",
     "downloadSuccess": "Log salvati correttamente.",
-    "downloadCanceled": "Download dei log annullato."
+    "downloadCanceled": "Download dei log annullato.",
+    "findMatchCase": "Maiuscole/minuscole",
+    "findMatchWholeWord": "Corrispondenza parola intera",
+    "findUseRegex": "Usa espressione regolare",
+    "findInSelection": "Trova nella selezione",
+    "findPrevious": "Corrispondenza precedente",
+    "findNext": "Corrispondenza successiva",
+    "findClose": "Chiudi",
+    "pauseScrolling": "Metti in pausa lo scorrimento dei log",
+    "resumeScrolling": "Riprendi lo scorrimento dei log"
   },
   "monitoringControls": {
     "selectTimeRange": "Seleziona l'intervallo di tempo",

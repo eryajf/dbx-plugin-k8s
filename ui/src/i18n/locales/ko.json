@@ -2126,7 +2126,16 @@
     "loadingEditor": "편집기 로드 중...",
     "downloadFailed": "로그를 저장할 수 없습니다. DBX를 업데이트한 후 다시 시도하세요.",
     "downloadSuccess": "로그가 저장되었습니다.",
-    "downloadCanceled": "로그 다운로드가 취소되었습니다."
+    "downloadCanceled": "로그 다운로드가 취소되었습니다.",
+    "findMatchCase": "대/소문자 구분",
+    "findMatchWholeWord": "단어 단위로 일치",
+    "findUseRegex": "정규식 사용",
+    "findInSelection": "선택 영역에서 찾기",
+    "findPrevious": "이전 일치 항목",
+    "findNext": "다음 일치 항목",
+    "findClose": "닫기",
+    "pauseScrolling": "로그 스크롤 일시 중지",
+    "resumeScrolling": "로그 스크롤 재개"
   },
   "monitoringControls": {
     "selectTimeRange": "기간 선택",

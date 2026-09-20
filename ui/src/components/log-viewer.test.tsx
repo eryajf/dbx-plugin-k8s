@@ -242,6 +242,27 @@ it("opens all themes in one click and previews without persisting until selected
   );
 });
 
+it("pauses and resumes automatic log scrolling from one toolbar button", async () => {
+  render(<LogViewer namespace="default" podName="pod" />);
+  await screen.findByTestId("editor");
+  const user = userEvent.setup();
+  const toggle = screen.getByRole("button", {
+    name: "logViewer.pauseScrolling",
+  });
+
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await user.click(toggle);
+  expect(
+    screen.getByRole("button", { name: "logViewer.resumeScrolling" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await user.click(
+    screen.getByRole("button", { name: "logViewer.resumeScrolling" }),
+  );
+  expect(
+    screen.getByRole("button", { name: "logViewer.pauseScrolling" }),
+  ).toHaveAttribute("aria-pressed", "false");
+});
+
 it("highlights every literal occurrence and new logs, then resets filtering when cleared", async () => {
   render(<LogViewer namespace="default" podName="pod" />);
   await screen.findByTestId("editor");

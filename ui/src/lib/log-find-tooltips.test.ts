@@ -1,10 +1,10 @@
 import { expect, it, vi } from "vitest";
 import { installNativeFindTooltips } from "./log-find-tooltips";
 
-it("replaces mouse hover without blocking clicks, focus, or other editors", () => {
+it("replaces mouse hover without blocking clicks, focus, or other editors", async () => {
   const root = document.createElement("div");
   root.innerHTML =
-    '<div class="find-widget"><div custom-hover="true" aria-label="Find in Selection"><span></span></div></div><div custom-hover="true" aria-label="Other"></div>';
+    '<div class="find-widget"><div custom-hover="true" aria-label="Find in Selection (⌘⇧F)"><span></span></div></div><div custom-hover="true" aria-label="Other"></div>';
   const button = root.querySelector<HTMLElement>("[custom-hover]")!;
   document.body.appendChild(root);
   const managedHover = vi.fn();
@@ -21,7 +21,7 @@ it("replaces mouse hover without blocking clicks, focus, or other editors", () =
     );
   }
   expect(managedHover).not.toHaveBeenCalled();
-  expect(button.title).toBe("");
+  expect(button.title).toBe("Find in Selection (⌘⇧F)");
   button.click();
   button.dispatchEvent(new FocusEvent("focus"));
   expect(click).toHaveBeenCalledOnce();
@@ -31,6 +31,9 @@ it("replaces mouse hover without blocking clicks, focus, or other editors", () =
   other.addEventListener("mouseover", otherHover);
   other.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
   expect(otherHover).toHaveBeenCalledOnce();
+  button.setAttribute("custom-hover", "true");
+  await Promise.resolve();
+  expect(button.hasAttribute("custom-hover")).toBe(false);
   dispose();
   root.remove();
   expect(button.hasAttribute("title")).toBe(false);

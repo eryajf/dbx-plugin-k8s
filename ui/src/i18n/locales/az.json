@@ -2126,7 +2126,16 @@
     "loadingEditor": "Redaktor yüklənir...",
     "downloadFailed": "Jurnalları saxlamaq mümkün olmadı. DBX-i yeniləyin və yenidən cəhd edin.",
     "downloadSuccess": "Jurnallar uğurla saxlanıldı.",
-    "downloadCanceled": "Jurnal yükləməsi ləğv edildi."
+    "downloadCanceled": "Jurnal yükləməsi ləğv edildi.",
+    "findMatchCase": "Böyük-kiçik hərfə həssas",
+    "findMatchWholeWord": "Tam sözə uyğunlaşdır",
+    "findUseRegex": "Müntəzəm ifadədən istifadə et",
+    "findInSelection": "Seçimdə axtar",
+    "findPrevious": "Əvvəlki uyğunluq",
+    "findNext": "Növbəti uyğunluq",
+    "findClose": "Bağla",
+    "pauseScrolling": "Jurnal sürüşünü dayandır",
+    "resumeScrolling": "Jurnal sürüşünü davam etdir"
   },
   "monitoringControls": {
     "selectTimeRange": "Vaxt aralığını seçin",

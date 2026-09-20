@@ -2126,7 +2126,16 @@
     "loadingEditor": "Cargando editor...",
     "downloadFailed": "No se pudieron guardar los registros. Actualice DBX e inténtelo de nuevo.",
     "downloadSuccess": "Registros guardados correctamente.",
-    "downloadCanceled": "Descarga de registros cancelada."
+    "downloadCanceled": "Descarga de registros cancelada.",
+    "findMatchCase": "Distinguir mayúsculas y minúsculas",
+    "findMatchWholeWord": "Coincidir palabra completa",
+    "findUseRegex": "Usar expresión regular",
+    "findInSelection": "Buscar en la selección",
+    "findPrevious": "Coincidencia anterior",
+    "findNext": "Coincidencia siguiente",
+    "findClose": "Cerrar",
+    "pauseScrolling": "Pausar desplazamiento de registros",
+    "resumeScrolling": "Reanudar desplazamiento de registros"
   },
   "monitoringControls": {
     "selectTimeRange": "Seleccionar rango de tiempo",

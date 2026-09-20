@@ -25,6 +25,8 @@ import {
   IconSearch,
   IconSettings,
   IconX,
+  IconPlayerPause,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import { Container, Pod } from "kubernetes-types/core/v1";
 import type { editor } from "monaco-editor";
@@ -136,6 +138,8 @@ export function LogViewer({
   const [filterEnabled, setFilterEnabled] = useState(false);
   const searchRef = useRef({ query: "", filtering: false });
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+  const autoScrollPausedRef = useRef(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wordWrap, setWordWrap] = useState<boolean>(() => {
@@ -446,7 +450,7 @@ export function LogViewer({
       decorationIdsRef.current,
       newDecorations,
     );
-    if (wasAtBottom) {
+    if (wasAtBottom && !autoScrollPausedRef.current) {
       editorRef.current.revealLine(model.getLineCount());
       setShowScrollToBottom(false);
     } else {
@@ -487,7 +491,7 @@ export function LogViewer({
       findTooltipCleanupRef.current?.();
       const editorNode = editor.getDomNode();
       findTooltipCleanupRef.current = editorNode
-        ? installNativeFindTooltips(editorNode)
+        ? installNativeFindTooltips(editorNode, (key) => t(key))
         : null;
 
       // Configure search widget
@@ -514,7 +518,7 @@ export function LogViewer({
       });
       renderLogEntries();
     },
-    [renderLogEntries],
+    [renderLogEntries, t],
   );
 
   const appendLog = useCallback(
@@ -661,6 +665,17 @@ export function LogViewer({
       }
     }
   }, []);
+
+  const toggleAutoScroll = useCallback(() => {
+    setIsAutoScrollPaused((paused) => {
+      const nextPaused = !paused;
+      autoScrollPausedRef.current = nextPaused;
+      if (!nextPaused) {
+        scrollToBottom();
+      }
+      return nextPaused;
+    });
+  }, [scrollToBottom]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = useCallback(() => {
@@ -1054,6 +1069,30 @@ export function LogViewer({
                 </div>
               </PopoverContent>
             </Popover>
+
+            {/* Pause or resume automatic log scrolling */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleAutoScroll}
+              title={t(
+                isAutoScrollPaused
+                  ? "logViewer.resumeScrolling"
+                  : "logViewer.pauseScrolling",
+              )}
+              aria-label={t(
+                isAutoScrollPaused
+                  ? "logViewer.resumeScrolling"
+                  : "logViewer.pauseScrolling",
+              )}
+              aria-pressed={isAutoScrollPaused}
+            >
+              {isAutoScrollPaused ? (
+                <IconPlayerPlay className="h-4 w-4" />
+              ) : (
+                <IconPlayerPause className="h-4 w-4" />
+              )}
+            </Button>
 
             {/* Clear Logs */}
             <Button

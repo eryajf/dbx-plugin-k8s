@@ -2126,7 +2126,16 @@
     "loadingEditor": "正在載入編輯器...",
     "downloadFailed": "紀錄儲存失敗，請確認 DBX 支援檔案儲存（必要時更新 DBX）後重試。",
     "downloadSuccess": "紀錄儲存成功。",
-    "downloadCanceled": "已取消下載紀錄。"
+    "downloadCanceled": "已取消下載紀錄。",
+    "findMatchCase": "區分大小寫",
+    "findMatchWholeWord": "全字匹配",
+    "findUseRegex": "使用正規表示式",
+    "findInSelection": "在選取範圍中搜尋",
+    "findPrevious": "上一個符合項目",
+    "findNext": "下一個符合項目",
+    "findClose": "關閉",
+    "pauseScrolling": "暫停日誌捲動",
+    "resumeScrolling": "繼續日誌捲動"
   },
   "monitoringControls": {
     "selectTimeRange": "選擇時間範圍",
