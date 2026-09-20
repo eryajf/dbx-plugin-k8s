@@ -2092,6 +2092,18 @@
     "loading": "読み込み中...",
     "reconnecting": "再接続中...",
     "filterLogs": "ログをフィルタリング...",
+    "filterMatchingLogs": "一致するログのみ表示",
+    "showAllLogs": "すべてのログを表示",
+    "matchCount": "{{total}} 行中 {{matched}} 行に一致",
+    "invalidRegex": "正規表現が無効です",
+    "textFilter": "テキスト",
+    "regexFilter": "正規表現",
+    "clearLogsAria": "現在のログを消去",
+    "theme": {
+      "dark": "ダーク",
+      "light": "ライト",
+      "dbx": "DBX に従う"
+    },
     "currentTheme": "現在のテーマ: {{name}}",
     "tailLines": "尾翼",
     "all": "すべて",
@@ -2111,7 +2123,10 @@
     "downloadLogs": "ログのダウンロード",
     "enterFullscreen": "全画面表示に入る",
     "exitFullscreen": "全画面表示を終了する (ESC)",
-    "loadingEditor": "エディターを読み込み中..."
+    "loadingEditor": "エディターを読み込み中...",
+    "downloadFailed": "ログを保存できません。DBX を更新して再試行してください。",
+    "downloadSuccess": "ログを保存しました。",
+    "downloadCanceled": "ログのダウンロードをキャンセルしました。"
   },
   "monitoringControls": {
     "selectTimeRange": "時間範囲を選択してください",

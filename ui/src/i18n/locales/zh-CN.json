@@ -2092,6 +2092,18 @@
     "loading": "加载中...",
     "reconnecting": "重连中...",
     "filterLogs": "筛选日志...",
+    "filterMatchingLogs": "仅显示匹配日志",
+    "showAllLogs": "显示全部日志",
+    "matchCount": "匹配 {{matched}} / {{total}} 行",
+    "invalidRegex": "正则表达式无效",
+    "textFilter": "文本",
+    "regexFilter": "正则",
+    "clearLogsAria": "清除当前日志",
+    "theme": {
+      "dark": "黑色",
+      "light": "白色",
+      "dbx": "跟随 DBX"
+    },
     "currentTheme": "当前主题：{{name}}",
     "tailLines": "尾部行数",
     "all": "全部",
@@ -2111,7 +2123,10 @@
     "downloadLogs": "下载日志",
     "enterFullscreen": "进入全屏",
     "exitFullscreen": "退出全屏（ESC）",
-    "loadingEditor": "正在加载编辑器..."
+    "loadingEditor": "正在加载编辑器...",
+    "downloadFailed": "日志保存失败，请确认 DBX 支持文件保存（必要时更新 DBX）后重试。",
+    "downloadSuccess": "日志保存成功。",
+    "downloadCanceled": "已取消下载日志。"
   },
   "monitoringControls": {
     "selectTimeRange": "选择时间范围",

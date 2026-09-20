@@ -2092,6 +2092,18 @@
     "loading": "Cargando...",
     "reconnecting": "Reconectando...",
     "filterLogs": "Filtrar registros...",
+    "filterMatchingLogs": "Mostrar solo registros coincidentes",
+    "showAllLogs": "Mostrar todos los registros",
+    "matchCount": "Coinciden {{matched}} / {{total}} líneas",
+    "invalidRegex": "Expresión regular no válida",
+    "textFilter": "Texto",
+    "regexFilter": "Expresión",
+    "clearLogsAria": "Borrar registros actuales",
+    "theme": {
+      "dark": "Oscuro",
+      "light": "Claro",
+      "dbx": "Seguir DBX"
+    },
     "currentTheme": "Tema actual: {{name}}",
     "tailLines": "Líneas de cola",
     "all": "Todos",
@@ -2111,7 +2123,10 @@
     "downloadLogs": "Descargar registros",
     "enterFullscreen": "Entrar en pantalla completa",
     "exitFullscreen": "Salir de pantalla completa (ESC)",
-    "loadingEditor": "Cargando editor..."
+    "loadingEditor": "Cargando editor...",
+    "downloadFailed": "No se pudieron guardar los registros. Actualice DBX e inténtelo de nuevo.",
+    "downloadSuccess": "Registros guardados correctamente.",
+    "downloadCanceled": "Descarga de registros cancelada."
   },
   "monitoringControls": {
     "selectTimeRange": "Seleccionar rango de tiempo",

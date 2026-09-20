@@ -1,3 +1,4 @@
+import { normalizeLogTheme } from "./log-theme";
 import {
   getResourceTablePreference,
   getUIPreference,
@@ -11,217 +12,221 @@ import {
   type UIPreferencePayload,
   type ViewerPreferencePayload,
   type WorkspacePreferencePayload,
-} from '@/lib/api/admin'
+} from "@/lib/api/admin";
 
-const CURRENT_CLUSTER_STORAGE_KEY = 'current-cluster'
-const RECENT_CLUSTERS_STORAGE_KEY = 'recent-clusters'
+const CURRENT_CLUSTER_STORAGE_KEY = "current-cluster";
+const RECENT_CLUSTERS_STORAGE_KEY = "recent-clusters";
 
-let workspacePreferenceCache: WorkspacePreferencePayload | null = null
-let resourceTablePreferenceCache: ResourceTablePreferencePayload | null = null
-let viewerPreferenceCache: ViewerPreferencePayload | null = null
-let uiPreferenceCache: UIPreferencePayload | null = null
+let workspacePreferenceCache: WorkspacePreferencePayload | null = null;
+let resourceTablePreferenceCache: ResourceTablePreferencePayload | null = null;
+let viewerPreferenceCache: ViewerPreferencePayload | null = null;
+let uiPreferenceCache: UIPreferencePayload | null = null;
 
 export function getDefaultWorkspacePreference(): WorkspacePreferencePayload {
   return {
-    currentCluster: '',
+    currentCluster: "",
     recentClusters: [],
     selectedNamespaceByCluster: {},
-  }
+  };
 }
 
 export function getDefaultResourceTablePreference(): ResourceTablePreferencePayload {
   return {
     columnVisibilityByCluster: {},
-  }
+  };
 }
 
 export function getDefaultViewerPreference(): ViewerPreferencePayload {
   return {
     logViewer: {
-      theme: 'classic',
+      theme: "classic",
       tailLines: 100,
       wordWrap: true,
       showLineNumbers: false,
       fontSize: 14,
     },
     terminal: {
-      theme: 'classic',
-      cursorStyle: 'bar',
+      theme: "classic",
+      cursorStyle: "bar",
       fontSize: 14,
     },
-  }
+  };
 }
 
 export function getDefaultUIPreference(): UIPreferencePayload {
   return {
     settingsHintDismissed: false,
-  }
+  };
 }
 
 function normalizeWorkspacePreference(
-  payload?: Partial<WorkspacePreferencePayload>
+  payload?: Partial<WorkspacePreferencePayload>,
 ): WorkspacePreferencePayload {
-  const defaults = getDefaultWorkspacePreference()
+  const defaults = getDefaultWorkspacePreference();
   return {
     currentCluster: payload?.currentCluster || defaults.currentCluster,
     recentClusters: Array.isArray(payload?.recentClusters)
       ? payload.recentClusters.filter(
-          (item): item is string => typeof item === 'string'
+          (item): item is string => typeof item === "string",
         )
       : defaults.recentClusters,
     selectedNamespaceByCluster:
       payload?.selectedNamespaceByCluster &&
-      typeof payload.selectedNamespaceByCluster === 'object'
+      typeof payload.selectedNamespaceByCluster === "object"
         ? payload.selectedNamespaceByCluster
         : defaults.selectedNamespaceByCluster,
-  }
+  };
 }
 
 function normalizeResourceTablePreference(
-  payload?: Partial<ResourceTablePreferencePayload>
+  payload?: Partial<ResourceTablePreferencePayload>,
 ): ResourceTablePreferencePayload {
   return {
     columnVisibilityByCluster:
       payload?.columnVisibilityByCluster &&
-      typeof payload.columnVisibilityByCluster === 'object'
+      typeof payload.columnVisibilityByCluster === "object"
         ? payload.columnVisibilityByCluster
         : {},
-  }
+  };
 }
 
 function normalizeViewerPreference(
-  payload?: Partial<ViewerPreferencePayload>
+  payload?: Partial<ViewerPreferencePayload>,
 ): ViewerPreferencePayload {
-  const defaults = getDefaultViewerPreference()
+  const defaults = getDefaultViewerPreference();
   return {
     logViewer: {
       ...defaults.logViewer,
       ...payload?.logViewer,
+      theme: normalizeLogTheme(payload?.logViewer?.theme),
     },
     terminal: {
       ...defaults.terminal,
       ...payload?.terminal,
     },
-  }
+  };
 }
 
 function normalizeUIPreference(
-  payload?: Partial<UIPreferencePayload>
+  payload?: Partial<UIPreferencePayload>,
 ): UIPreferencePayload {
   return {
     settingsHintDismissed:
       payload?.settingsHintDismissed ??
       getDefaultUIPreference().settingsHintDismissed,
-  }
+  };
 }
 
 export function applyWorkspacePreferenceToLocalStorage(
-  preference: WorkspacePreferencePayload
+  preference: WorkspacePreferencePayload,
 ) {
   if (preference.currentCluster) {
-    localStorage.setItem(CURRENT_CLUSTER_STORAGE_KEY, preference.currentCluster)
+    localStorage.setItem(
+      CURRENT_CLUSTER_STORAGE_KEY,
+      preference.currentCluster,
+    );
   }
   if (preference.recentClusters.length > 0) {
     localStorage.setItem(
       RECENT_CLUSTERS_STORAGE_KEY,
-      JSON.stringify(preference.recentClusters)
-    )
+      JSON.stringify(preference.recentClusters),
+    );
   }
   Object.entries(preference.selectedNamespaceByCluster).forEach(
     ([clusterName, namespace]) => {
       if (!clusterName) {
-        return
+        return;
       }
-      localStorage.setItem(`${clusterName}selectedNamespace`, namespace)
-    }
-  )
+      localStorage.setItem(`${clusterName}selectedNamespace`, namespace);
+    },
+  );
 }
 
 export async function loadWorkspacePreference() {
   if (workspacePreferenceCache) {
-    return workspacePreferenceCache
+    return workspacePreferenceCache;
   }
 
   const preference = normalizeWorkspacePreference(
-    await getWorkspacePreference()
-  )
-  workspacePreferenceCache = preference
-  applyWorkspacePreferenceToLocalStorage(preference)
-  return preference
+    await getWorkspacePreference(),
+  );
+  workspacePreferenceCache = preference;
+  applyWorkspacePreferenceToLocalStorage(preference);
+  return preference;
 }
 
 export async function updateWorkspacePreference(
-  updater: (current: WorkspacePreferencePayload) => WorkspacePreferencePayload
+  updater: (current: WorkspacePreferencePayload) => WorkspacePreferencePayload,
 ) {
-  const current = workspacePreferenceCache || (await loadWorkspacePreference())
-  const next = normalizeWorkspacePreference(updater(current))
-  workspacePreferenceCache = next
-  applyWorkspacePreferenceToLocalStorage(next)
-  await saveWorkspacePreference(next)
-  return next
+  const current = workspacePreferenceCache || (await loadWorkspacePreference());
+  const next = normalizeWorkspacePreference(updater(current));
+  workspacePreferenceCache = next;
+  applyWorkspacePreferenceToLocalStorage(next);
+  await saveWorkspacePreference(next);
+  return next;
 }
 
 export async function loadResourceTablePreference() {
   if (resourceTablePreferenceCache) {
-    return resourceTablePreferenceCache
+    return resourceTablePreferenceCache;
   }
 
   const preference = normalizeResourceTablePreference(
-    await getResourceTablePreference()
-  )
-  resourceTablePreferenceCache = preference
-  return preference
+    await getResourceTablePreference(),
+  );
+  resourceTablePreferenceCache = preference;
+  return preference;
 }
 
 export async function updateResourceTablePreference(
   updater: (
-    current: ResourceTablePreferencePayload
-  ) => ResourceTablePreferencePayload
+    current: ResourceTablePreferencePayload,
+  ) => ResourceTablePreferencePayload,
 ) {
   const current =
-    resourceTablePreferenceCache || (await loadResourceTablePreference())
-  const next = normalizeResourceTablePreference(updater(current))
-  resourceTablePreferenceCache = next
-  await saveResourceTablePreference(next)
-  return next
+    resourceTablePreferenceCache || (await loadResourceTablePreference());
+  const next = normalizeResourceTablePreference(updater(current));
+  resourceTablePreferenceCache = next;
+  await saveResourceTablePreference(next);
+  return next;
 }
 
 export async function loadViewerPreference() {
   if (viewerPreferenceCache) {
-    return viewerPreferenceCache
+    return viewerPreferenceCache;
   }
 
-  const preference = normalizeViewerPreference(await getViewerPreference())
-  viewerPreferenceCache = preference
-  return preference
+  const preference = normalizeViewerPreference(await getViewerPreference());
+  viewerPreferenceCache = preference;
+  return preference;
 }
 
 export async function updateViewerPreference(
-  updater: (current: ViewerPreferencePayload) => ViewerPreferencePayload
+  updater: (current: ViewerPreferencePayload) => ViewerPreferencePayload,
 ) {
-  const current = viewerPreferenceCache || (await loadViewerPreference())
-  const next = normalizeViewerPreference(updater(current))
-  viewerPreferenceCache = next
-  await saveViewerPreference(next)
-  return next
+  const current = viewerPreferenceCache || (await loadViewerPreference());
+  const next = normalizeViewerPreference(updater(current));
+  viewerPreferenceCache = next;
+  await saveViewerPreference(next);
+  return next;
 }
 
 export async function loadUIPreference() {
   if (uiPreferenceCache) {
-    return uiPreferenceCache
+    return uiPreferenceCache;
   }
 
-  const preference = normalizeUIPreference(await getUIPreference())
-  uiPreferenceCache = preference
-  return preference
+  const preference = normalizeUIPreference(await getUIPreference());
+  uiPreferenceCache = preference;
+  return preference;
 }
 
 export async function updateUIPreference(
-  updater: (current: UIPreferencePayload) => UIPreferencePayload
+  updater: (current: UIPreferencePayload) => UIPreferencePayload,
 ) {
-  const current = uiPreferenceCache || (await loadUIPreference())
-  const next = normalizeUIPreference(updater(current))
-  uiPreferenceCache = next
-  await saveUIPreference(next)
-  return next
+  const current = uiPreferenceCache || (await loadUIPreference());
+  const next = normalizeUIPreference(updater(current));
+  uiPreferenceCache = next;
+  await saveUIPreference(next);
+  return next;
 }

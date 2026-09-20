@@ -2092,6 +2092,18 @@
     "loading": "Yüklənir...",
     "reconnecting": "Yenidən qoşulur...",
     "filterLogs": "Günlükləri süzün...",
+    "filterMatchingLogs": "Yalnız uyğun qeydləri göstər",
+    "showAllLogs": "Bütün qeydləri göstər",
+    "matchCount": "Uyğun {{matched}} / {{total}} sətir",
+    "invalidRegex": "Yanlış müntəzəm ifadə",
+    "textFilter": "Mətn",
+    "regexFilter": "Müntəzəm ifadə",
+    "clearLogsAria": "Cari jurnalları təmizlə",
+    "theme": {
+      "dark": "Tünd",
+      "light": "Açıq",
+      "dbx": "DBX-i izlə"
+    },
     "currentTheme": "Cari mövzu: {{name}}",
     "tailLines": "Quyruq xətləri",
     "all": "Hamısı",
@@ -2111,7 +2123,10 @@
     "downloadLogs": "Logları yükləyin",
     "enterFullscreen": "Tam ekrana daxil olun",
     "exitFullscreen": "Tam ekrandan çıxın (ESC)",
-    "loadingEditor": "Redaktor yüklənir..."
+    "loadingEditor": "Redaktor yüklənir...",
+    "downloadFailed": "Jurnalları saxlamaq mümkün olmadı. DBX-i yeniləyin və yenidən cəhd edin.",
+    "downloadSuccess": "Jurnallar uğurla saxlanıldı.",
+    "downloadCanceled": "Jurnal yükləməsi ləğv edildi."
   },
   "monitoringControls": {
     "selectTimeRange": "Vaxt aralığını seçin",

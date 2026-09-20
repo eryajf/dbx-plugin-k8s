@@ -2092,6 +2092,18 @@
     "loading": "Yükleniyor...",
     "reconnecting": "Yeniden bağlanılıyor...",
     "filterLogs": "Günlükleri filtrele...",
+    "filterMatchingLogs": "Yalnızca eşleşen günlükleri göster",
+    "showAllLogs": "Tüm günlükleri göster",
+    "matchCount": "{{total}} satırın {{matched}} kadarı eşleşti",
+    "invalidRegex": "Geçersiz düzenli ifade",
+    "textFilter": "Metin",
+    "regexFilter": "Düzenli ifade",
+    "clearLogsAria": "Mevcut günlükleri temizle",
+    "theme": {
+      "dark": "Koyu",
+      "light": "Açık",
+      "dbx": "DBX temasını izle"
+    },
     "currentTheme": "Güncel tema: {{name}}",
     "tailLines": "Kuyruk Hatları",
     "all": "Tümü",
@@ -2111,7 +2123,10 @@
     "downloadLogs": "Günlükleri İndir",
     "enterFullscreen": "Tam ekrana girin",
     "exitFullscreen": "Tam ekrandan çık (ESC)",
-    "loadingEditor": "Editör yükleniyor..."
+    "loadingEditor": "Editör yükleniyor...",
+    "downloadFailed": "Günlükler kaydedilemedi. DBX sürümünü güncelleyip tekrar deneyin.",
+    "downloadSuccess": "Günlükler başarıyla kaydedildi.",
+    "downloadCanceled": "Günlük indirme iptal edildi."
   },
   "monitoringControls": {
     "selectTimeRange": "Zaman aralığını seçin",

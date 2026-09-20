@@ -2092,6 +2092,18 @@
     "loading": "Carregando...",
     "reconnecting": "Reconectando...",
     "filterLogs": "Filtrar registros...",
+    "filterMatchingLogs": "Mostrar apenas logs correspondentes",
+    "showAllLogs": "Mostrar todos os logs",
+    "matchCount": "{{matched}} / {{total}} linhas correspondentes",
+    "invalidRegex": "Expressão regular inválida",
+    "textFilter": "Texto",
+    "regexFilter": "Expressão",
+    "clearLogsAria": "Limpar logs atuais",
+    "theme": {
+      "dark": "Escuro",
+      "light": "Claro",
+      "dbx": "Seguir DBX"
+    },
     "currentTheme": "Tema atual: {{name}}",
     "tailLines": "Linhas traseiras",
     "all": "Todos",
@@ -2111,7 +2123,10 @@
     "downloadLogs": "Baixar registros",
     "enterFullscreen": "Entrar em tela cheia",
     "exitFullscreen": "Sair da tela cheia (ESC)",
-    "loadingEditor": "Carregando editor..."
+    "loadingEditor": "Carregando editor...",
+    "downloadFailed": "Não foi possível salvar os logs. Atualize o DBX e tente novamente.",
+    "downloadSuccess": "Logs salvos com sucesso.",
+    "downloadCanceled": "Download dos logs cancelado."
   },
   "monitoringControls": {
     "selectTimeRange": "Selecione o intervalo de tempo",

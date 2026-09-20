@@ -324,6 +324,15 @@ export async function saveNativeFile(
 export async function saveTextFile(
   options: NativeSaveFileOptions
 ): Promise<NativeSaveFileResult> {
+  const host = (window as unknown as {
+    dbxPlugin?: { saveFile?: (options: { fileName: string; contentType: string }, data: Uint8Array) => Promise<{ path?: string } | null> }
+  }).dbxPlugin
+  if (host) {
+    if (!host.saveFile) throw new Error('DBX host does not support saving files. Please update DBX.')
+    const result = await host.saveFile({fileName: options.suggestedName || 'download.txt', contentType: 'text/plain;charset=utf-8'}, new TextEncoder().encode(options.content))
+    return result ? { canceled: false, path: result.path } : { canceled: true }
+  }
+
   const desktopMode = await isDesktopMode()
   const nativeResult = await saveNativeFile(options)
   if (nativeResult) {
