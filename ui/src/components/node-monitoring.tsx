@@ -16,6 +16,7 @@ import {
   getMonitoringErrorKind,
   MonitoringStatusNotice,
 } from './monitoring-status-notice'
+import { monitoringTimeRangeOptions } from './monitoring-options'
 
 interface NodeMonitoringProps {
   name: string
@@ -33,14 +34,7 @@ export function NodeMonitoring({ name }: NodeMonitoringProps) {
     instance: name,
   })
 
-  const timeRangeOptions = [
-    { value: '15m', label: t('monitoringControls.last15Min') },
-    { value: '30m', label: t('monitoringControls.last30Min') },
-    { value: '1h', label: t('monitoringControls.last1Hour') },
-    { value: '24h', label: t('monitoringControls.last24Hours') },
-    { value: '2d', label: t('monitoringControls.last2Days') },
-    { value: '7d', label: t('monitoringControls.last7Days') },
-  ]
+  const timeRangeOptions = monitoringTimeRangeOptions(t)
 
   return (
     <div className="space-y-6">
@@ -69,6 +63,7 @@ export function NodeMonitoring({ name }: NodeMonitoringProps) {
       <ResourceUtilizationChart
         cpu={resourceUsage?.cpu || []}
         memory={resourceUsage?.memory || []}
+        nodeName={name}
         isLoading={isLoadingResourceUsage}
         error={
           getMonitoringErrorKind(errorResourceUsage) === 'unknown'
@@ -81,6 +76,8 @@ export function NodeMonitoring({ name }: NodeMonitoringProps) {
       <NetworkUsageChart
         networkIn={resourceUsage?.networkIn || []}
         networkOut={resourceUsage?.networkOut || []}
+        scope="node"
+        nodeName={name}
         isLoading={isLoadingResourceUsage}
         error={
           getMonitoringErrorKind(errorResourceUsage) === 'unknown'

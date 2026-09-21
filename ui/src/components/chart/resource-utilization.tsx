@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { AlertTriangle, Loader2 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import React from "react";
+import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { UsageDataPoint } from '@/types/api'
-import { formatChartXTicks } from '@/lib/utils'
+import { UsageDataPoint } from "@/types/api";
+import { formatChartXTicks } from "@/lib/utils";
 
-import { Alert, AlertDescription } from '../ui/alert'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Alert, AlertDescription } from "../ui/alert";
+import { Card, CardContent } from "../ui/card";
 import {
   ChartConfig,
   ChartContainer,
@@ -17,94 +17,104 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from '../ui/chart'
-import { Skeleton } from '../ui/skeleton'
+} from "../ui/chart";
+import { Skeleton } from "../ui/skeleton";
+
+import { MonitoringChartHeader } from "./monitoring-chart-header";
+import { MonitoringChartFullscreen } from "./monitoring-chart-fullscreen";
+import { nodeUtilizationQuery } from "./monitoring-chart-queries";
 
 interface ResourceUtilizationChartProps {
-  cpu: UsageDataPoint[]
-  memory: UsageDataPoint[]
-  isLoading?: boolean
-  error?: Error | null
+  cpu: UsageDataPoint[];
+  memory: UsageDataPoint[];
+  isLoading?: boolean;
+  error?: Error | null;
+  nodeName?: string;
 }
 
 const ResourceUtilizationChart = React.memo(
   (prop: ResourceUtilizationChartProps) => {
-    const { t } = useTranslation()
-    const { cpu, memory, isLoading, error } = prop
+    const { t } = useTranslation();
+    const [isExpanded, setIsExpanded] = React.useState(false);
+    const { cpu, memory, isLoading, error, nodeName } = prop;
+    const description = t("monitoring.nodeUtilizationDescription");
+    const query = nodeUtilizationQuery(nodeName);
     const chartConfig = React.useMemo(
       () =>
         ({
           usage: {
-            label: t('charts.usage'),
+            label: t("charts.usage"),
           },
           cpu: {
-            label: 'CPU',
-            color: 'hsl(220, 70%, 50%)',
+            label: "CPU",
+            color: "hsl(220, 70%, 50%)",
           },
           memory: {
-            label: t('detail.fields.memory'),
-            color: 'hsl(142, 70%, 50%)',
+            label: t("detail.fields.memory"),
+            color: "hsl(142, 70%, 50%)",
           },
         }) satisfies ChartConfig,
-      [t]
-    )
+      [t],
+    );
     const chartData = React.useMemo(() => {
-      if (!cpu || !memory) return []
+      if (!cpu || !memory) return [];
 
       // Combine CPU and Memory data by timestamp
-      const combinedData = new Map()
+      const combinedData = new Map();
 
       // Add CPU data
       cpu.forEach((point) => {
-        const timestamp = new Date(point.timestamp).getTime()
+        const timestamp = new Date(point.timestamp).getTime();
         combinedData.set(timestamp, {
           timestamp: point.timestamp,
           time: timestamp,
           cpu: Math.max(0, Math.min(100, point.value)), // Clamp between 0-100
-        })
-      })
+        });
+      });
 
       // Add Memory data
       memory.forEach((point) => {
-        const timestamp = new Date(point.timestamp).getTime()
+        const timestamp = new Date(point.timestamp).getTime();
         const existing = combinedData.get(timestamp) || {
           timestamp: point.timestamp,
           time: timestamp,
-        }
-        existing.memory = Math.max(0, Math.min(100, point.value)) // Clamp between 0-100
-        combinedData.set(timestamp, existing)
-      })
+        };
+        existing.memory = Math.max(0, Math.min(100, point.value)); // Clamp between 0-100
+        combinedData.set(timestamp, existing);
+      });
 
       // Convert to array and sort by timestamp
-      return Array.from(combinedData.values()).sort((a, b) => a.time - b.time)
-    }, [cpu, memory])
+      return Array.from(combinedData.values()).sort((a, b) => a.time - b.time);
+    }, [cpu, memory]);
 
     // Show loading skeleton
     if (isLoading) {
       return (
         <Card className="@container/card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t('monitoring.resourceUtilization')}
-            </CardTitle>
-          </CardHeader>
+          <MonitoringChartHeader
+            title={t("monitoring.resourceUtilization")}
+            description={description}
+            query={query}
+            loading
+          />
           <CardContent className="px-2 sm:px-6">
             <div className="space-y-3">
               <Skeleton className="h-[250px] w-full" />
             </div>
           </CardContent>
         </Card>
-      )
+      );
     }
 
     // Show error state
     if (error) {
       return (
         <Card className="@container/card">
-          <CardHeader>
-            <CardTitle>{t('monitoring.resourceUtilization')}</CardTitle>
-          </CardHeader>
+          <MonitoringChartHeader
+            title={t("monitoring.resourceUtilization")}
+            description={description}
+            query={query}
+          />
           <CardContent className="px-2 sm:px-6">
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -112,115 +122,134 @@ const ResourceUtilizationChart = React.memo(
             </Alert>
           </CardContent>
         </Card>
-      )
+      );
     }
 
     // Show empty state
     if (!cpu || !memory || (cpu.length === 0 && memory.length === 0)) {
       return (
         <Card className="@container/card">
-          <CardHeader>
-            <CardTitle>{t('monitoring.resourceUtilization')}</CardTitle>
-          </CardHeader>
+          <MonitoringChartHeader
+            title={t("monitoring.resourceUtilization")}
+            description={description}
+            query={query}
+          />
           <CardContent className="px-2 sm:px-6">
             <div className="flex h-[250px] w-full items-center justify-center text-muted-foreground">
-              <p>{t('charts.noResourceUtilizationData')}</p>
+              <p>{t("charts.noResourceUtilizationData")}</p>
             </div>
           </CardContent>
         </Card>
-      )
+      );
     }
 
-    return (
-      <Card className="@container/card">
-        <CardHeader>
-          <CardTitle>{t('monitoring.resourceUtilization')}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-2 sm:px-6">
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-[250px] w-full"
-          >
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="fillCpu" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="var(--color-cpu)"
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="var(--color-cpu)"
-                    stopOpacity={0.1}
-                  />
-                </linearGradient>
-                <linearGradient id="fillMemory" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="var(--color-memory)"
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="var(--color-memory)"
-                    stopOpacity={0.1}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="timestamp"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                minTickGap={32}
-                tickFormatter={(value) => {
-                  const date = new Date(value)
-                  return date.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })
-                }}
+    const renderChart = (heightClass: string) => (
+      <ChartContainer
+        config={chartConfig}
+        className={`aspect-auto ${heightClass} w-full`}
+      >
+        <AreaChart data={chartData}>
+          <defs>
+            <linearGradient id="fillCpu" x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="5%"
+                stopColor="var(--color-cpu)"
+                stopOpacity={0.8}
               />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                domain={[0, 100]}
-                tickFormatter={(value) => `${value}%`}
+              <stop
+                offset="95%"
+                stopColor="var(--color-cpu)"
+                stopOpacity={0.1}
               />
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    indicator="line"
-                    labelFormatter={(value) => formatChartXTicks(value, false)}
-                  />
-                }
+            </linearGradient>
+            <linearGradient id="fillMemory" x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="5%"
+                stopColor="var(--color-memory)"
+                stopOpacity={0.8}
               />
-              <Area
-                dataKey="cpu"
-                type="monotone"
-                fill="url(#fillCpu)"
-                stroke="var(--color-cpu)"
-                strokeWidth={2}
+              <stop
+                offset="95%"
+                stopColor="var(--color-memory)"
+                stopOpacity={0.1}
               />
-              <Area
-                dataKey="memory"
-                type="monotone"
-                fill="url(#fillMemory)"
-                stroke="var(--color-memory)"
-                strokeWidth={2}
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="timestamp"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={32}
+            tickFormatter={(value) => {
+              const date = new Date(value);
+              return date.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+            }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            domain={[0, 100]}
+            tickFormatter={(value) => `${value}%`}
+          />
+          <ChartTooltip
+            cursor={false}
+            content={
+              <ChartTooltipContent
+                indicator="line"
+                labelFormatter={(value) => formatChartXTicks(value, false)}
+                valueFormatter={(value) => `${value.toFixed(2)}%`}
               />
-              <ChartLegend content={<ChartLegendContent />} />
-            </AreaChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-    )
-  }
-)
+            }
+          />
+          <Area
+            dataKey="cpu"
+            type="monotone"
+            fill="url(#fillCpu)"
+            stroke="var(--color-cpu)"
+            strokeWidth={2}
+          />
+          <Area
+            dataKey="memory"
+            type="monotone"
+            fill="url(#fillMemory)"
+            stroke="var(--color-memory)"
+            strokeWidth={2}
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+        </AreaChart>
+      </ChartContainer>
+    );
 
-export default ResourceUtilizationChart
+    return (
+      <>
+        <Card className="@container/card">
+          <MonitoringChartHeader
+            title={t("monitoring.resourceUtilization")}
+            description={description}
+            query={query}
+            onExpand={() => setIsExpanded(true)}
+          />
+          <CardContent className="px-2 sm:px-6">
+            {renderChart("h-[250px]")}
+          </CardContent>
+        </Card>
+        <MonitoringChartFullscreen
+          open={isExpanded}
+          onOpenChange={setIsExpanded}
+          title={t("monitoring.resourceUtilization")}
+        >
+          {renderChart("h-full min-h-[420px]")}
+        </MonitoringChartFullscreen>
+      </>
+    );
+  },
+);
+
+export default ResourceUtilizationChart;

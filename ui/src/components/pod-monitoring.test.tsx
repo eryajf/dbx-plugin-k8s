@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { PodMonitoring } from './pod-monitoring'
 
+const { usePodMetricsMock } = vi.hoisted(() => ({
+  usePodMetricsMock: vi.fn(),
+}))
+
 vi.mock('react-i18next', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-i18next')>()
 
@@ -16,7 +20,9 @@ vi.mock('react-i18next', async (importOriginal) => {
 })
 
 vi.mock('@/lib/api', () => ({
-  usePodMetrics: () => ({
+  usePodMetrics: (...args: unknown[]) => {
+    usePodMetricsMock(...args)
+    return {
     data: {
       cpu: [],
       memory: [],
@@ -27,7 +33,8 @@ vi.mock('@/lib/api', () => ({
     },
     isLoading: false,
     error: null,
-  }),
+    }
+  },
 }))
 
 vi.mock('./chart/cpu-usage-chart', () => ({
@@ -55,6 +62,30 @@ vi.mock('./selector/pod-selector', () => ({
 }))
 
 describe('PodMonitoring', () => {
+  it('uses the current workload Pod list as an exact metrics filter by default', () => {
+    const pods = [
+      { metadata: { name: 'ops-whoami-f65856dfd-gn9q9', uid: 'pod-1' } },
+      { metadata: { name: 'ops-whoami-f65856dfd-zq4dd', uid: 'pod-2' } },
+    ] as Pod[]
+
+    render(
+      <PodMonitoring
+        namespace="ops"
+        defaultQueryName="ops-whoami"
+        pods={pods}
+      />
+    )
+
+    expect(usePodMetricsMock).toHaveBeenLastCalledWith(
+      'ops',
+      'ops-whoami',
+      '30m',
+      expect.objectContaining({
+        podNames: ['ops-whoami-f65856dfd-gn9q9', 'ops-whoami-f65856dfd-zq4dd'],
+      })
+    )
+  })
+
   it('keeps container and pod selector controls wide enough for long names', () => {
     const pods = [
       {
@@ -87,5 +118,14 @@ describe('PodMonitoring', () => {
     expect(containerWrapper).toHaveClass('md:min-w-[14rem]')
     expect(podWrapper).toHaveClass('md:shrink-0')
     expect(podWrapper).toHaveClass('md:min-w-[18rem]')
+  })
+
+  it('renders separate usage amount and utilization charts', () => {
+    render(<PodMonitoring namespace="default" podName="demo" />)
+
+    expect(screen.getAllByText('cpu-chart')).toHaveLength(2)
+    expect(screen.getAllByText('memory-chart')).toHaveLength(2)
+    expect(screen.getByText('network-chart')).toBeInTheDocument()
+    expect(screen.getByText('disk-chart')).toBeInTheDocument()
   })
 })

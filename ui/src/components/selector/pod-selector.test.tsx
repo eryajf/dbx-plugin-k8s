@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { Pod } from 'kubernetes-types/core/v1'
+import { useState } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { PodSelector } from './pod-selector'
@@ -27,6 +28,35 @@ beforeAll(() => {
 })
 
 describe('PodSelector', () => {
+  it('allows monitoring to compare more than one selected Pod', () => {
+    const pods = [
+      { metadata: { name: 'api-abc12', uid: 'pod-1' } },
+      { metadata: { name: 'api-def34', uid: 'pod-2' } },
+    ] as Pod[]
+
+    function MultiPodSelector() {
+      const [selectedPods, setSelectedPods] = useState<string[]>([])
+      return (
+        <>
+          <PodSelector
+            pods={pods}
+            showAllOption
+            selectedPods={selectedPods}
+            onPodsChange={setSelectedPods}
+          />
+          <output>{selectedPods.join(',')}</output>
+        </>
+      )
+    }
+
+    render(<MultiPodSelector />)
+    fireEvent.click(screen.getByRole('combobox'))
+    fireEvent.click(screen.getByText('api-abc12'))
+    fireEvent.click(screen.getByText('api-def34'))
+
+    expect(screen.getByText('api-abc12,api-def34')).toBeInTheDocument()
+  })
+
   it('uses adaptive trigger and dropdown widths for long pod names', () => {
     const pods = [
       {

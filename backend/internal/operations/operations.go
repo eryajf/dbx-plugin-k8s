@@ -10,22 +10,23 @@ import (
 )
 
 type Request struct {
-	Namespace        string `json:"namespace"`
-	Name             string `json:"name"`
-	Resource         string `json:"resource"`
-	ResourceVersion  string `json:"resourceVersion"`
-	Replicas         *int32 `json:"replicas"`
-	Revision         string `json:"revision"`
-	Suspend          *bool  `json:"suspend"`
-	Force            bool   `json:"force"`
-	IgnoreDaemonSets bool   `json:"ignoreDaemonSets"`
-	DeleteLocalData  bool   `json:"deleteLocalData"`
-	GracePeriod      *int64 `json:"gracePeriod"`
-	TimeoutSeconds   int    `json:"timeoutSeconds"`
-	Duration         string `json:"duration"`
-	Instance         string `json:"instance"`
-	Container        string `json:"container"`
-	LabelSelector    string `json:"labelSelector"`
+	Namespace        string   `json:"namespace"`
+	Name             string   `json:"name"`
+	Resource         string   `json:"resource"`
+	ResourceVersion  string   `json:"resourceVersion"`
+	Replicas         *int32   `json:"replicas"`
+	Revision         string   `json:"revision"`
+	Suspend          *bool    `json:"suspend"`
+	Force            bool     `json:"force"`
+	IgnoreDaemonSets bool     `json:"ignoreDaemonSets"`
+	DeleteLocalData  bool     `json:"deleteLocalData"`
+	GracePeriod      *int64   `json:"gracePeriod"`
+	TimeoutSeconds   int      `json:"timeoutSeconds"`
+	Duration         string   `json:"duration"`
+	Instance         string   `json:"instance"`
+	Container        string   `json:"container"`
+	PodNames         []string `json:"podNames"`
+	LabelSelector    string   `json:"labelSelector"`
 }
 
 // Handle preserves Kubernetes StatusErrors so the protocol layer can classify them.

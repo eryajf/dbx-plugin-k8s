@@ -292,6 +292,7 @@ export interface RecentEvent {
 export interface UsageDataPoint {
   timestamp: string
   value: number
+  series?: string
 }
 
 export interface ResourceUsageHistory {
@@ -307,6 +308,8 @@ export interface ResourceUsageHistory {
 export interface PodMetrics {
   cpu: UsageDataPoint[]
   memory: UsageDataPoint[]
+  cpuUtilization?: UsageDataPoint[]
+  memoryUtilization?: UsageDataPoint[]
   networkIn?: UsageDataPoint[]
   networkOut?: UsageDataPoint[]
   diskRead?: UsageDataPoint[]

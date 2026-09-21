@@ -21,14 +21,18 @@ import {
 
 interface PodSelectorProps {
   pods: Pod[]
+  selectedPods?: string[]
+  onPodsChange?: (podNames: string[]) => void
   selectedPod?: string
-  onPodChange: (podName?: string) => void
+  onPodChange?: (podName?: string) => void
   placeholder?: string
   showAllOption?: boolean
 }
 
 export function PodSelector({
   pods,
+  selectedPods,
+  onPodsChange,
   selectedPod,
   onPodChange,
   showAllOption = false,
@@ -45,9 +49,31 @@ export function PodSelector({
   }
   const options = showAllOption ? [allOption, ...pods] : pods
 
-  const selectedOption = selectedPod
-    ? pods.find((c) => c.metadata?.name === selectedPod)
-    : allOption
+  const resolvedSelectedPods = selectedPods || (selectedPod ? [selectedPod] : [])
+  const supportsMultipleSelection = Boolean(onPodsChange)
+  const selectedLabel = resolvedSelectedPods.length === 0
+    ? t('selector.allPods')
+    : resolvedSelectedPods.length === 1
+      ? resolvedSelectedPods[0]
+      : `${resolvedSelectedPods.length} ${t('selector.selectedPods', 'pods selected')}`
+
+  const togglePod = (podName?: string) => {
+    if (!podName || podName === allOption.metadata?.name) {
+      onPodsChange?.([])
+      onPodChange?.(undefined)
+      return
+    }
+    if (!supportsMultipleSelection) {
+      onPodChange?.(podName)
+      setOpen(false)
+      return
+    }
+    onPodsChange?.(
+      resolvedSelectedPods.includes(podName)
+        ? resolvedSelectedPods.filter((name) => name !== podName)
+        : [...resolvedSelectedPods, podName]
+    )
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -59,7 +85,7 @@ export function PodSelector({
           className="w-full min-w-0 justify-between md:w-fit md:min-w-[18rem] md:max-w-[min(48rem,calc(100vw-2rem))]"
         >
           <span className="truncate">
-            {selectedOption ? selectedOption.metadata?.name : t('common.all')}
+            {selectedLabel}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -74,20 +100,13 @@ export function PodSelector({
                 <CommandItem
                   key={pod.metadata?.uid}
                   value={pod.metadata?.name}
-                  onSelect={(currentValue) => {
-                    const newValue =
-                      currentValue === allOption.metadata?.name
-                        ? undefined
-                        : currentValue
-                    onPodChange(newValue)
-                    setOpen(false)
-                  }}
+                  onSelect={togglePod}
                 >
                   <Check
                     className={cn(
                       'mr-2 h-4 w-4',
-                      selectedPod === pod.metadata?.name ||
-                        (!selectedPod &&
+                      resolvedSelectedPods.includes(pod.metadata?.name || '') ||
+                        (resolvedSelectedPods.length === 0 &&
                           pod.metadata?.name === allOption.metadata?.name)
                         ? 'opacity-100'
                         : 'opacity-0'

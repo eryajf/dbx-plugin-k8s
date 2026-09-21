@@ -35,7 +35,7 @@ func podPromMetrics(ctx context.Context, c *kube.Client, r Request) (any, error)
 	if !c.PrometheusReachable {
 		return nil, fmt.Errorf("prometheus_unreachable: Prometheus URL is not reachable")
 	}
-	m, err := c.Prometheus.GetPodMetrics(ctx, r.Namespace, r.Name, r.Container, r.Duration)
+	m, err := c.Prometheus.GetPodMetrics(ctx, r.Namespace, r.Name, r.PodNames, r.Container, r.Duration)
 	if err != nil {
 		return nil, fmt.Errorf("prometheus_metrics_missing: pod metrics are unavailable; check container_* metrics and namespace/pod/container labels: %w", err)
 	}

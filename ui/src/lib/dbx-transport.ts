@@ -55,7 +55,7 @@ export class DBXTransport {
     if (parts[0] === 'overview') return this.overview()
     if (parts[0] === 'prometheus') {
       if (parts[1] === 'resource-usage-history') return this.rpc('prometheus/resource-usage-history', {duration: query.duration || '30m', instance: query.instance})
-      if (parts[1] === 'pods' && parts[2] && parts[3] && parts[4] === 'metrics') return this.rpc('prometheus/pods-metrics', {namespace: parts[2], name: parts[3], duration: query.duration || '1h', container: query.container, labelSelector: query.labelSelector})
+      if (parts[1] === 'pods' && parts[2] && parts[3] && parts[4] === 'metrics') return this.rpc('prometheus/pods-metrics', {namespace: parts[2], name: parts[3], duration: query.duration || '1h', container: query.container, podNames: query.pods ? query.pods.split(',').filter(Boolean) : undefined, labelSelector: query.labelSelector})
     }
     if (['settings', 'version', 'admin', 'templates', 'auth', 'license'].includes(parts[0])) throw new Error(`DBX 尚未提供此能力：${url.pathname}`)
     const resource = await resolveDBXResource(this.connectionId, parts[0], this.invoke)

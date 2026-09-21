@@ -107,14 +107,17 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
 			return nil, errors.New("prometheusURL must be an http(s) URL without credentials")
 		}
-		// The Prometheus client appends /api/v1/query and /api/v1/query_range.
-		// Accept the commonly copied web UI path, but store only the server URL.
-		if u.Path == "/query" || u.Path == "/api/v1/query" || u.Path == "/" {
-			u.Path, u.RawPath, u.RawQuery, u.Fragment = "", "", "", ""
-			promURL = strings.TrimRight(u.String(), "/")
-		} else if u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		// The Prometheus client appends /api/v1/query and /api/v1/query_range
+		// beneath the configured path. Managed Prometheus services commonly expose
+		// the API below a tenant/workspace path, so preserve any path while
+		// rejecting query strings and fragments that are not part of the base URL.
+		if u.Path == "/query" || u.Path == "/api/v1/query" {
+			u.Path, u.RawPath = "", ""
+		}
+		if u.RawQuery != "" || u.Fragment != "" {
 			return nil, errors.New("prometheusURL must be the Prometheus server URL")
 		}
+		promURL = strings.TrimRight(u.String(), "/")
 	}
 	resolved := &Resolved{ID: ID(values), Namespace: get("namespace"), ContextName: get("context"), Timeout: 30 * time.Second, PrometheusURL: promURL}
 	if seconds := get("timeout_s"); seconds != "" {

@@ -59,7 +59,8 @@ export const fetchPodMetrics = (
   podName: string,
   duration: string,
   container?: string,
-  labelSelector?: string
+  labelSelector?: string,
+  podNames?: string[]
 ): Promise<PodMetrics> => {
   let endpoint = `/prometheus/pods/${namespace}/${podName}/metrics?duration=${duration}`
   if (container) {
@@ -68,8 +69,14 @@ export const fetchPodMetrics = (
   if (labelSelector) {
     endpoint += `&labelSelector=${encodeURIComponent(labelSelector)}`
   }
+  if (podNames?.length) {
+    endpoint += `&pods=${encodeURIComponent(podNames.join(','))}`
+  }
   return fetchAPI<PodMetrics>(endpoint)
 }
+
+export const podMetricsRefetchInterval = (refreshInterval?: number) =>
+  refreshInterval === 0 ? false : (refreshInterval ?? 30 * 1000)
 
 export const usePodMetrics = (
   namespace: string,
@@ -78,6 +85,7 @@ export const usePodMetrics = (
   options?: {
     staleTime?: number
     container?: string
+    podNames?: string[]
     refreshInterval?: number
     labelSelector?: string
   }
@@ -89,6 +97,7 @@ export const usePodMetrics = (
       podName,
       duration,
       options?.container,
+      options?.podNames,
       options?.labelSelector,
     ],
     queryFn: () =>
@@ -97,11 +106,12 @@ export const usePodMetrics = (
         podName,
         duration,
         options?.container,
-        options?.labelSelector
+        options?.labelSelector,
+        options?.podNames
       ),
     enabled: !!namespace && !!podName,
     staleTime: options?.staleTime || 10000, // 10 seconds cache
-    refetchInterval: options?.refreshInterval || 30 * 1000, // 1 second
+    refetchInterval: podMetricsRefetchInterval(options?.refreshInterval),
     retry: 0,
     placeholderData: (prevData) => prevData,
   })

@@ -22,6 +22,10 @@ import {
   getMonitoringErrorKind,
   MonitoringStatusNotice,
 } from './monitoring-status-notice'
+import {
+  DEFAULT_MONITORING_REFRESH_INTERVAL,
+  monitoringTimeRangeOptions,
+} from './monitoring-options'
 
 interface PodMonitoringProps {
   namespace: string
@@ -46,24 +50,40 @@ export function PodMonitoring({
   const containers = useMemo(() => {
     return toSimpleContainer(initContainers, _containers)
   }, [_containers, initContainers])
-  const [selectedPod, setSelectedPod] = useState<string | undefined>(
-    podName || undefined
+  const [selectedPods, setSelectedPods] = useState<string[]>(
+    podName ? [podName] : []
   )
   const [timeRange, setTimeRange] = useState('30m')
   const [selectedContainer, setSelectedContainer] = useState<
     string | undefined
   >(undefined)
-  const [refreshInterval, setRefreshInterval] = useState(30 * 1000)
+  const [refreshInterval, setRefreshInterval] = useState(
+    DEFAULT_MONITORING_REFRESH_INTERVAL
+  )
 
   const queryPodName = useMemo(() => {
     return (
-      selectedPod ||
       podName ||
       defaultQueryName ||
       pods?.[0]?.metadata?.generateName?.split('-').slice(0, -2).join('-') ||
       ''
     )
-  }, [selectedPod, podName, defaultQueryName, pods])
+  }, [podName, defaultQueryName, pods])
+
+  const effectivePodNames = useMemo(() => {
+    if (selectedPods.length > 0) {
+      return selectedPods
+    }
+
+    const workloadPodNames = (pods || [])
+      .map((pod) => pod.metadata?.name)
+      .filter((name): name is string => Boolean(name))
+    if (workloadPodNames.length > 0) {
+      return workloadPodNames
+    }
+
+    return podName ? [podName] : []
+  }, [podName, pods, selectedPods])
 
   const { data, isLoading, error } = usePodMetrics(
     namespace,
@@ -71,19 +91,19 @@ export function PodMonitoring({
     timeRange,
     {
       container: selectedContainer,
+      podNames: effectivePodNames,
       refreshInterval: refreshInterval,
       labelSelector: labelSelector,
     }
   )
 
-  const timeRangeOptions = [
-    { value: '15m', label: t('monitoringControls.last15Min') },
-    { value: '30m', label: t('monitoringControls.last30Min') },
-    { value: '1h', label: t('monitoringControls.last1Hour') },
-    { value: '24h', label: t('monitoringControls.last24Hours') },
-    { value: '2d', label: t('monitoringControls.last2Days') },
-    { value: '7d', label: t('monitoringControls.last7Days') },
-  ]
+  const timeRangeOptions = monitoringTimeRangeOptions(t)
+  const queryContext = {
+    namespace,
+    podName: queryPodName,
+    podNames: effectivePodNames,
+    container: selectedContainer,
+  }
 
   const refreshIntervalOptions = [
     { value: 0, label: t('monitoringControls.off') },
@@ -147,10 +167,8 @@ export function PodMonitoring({
             <PodSelector
               pods={pods}
               showAllOption={true}
-              selectedPod={selectedPod}
-              onPodChange={(podName) => {
-                setSelectedPod(podName)
-              }}
+              selectedPods={selectedPods}
+              onPodsChange={setSelectedPods}
             />
           </div>
         )}
@@ -169,25 +187,43 @@ export function PodMonitoring({
         <CPUUsageChart
           data={data?.cpu || []}
           isLoading={isLoading}
-          syncId="resource-usage"
+          syncId="resource-amount"
+          queryContext={queryContext}
           error={getMonitoringErrorKind(error) === 'unknown' ? error : undefined}
         />
         <MemoryUsageChart
           data={data?.memory || []}
           isLoading={isLoading}
-          syncId="resource-usage"
+          syncId="resource-amount"
+          queryContext={queryContext}
+        />
+        <CPUUsageChart
+          data={data?.cpuUtilization || []}
+          variant="percentage"
+          isLoading={isLoading}
+          syncId="resource-utilization"
+          queryContext={queryContext}
+        />
+        <MemoryUsageChart
+          data={data?.memoryUtilization || []}
+          variant="percentage"
+          isLoading={isLoading}
+          syncId="resource-utilization"
+          queryContext={queryContext}
         />
         <NetworkUsageChart
           networkIn={data?.networkIn || []}
           networkOut={data?.networkOut || []}
           isLoading={isLoading}
           syncId="resource-usage"
+          queryContext={queryContext}
         />
         <DiskIOUsageChart
           diskRead={data?.diskRead || []}
           diskWrite={data?.diskWrite || []}
           isLoading={isLoading}
           syncId="resource-usage"
+          queryContext={queryContext}
         />
       </div>
     </div>

@@ -70,7 +70,15 @@ func TestPrometheusURLNormalizationAndValidation(t *testing.T) {
 	if r.PrometheusURL != "http://localhost:30090" {
 		t.Fatalf("expected Prometheus web path to normalize, got %q", r.PrometheusURL)
 	}
-	for _, value := range []string{"ftp://prometheus:9090", "http://user:pass@prometheus:9090", "http://prometheus:9090/custom"} {
+	managedURL := "https://workspace.example.com/prometheus/workspace-123/aliyun-prom-abc"
+	r, err = Resolve(map[string]any{"server": "https://example.com", "token": "token", "prometheus_url": managedURL})
+	if err != nil {
+		t.Fatalf("expected managed Prometheus path to be accepted: %v", err)
+	}
+	if r.PrometheusURL != managedURL {
+		t.Fatalf("expected managed Prometheus path to be preserved, got %q", r.PrometheusURL)
+	}
+	for _, value := range []string{"ftp://prometheus:9090", "http://user:pass@prometheus:9090", "http://prometheus:9090/custom?tenant=demo", "http://prometheus:9090/custom#fragment"} {
 		if _, err := Resolve(map[string]any{"server": "https://example.com", "token": "token", "prometheus_url": value}); err == nil {
 			t.Fatalf("expected invalid Prometheus URL %q to be rejected", value)
 		}

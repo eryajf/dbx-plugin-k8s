@@ -1,106 +1,158 @@
-import React from 'react'
-import { AlertTriangle, Loader2 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+"use client";
 
-import { UsageDataPoint } from '@/types/api'
-import { formatChartXTicks, formatDate } from '@/lib/utils'
+import React from "react";
+import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { Alert, AlertDescription } from '../ui/alert'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { UsageDataPoint } from "@/types/api";
+import { formatChartXTicks, formatDate } from "@/lib/utils";
+
+import { Alert, AlertDescription } from "../ui/alert";
+import { Card, CardContent } from "../ui/card";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from '../ui/chart'
-import { Skeleton } from '../ui/skeleton'
+} from "../ui/chart";
+import { Skeleton } from "../ui/skeleton";
+
+import { MonitoringChartHeader } from "./monitoring-chart-header";
+import { MonitoringChartFullscreen } from "./monitoring-chart-fullscreen";
+import {
+  memoryAmountQuery,
+  memoryUtilizationQuery,
+  PodQueryContext,
+} from "./monitoring-chart-queries";
+import { buildMonitoringSeries } from "./monitoring-chart-series";
 
 interface MemoryUsageChartProps {
-  data: UsageDataPoint[]
-  isLoading?: boolean
-  error?: Error | null
-  syncId?: string
+  data: UsageDataPoint[];
+  variant?: "amount" | "percentage";
+  isLoading?: boolean;
+  error?: Error | null;
+  syncId?: string;
+  queryContext?: PodQueryContext;
 }
 
+const MEMORY_AMOUNT_COLORS = [
+  "hsl(151 66% 38%)",
+  "hsl(166 68% 35%)",
+  "hsl(142 58% 46%)",
+  "hsl(180 62% 34%)",
+];
+const MEMORY_UTILIZATION_COLORS = [
+  "hsl(275 67% 50%)",
+  "hsl(308 65% 48%)",
+  "hsl(252 62% 55%)",
+  "hsl(330 62% 51%)",
+];
+
 const MemoryUsageChart = React.memo((prop: MemoryUsageChartProps) => {
-  const { t } = useTranslation()
-  const { data, isLoading, error, syncId } = prop
+  const { t } = useTranslation();
+  const {
+    data,
+    variant = "amount",
+    isLoading,
+    error,
+    syncId,
+    queryContext,
+  } = prop;
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const isUtilization = variant === "percentage";
+  const title = isUtilization
+    ? t("monitoring.memoryUtilization", "Memory Utilization")
+    : t("monitoring.memoryAmount", "Memory Usage Amount");
+  const description = isUtilization
+    ? t("monitoring.memoryUtilizationDescription")
+    : t("monitoring.memoryAmountDescription");
+  const query = isUtilization
+    ? memoryUtilizationQuery(queryContext)
+    : memoryAmountQuery(queryContext);
 
-  const memoryChartData = React.useMemo(() => {
-    if (!data) return []
-
-    return data
-      .map((point) => ({
-        timestamp: point.timestamp,
-        time: new Date(point.timestamp).getTime(),
-        memory: Math.max(0, point.value), // Memory is already in MB
-      }))
-      .sort((a, b) => a.time - b.time)
-  }, [data])
+  const { series: memorySeries, points: memoryChartData } = React.useMemo(
+    () => buildMonitoringSeries(data || []),
+    [data],
+  );
+  const displaySeries = React.useMemo(() => {
+    const colors = isUtilization
+      ? MEMORY_UTILIZATION_COLORS
+      : MEMORY_AMOUNT_COLORS;
+    return memorySeries.map((series, index) => ({
+      ...series,
+      color: colors[index % colors.length],
+    }));
+  }, [isUtilization, memorySeries]);
 
   const isSameDay = React.useMemo(() => {
-    if (memoryChartData.length < 2) return true
-    const first = new Date(memoryChartData[0].timestamp)
-    const last = new Date(memoryChartData[memoryChartData.length - 1].timestamp)
-    return first.toDateString() === last.toDateString()
-  }, [memoryChartData])
+    if (memoryChartData.length < 2) return true;
+    const first = new Date(memoryChartData[0].timestamp);
+    const last = new Date(
+      memoryChartData[memoryChartData.length - 1].timestamp,
+    );
+    return first.toDateString() === last.toDateString();
+  }, [memoryChartData]);
 
-  // Determine if we should use GB instead of MB
   const useGB = React.useMemo(() => {
-    if (!memoryChartData.length) return false
-    const maxMemory = Math.max(...memoryChartData.map((point) => point.memory))
-    return maxMemory > 900
-  }, [memoryChartData])
+    if (isUtilization || !memoryChartData.length) return false;
+    return (
+      Math.max(
+        ...memoryChartData.flatMap((point) =>
+          displaySeries.map((series) => Number(point[series.key] || 0)),
+        ),
+      ) > 900
+    );
+  }, [displaySeries, isUtilization, memoryChartData]);
 
-  // Convert memory data to GB if needed
   const processedMemoryChartData = React.useMemo(() => {
-    if (!useGB) return memoryChartData
+    if (!useGB) return memoryChartData;
     return memoryChartData.map((point) => ({
       ...point,
-      memory: point.memory / 1024, // Convert MB to GB
-    }))
-  }, [memoryChartData, useGB])
+      ...Object.fromEntries(
+        displaySeries.map((series) => {
+          const value = point[series.key];
+          return [series.key, typeof value === "number" ? value / 1024 : value];
+        }),
+      ),
+    }));
+  }, [displaySeries, memoryChartData, useGB]);
 
-  const dynamicMemoryChartConfig = React.useMemo(
-    () => ({
-      memory: {
-        label: `Memory (${useGB ? 'GB' : 'MB'})`,
-        theme: {
-          light: 'hsl(142, 70%, 50%)',
-          dark: 'hsl(150, 80%, 60%)',
-        },
-      },
-    }),
-    [useGB]
-  ) satisfies ChartConfig
+  const memoryChartConfig = React.useMemo(
+    () =>
+      Object.fromEntries(
+        displaySeries.map((series) => [
+          series.key,
+          { label: series.label, color: series.color },
+        ]),
+      ) satisfies ChartConfig,
+    [displaySeries],
+  );
 
-  // Show loading skeleton
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t('monitoring.memoryUsage')}
-          </CardTitle>
-        </CardHeader>
+        <MonitoringChartHeader
+          title={title}
+          description={description}
+          query={query}
+          loading
+        />
         <CardContent>
-          <div className="space-y-3">
-            <Skeleton className="h-[250px] w-full" />
-          </div>
+          <Skeleton className="h-[250px] w-full" />
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  // Show error state
   if (error) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>{t('monitoring.memoryUsage')}</CardTitle>
-        </CardHeader>
+        <MonitoringChartHeader
+          title={title}
+          description={description}
+          query={query}
+        />
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -108,74 +160,113 @@ const MemoryUsageChart = React.memo((prop: MemoryUsageChartProps) => {
           </Alert>
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  // Show empty state
-  if (!data || data.length === 0) {
+  if (processedMemoryChartData.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>{t('monitoring.memoryUsage')}</CardTitle>
-        </CardHeader>
+        <MonitoringChartHeader
+          title={title}
+          description={description}
+          query={query}
+        />
         <CardContent>
           <div className="flex h-[250px] w-full items-center justify-center text-muted-foreground">
-            <p>{t('charts.noMemoryUsageData')}</p>
+            <p>
+              {isUtilization
+                ? t(
+                    "charts.noMemoryUtilizationData",
+                    "No memory utilization data available",
+                  )
+                : t("charts.noMemoryUsageData")}
+            </p>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('monitoring.memoryUsage')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer
-          config={dynamicMemoryChartConfig}
-          className="h-[250px] w-full"
-        >
-          <AreaChart data={processedMemoryChartData} syncId={syncId}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="timestamp"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={30}
-              allowDataOverflow={true}
-              tickFormatter={(value) => formatChartXTicks(value, isSameDay)}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(value) =>
-                `${value.toFixed(useGB ? 2 : 1)}${useGB ? 'GB' : 'MB'}`
+  const renderChart = (heightClass: string, synchronized = true) => (
+    <ChartContainer
+      config={memoryChartConfig}
+      className={`${heightClass} w-full`}
+    >
+      <AreaChart
+        data={processedMemoryChartData}
+        syncId={synchronized ? syncId : undefined}
+      >
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey="timestamp"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          minTickGap={30}
+          allowDataOverflow={true}
+          tickFormatter={(value) => formatChartXTicks(value, isSameDay)}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={(value) =>
+            isUtilization
+              ? `${value.toFixed(1)}%`
+              : `${value.toFixed(useGB ? 2 : 1)}${useGB ? "GB" : "MB"}`
+          }
+          domain={[0, (dataMax: number) => dataMax * 1.1]}
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(value) => formatDate(value)}
+              valueFormatter={(value) =>
+                isUtilization
+                  ? `${value.toFixed(2)}%`
+                  : `${value.toFixed(useGB ? 2 : 1)}${useGB ? "GB" : "MB"}`
               }
-              domain={[0, (dataMax: number) => dataMax * 1.1]}
             />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(value) => formatDate(value)}
-                />
-              }
-            />
-            <Area
-              isAnimationActive={false}
-              dataKey="memory"
-              type="monotone"
-              fill="var(--color-memory)"
-              stroke="var(--color-memory)"
-            />
-          </AreaChart>
-        </ChartContainer>
-      </CardContent>
-    </Card>
-  )
-})
+          }
+        />
+        {displaySeries.map((series) => (
+          <Area
+            key={series.key}
+            isAnimationActive={false}
+            dataKey={series.key}
+            name={series.label}
+            type="monotone"
+            fill={series.color}
+            fillOpacity={displaySeries.length === 1 ? 0.35 : 0.08}
+            stroke={series.color}
+            strokeWidth={2}
+            dot={false}
+          />
+        ))}
+      </AreaChart>
+    </ChartContainer>
+  );
 
-export default MemoryUsageChart
+  return (
+    <>
+      <Card>
+        <MonitoringChartHeader
+          title={title}
+          description={description}
+          query={query}
+          onExpand={() => setIsExpanded(true)}
+        />
+        <CardContent>{renderChart("h-[250px]")}</CardContent>
+      </Card>
+      <MonitoringChartFullscreen
+        open={isExpanded}
+        onOpenChange={setIsExpanded}
+        title={title}
+      >
+        {renderChart("h-full min-h-[420px]", false)}
+      </MonitoringChartFullscreen>
+    </>
+  );
+});
+
+export default MemoryUsageChart;
