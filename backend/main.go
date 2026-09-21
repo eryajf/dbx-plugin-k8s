@@ -122,9 +122,9 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 		}
 	case method == "resource/watch" || method == "resource/watch-read" || method == "resource/watch-close":
 		out, e = p.sessions.Handle(ctx, c, id, method, raw)
-	case strings.HasPrefix(method, "resource/"), strings.HasPrefix(method, "kube/"):
+	case strings.HasPrefix(method, "resource/"), strings.HasPrefix(method, "kube/"), strings.HasPrefix(method, "prometheus/"):
 		out, e = resources.Handle(ctx, c, method, raw)
-		if method == "kube/overview" || method == "kube/metrics" || method == "kube/recent-events" {
+		if method == "kube/overview" || method == "kube/metrics" || method == "kube/recent-events" || strings.HasPrefix(method, "prometheus/") {
 			out, e = operations.Handle(ctx, c, method, raw)
 		}
 	case strings.HasPrefix(method, "workload/"), strings.HasPrefix(method, "node/"), strings.HasPrefix(method, "cronjob/"):
@@ -168,7 +168,7 @@ func knownMethod(method string) bool {
 	switch method {
 	case "connection/test", "connection/connect", "connection/disconnect", "dbx-plugin-k8s/ping",
 		"ui/preferences-get", "ui/preferences-set",
-		"kube/cluster-info", "kube/discover", "kube/namespaces", "kube/overview", "kube/metrics", "kube/recent-events", "kube/search",
+		"kube/cluster-info", "kube/discover", "prometheus/resource-usage-history", "prometheus/pods-metrics", "kube/namespaces", "kube/overview", "kube/metrics", "kube/recent-events", "kube/search",
 		"resource/list", "resource/get", "resource/create", "resource/update", "resource/patch", "resource/delete", "resource/describe", "resource/related", "resource/apply", "resource/search", "resource/watch", "resource/watch-read", "resource/watch-close",
 		"node/cordon", "node/uncordon", "node/drain", "workload/restart", "workload/scale", "workload/history", "workload/rollback", "cronjob/trigger", "cronjob/suspend",
 		"pod/files-list", "pod/file-read", "pod/file-write", "pod/file-delete", "pod/logs-open", "pod/logs-read", "pod/logs-close", "pod/exec-open", "pod/exec-read", "pod/exec-write", "pod/exec-resize", "pod/exec-close", "node/exec-open", "kubectl/exec-open", "terminal/exec-write", "terminal/exec-resize", "session/read", "session/close", "port-forward/open", "port-forward/list", "port-forward/close", "favorite/list", "favorite/update":

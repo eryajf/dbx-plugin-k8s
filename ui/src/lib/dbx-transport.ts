@@ -53,7 +53,11 @@ export class DBXTransport {
     if (parts[0] === 'cluster-info') return this.rpc('kube/cluster-info')
     if (parts[0] === 'namespaces' && parts.length === 1) return this.rpc('kube/namespaces')
     if (parts[0] === 'overview') return this.overview()
-    if (['prometheus', 'settings', 'version', 'admin', 'templates', 'auth', 'license'].includes(parts[0])) throw new Error(`DBX 尚未提供此能力：${url.pathname}`)
+    if (parts[0] === 'prometheus') {
+      if (parts[1] === 'resource-usage-history') return this.rpc('prometheus/resource-usage-history', {duration: query.duration || '30m', instance: query.instance})
+      if (parts[1] === 'pods' && parts[2] && parts[3] && parts[4] === 'metrics') return this.rpc('prometheus/pods-metrics', {namespace: parts[2], name: parts[3], duration: query.duration || '1h', container: query.container, labelSelector: query.labelSelector})
+    }
+    if (['settings', 'version', 'admin', 'templates', 'auth', 'license'].includes(parts[0])) throw new Error(`DBX 尚未提供此能力：${url.pathname}`)
     const resource = await resolveDBXResource(this.connectionId, parts[0], this.invoke)
     const namespace = resource.namespaced && parts[1] !== '_all' ? parts[1] : undefined
     const name = parts[2] || (!resource.namespaced && parts[1] !== '_all' ? parts[1] : undefined)
@@ -93,7 +97,7 @@ export class DBXTransport {
   }
   private async overview() {
     const [summary, services, pods] = await Promise.all([
-      this.rpc<{nodes: number; readyNodes: number; pods: number; namespaces: number; podPhases: Record<string, number>; allocatable: Record<string, string>}>('kube/overview'),
+      this.rpc<{nodes: number; readyNodes: number; pods: number; namespaces: number; prometheusEnabled?: boolean; podPhases: Record<string, number>; allocatable: Record<string, string>}>('kube/overview'),
       this.rpc<{items: unknown[]}>('resource/list', {group: '', version: 'v1', resource: 'services'}),
       this.rpc<{items: Array<{spec?: {containers?: Array<{resources?: {requests?: Record<string, string>; limits?: Record<string, string>}}>}}>}>('resource/list', {group: '', version: 'v1', resource: 'pods'})
     ])
@@ -101,7 +105,7 @@ export class DBXTransport {
     const resource = {cpu: {allocatable: quantity(summary.allocatable.cpu), requested: 0, limited: 0}, memory: {allocatable: quantity(summary.allocatable.memory), requested: 0, limited: 0}}
     for (const pod of pods.items) for (const container of pod.spec?.containers || []) for (const key of ['cpu', 'memory'] as const) { resource[key].requested += quantity(container.resources?.requests?.[key]); resource[key].limited += quantity(container.resources?.limits?.[key]) }
     resource.cpu.allocatable *= 1000; resource.cpu.requested *= 1000; resource.cpu.limited *= 1000
-    return {totalNodes: summary.nodes, readyNodes: summary.readyNodes, totalPods: summary.pods, runningPods: summary.podPhases.Running || 0, totalNamespaces: summary.namespaces, totalServices: services.items.length, prometheusEnabled: false, resource}
+    return {totalNodes: summary.nodes, readyNodes: summary.readyNodes, totalPods: summary.pods, runningPods: summary.podPhases.Running || 0, totalNamespaces: summary.namespaces, totalServices: services.items.length, prometheusEnabled: Boolean(summary.prometheusEnabled), resource}
   }
 }
 export function getDBXTransport(connectionId?: string): DBXTransport | null {

@@ -486,7 +486,11 @@
     "limits": "限制",
     "total": "总计",
     "available": "可用",
-    "limitedHistory": "当前数据来自 metrics-server，可用的历史数据有限。"
+    "limitedHistory": "当前数据来自 metrics-server，可用的历史数据有限。",
+    "prometheusConnectionTitle": "Prometheus 连接不可用",
+    "prometheusConnectionDescription": "请检查当前连接是否配置了 Prometheus 地址，并确认插件可以访问该地址。",
+    "prometheusMetricsTitle": "Prometheus 指标缺失",
+    "prometheusMetricsDescription": "Prometheus 地址可以访问，但没有返回该资源的数据。请检查 cAdvisor 是否采集 container_* 指标，并确认包含 namespace、pod、container 标签。"
   },
   "login": {
     "title": "登录",
@@ -2144,7 +2148,10 @@
     "last1Hour": "最近 1 小时",
     "last24Hours": "最近 24 小时",
     "off": "关闭",
-    "seconds": "{{count}} 秒"
+    "seconds": "{{count}} 秒",
+    "last15Min": "最近 15 分钟",
+    "last2Days": "最近 2 天",
+    "last7Days": "最近 7 天"
   },
   "terminalContent": {
     "terminalTheme": "终端主题",

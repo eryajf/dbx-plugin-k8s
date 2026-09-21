@@ -22,6 +22,10 @@ type Request struct {
 	DeleteLocalData  bool   `json:"deleteLocalData"`
 	GracePeriod      *int64 `json:"gracePeriod"`
 	TimeoutSeconds   int    `json:"timeoutSeconds"`
+	Duration         string `json:"duration"`
+	Instance         string `json:"instance"`
+	Container        string `json:"container"`
+	LabelSelector    string `json:"labelSelector"`
 }
 
 // Handle preserves Kubernetes StatusErrors so the protocol layer can classify them.
@@ -32,6 +36,12 @@ func Handle(ctx context.Context, client *kube.Client, method string, raw json.Ra
 	}
 	if client == nil || client.Core == nil {
 		return nil, fmt.Errorf("Kubernetes client is not initialized")
+	}
+	if method == "prometheus/resource-usage-history" {
+		return resourceUsageHistory(ctx, client, r.Duration, r.Instance)
+	}
+	if method == "prometheus/pods-metrics" {
+		return podPromMetrics(ctx, client, r)
 	}
 	if method == "kube/overview" {
 		return overview(ctx, client)

@@ -486,7 +486,11 @@
     "limits": "Limites",
     "total": "Total",
     "available": "Disponível",
-    "limitedHistory": "Os dados atuais são do servidor de métricas; os dados históricos são limitados."
+    "limitedHistory": "Os dados atuais são do servidor de métricas; os dados históricos são limitados.",
+    "prometheusConnectionTitle": "Conexão com o Prometheus indisponível",
+    "prometheusConnectionDescription": "Verifique se a conexão tem uma URL do Prometheus configurada e se o plugin consegue acessá-la.",
+    "prometheusMetricsTitle": "Métricas do Prometheus ausentes",
+    "prometheusMetricsDescription": "O Prometheus está acessível, mas não retornou dados. Verifique as métricas container_* do cAdvisor e os rótulos namespace, pod e container."
   },
   "login": {
     "title": "Entrar",
@@ -2144,7 +2148,10 @@
     "last1Hour": "Última 1 hora",
     "last24Hours": "Últimas 24 horas",
     "off": "Desligado",
-    "seconds": "{{count}} segundos"
+    "seconds": "{{count}} segundos",
+    "last15Min": "Últimos 15 minutos",
+    "last2Days": "Últimos 2 dias",
+    "last7Days": "Últimos 7 dias"
   },
   "terminalContent": {
     "terminalTheme": "Tema do terminal",

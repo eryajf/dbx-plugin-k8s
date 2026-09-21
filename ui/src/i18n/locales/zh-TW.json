@@ -486,7 +486,11 @@
     "limits": "限制",
     "total": "總計",
     "available": "可用",
-    "limitedHistory": "目前數據來自 metrics-server，可用的歷史數據有限。"
+    "limitedHistory": "目前數據來自 metrics-server，可用的歷史數據有限。",
+    "prometheusConnectionTitle": "Prometheus 連線無法使用",
+    "prometheusConnectionDescription": "請檢查目前連線是否已設定 Prometheus 位址，並確認外掛程式可以存取該位址。",
+    "prometheusMetricsTitle": "缺少 Prometheus 指標",
+    "prometheusMetricsDescription": "Prometheus 位址可存取，但沒有回傳此資源的資料。請檢查 cAdvisor 是否收集 container_* 指標，以及 namespace、pod、container 標籤。"
   },
   "login": {
     "title": "登入",
@@ -2144,7 +2148,10 @@
     "last1Hour": "最近 1 小時",
     "last24Hours": "最近 24 小時",
     "off": "關閉",
-    "seconds": "{{count}} 秒"
+    "seconds": "{{count}} 秒",
+    "last15Min": "最近 15 分鐘",
+    "last2Days": "最近 2 天",
+    "last7Days": "最近 7 天"
   },
   "terminalContent": {
     "terminalTheme": "終端主題",

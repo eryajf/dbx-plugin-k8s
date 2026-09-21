@@ -18,6 +18,10 @@ import DiskIOUsageChart from './chart/disk-io-usage-chart'
 import MemoryUsageChart from './chart/memory-usage-chart'
 import NetworkUsageChart from './chart/network-usage-chart'
 import { PodSelector } from './selector/pod-selector'
+import {
+  getMonitoringErrorKind,
+  MonitoringStatusNotice,
+} from './monitoring-status-notice'
 
 interface PodMonitoringProps {
   namespace: string
@@ -73,9 +77,12 @@ export function PodMonitoring({
   )
 
   const timeRangeOptions = [
+    { value: '15m', label: t('monitoringControls.last15Min') },
     { value: '30m', label: t('monitoringControls.last30Min') },
     { value: '1h', label: t('monitoringControls.last1Hour') },
     { value: '24h', label: t('monitoringControls.last24Hours') },
+    { value: '2d', label: t('monitoringControls.last2Days') },
+    { value: '7d', label: t('monitoringControls.last7Days') },
   ]
 
   const refreshIntervalOptions = [
@@ -151,6 +158,9 @@ export function PodMonitoring({
 
       {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="xl:col-span-2">
+          <MonitoringStatusNotice error={error} />
+        </div>
         {data?.fallback && (
           <div className="xl:col-span-2 rounded bg-yellow-100 text-yellow-800 px-4 py-2 text-sm border border-yellow-300">
             {t('monitoring.limitedHistory')}
@@ -160,7 +170,7 @@ export function PodMonitoring({
           data={data?.cpu || []}
           isLoading={isLoading}
           syncId="resource-usage"
-          error={error}
+          error={getMonitoringErrorKind(error) === 'unknown' ? error : undefined}
         />
         <MemoryUsageChart
           data={data?.memory || []}

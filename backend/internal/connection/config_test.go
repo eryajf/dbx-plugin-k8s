@@ -61,3 +61,18 @@ func TestDirectTokenAndInvalidTLSKeyPair(t *testing.T) {
 		t.Fatal("expected incomplete key pair rejection")
 	}
 }
+
+func TestPrometheusURLNormalizationAndValidation(t *testing.T) {
+	r, err := Resolve(map[string]any{"server": "https://example.com", "token": "token", "prometheus_url": "http://localhost:30090/query"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.PrometheusURL != "http://localhost:30090" {
+		t.Fatalf("expected Prometheus web path to normalize, got %q", r.PrometheusURL)
+	}
+	for _, value := range []string{"ftp://prometheus:9090", "http://user:pass@prometheus:9090", "http://prometheus:9090/custom"} {
+		if _, err := Resolve(map[string]any{"server": "https://example.com", "token": "token", "prometheus_url": value}); err == nil {
+			t.Fatalf("expected invalid Prometheus URL %q to be rejected", value)
+		}
+	}
+}

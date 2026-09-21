@@ -17,11 +17,12 @@ import (
 
 // Resolved is never serialized: it contains private keys and bearer tokens.
 type Resolved struct {
-	ID          string
-	Config      *rest.Config
-	ContextName string
-	Namespace   string
-	Timeout     time.Duration
+	ID            string
+	Config        *rest.Config
+	ContextName   string
+	Namespace     string
+	Timeout       time.Duration
+	PrometheusURL string
 }
 
 func object(v any) map[string]any { m, _ := v.(map[string]any); return m }
@@ -96,7 +97,26 @@ func Resolve(values map[string]any) (*Resolved, error) {
 	if mode != "kubeconfig" && mode != "token" && mode != "client_cert" {
 		return nil, errors.New("auth_mode must be kubeconfig, token, or client_cert")
 	}
-	resolved := &Resolved{ID: ID(values), Namespace: get("namespace"), ContextName: get("context"), Timeout: 30 * time.Second}
+	promURL := get("prometheusURL")
+	if promURL == "" {
+		promURL = get("prometheus_url")
+	}
+	promURL = strings.TrimSpace(promURL)
+	if promURL != "" {
+		u, err := url.Parse(promURL)
+		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
+			return nil, errors.New("prometheusURL must be an http(s) URL without credentials")
+		}
+		// The Prometheus client appends /api/v1/query and /api/v1/query_range.
+		// Accept the commonly copied web UI path, but store only the server URL.
+		if u.Path == "/query" || u.Path == "/api/v1/query" || u.Path == "/" {
+			u.Path, u.RawPath, u.RawQuery, u.Fragment = "", "", "", ""
+			promURL = strings.TrimRight(u.String(), "/")
+		} else if u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			return nil, errors.New("prometheusURL must be the Prometheus server URL")
+		}
+	}
+	resolved := &Resolved{ID: ID(values), Namespace: get("namespace"), ContextName: get("context"), Timeout: 30 * time.Second, PrometheusURL: promURL}
 	if seconds := get("timeout_s"); seconds != "" {
 		n, err := strconv.Atoi(seconds)
 		if err != nil || n < 1 || n > 300 {

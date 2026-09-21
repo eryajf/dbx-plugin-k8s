@@ -8,20 +8,25 @@ import (
 	"time"
 
 	"k8s.io/client-go/dynamic"
+
+	"github.com/eryajf/dbx-plugin-k8s/internal/prometheus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type Client struct {
-	Core        kubernetes.Interface
-	Dynamic     dynamic.Interface
-	Config      *rest.Config
-	Context     context.Context
-	Namespace   string
-	ContextName string
-	cancel      context.CancelFunc
-	once        sync.Once
-	httpClient  *http.Client
+	Core                kubernetes.Interface
+	Dynamic             dynamic.Interface
+	Config              *rest.Config
+	Context             context.Context
+	Namespace           string
+	ContextName         string
+	cancel              context.CancelFunc
+	once                sync.Once
+	httpClient          *http.Client
+	Prometheus          *prometheus.Client
+	PrometheusURL       string
+	PrometheusReachable bool
 }
 
 // New leaves HTTP request timeouts to callers so exec/log/watch streams aren't
@@ -56,6 +61,9 @@ func (c *Client) Close() {
 		}
 		if c.httpClient != nil {
 			c.httpClient.CloseIdleConnections()
+		}
+		if c.Prometheus != nil {
+			c.Prometheus.Close()
 		}
 	})
 }

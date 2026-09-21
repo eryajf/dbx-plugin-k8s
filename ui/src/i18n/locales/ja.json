@@ -486,7 +486,11 @@
     "limits": "限界",
     "total": "合計",
     "available": "利用可能",
-    "limitedHistory": "現在のデータは metrics-server からのものです。過去のデータは限られています。"
+    "limitedHistory": "現在のデータは metrics-server からのものです。過去のデータは限られています。",
+    "prometheusConnectionTitle": "Prometheus 接続を利用できません",
+    "prometheusConnectionDescription": "接続に Prometheus URL が設定され、プラグインからアクセスできることを確認してください。",
+    "prometheusMetricsTitle": "Prometheus メトリクスがありません",
+    "prometheusMetricsDescription": "Prometheus には接続できますがデータがありません。cAdvisor の container_* メトリクスと namespace、pod、container ラベルを確認してください。"
   },
   "login": {
     "title": "サインイン",
@@ -2144,7 +2148,10 @@
     "last1Hour": "最後の 1 時間",
     "last24Hours": "過去 24 時間",
     "off": "オフ",
-    "seconds": "{{count}} 秒"
+    "seconds": "{{count}} 秒",
+    "last15Min": "過去 15 分",
+    "last2Days": "過去 2 日",
+    "last7Days": "過去 7 日"
   },
   "terminalContent": {
     "terminalTheme": "ターミナルのテーマ",

@@ -8,6 +8,10 @@ import { ClusterStatsCards } from '@/components/cluster-stats-cards'
 import { NoClusterState } from '@/components/no-cluster-state'
 import { RecentEvents } from '@/components/recent-events'
 import { ResourceCharts } from '@/components/resources-charts'
+import {
+  getMonitoringErrorKind,
+  MonitoringStatusNotice,
+} from '@/components/monitoring-status-notice'
 
 export function Overview() {
   const { t } = useTranslation()
@@ -56,20 +60,35 @@ export function Overview() {
         <RecentEvents />
       </div>
 
+      {!isLoading && (
+        <MonitoringStatusNotice
+          error={errorResourceUsage}
+          connectionUnavailable={!overview?.prometheusEnabled}
+        />
+      )}
+
       {overview?.prometheusEnabled && (
         <div className="grid grid-cols-1 gap-4 @5xl/main:grid-cols-2">
           <ResourceUtilizationChart
             cpu={resourceUsage?.cpu || []}
             memory={resourceUsage?.memory || []}
             isLoading={isLoadingResourceUsage}
-            error={errorResourceUsage}
+            error={
+              getMonitoringErrorKind(errorResourceUsage) === 'unknown'
+                ? errorResourceUsage
+                : undefined
+            }
           />
 
           <NetworkUsageChart
             networkIn={resourceUsage?.networkIn || []}
             networkOut={resourceUsage?.networkOut || []}
             isLoading={isLoadingResourceUsage}
-            error={errorResourceUsage}
+            error={
+              getMonitoringErrorKind(errorResourceUsage) === 'unknown'
+                ? errorResourceUsage
+                : undefined
+            }
           />
         </div>
       )}

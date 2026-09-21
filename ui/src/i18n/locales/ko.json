@@ -486,7 +486,11 @@
     "limits": "제한",
     "total": "총",
     "available": "사용 가능",
-    "limitedHistory": "현재 데이터는 메트릭 서버에서 가져온 것입니다. 과거 데이터는 제한되어 있습니다."
+    "limitedHistory": "현재 데이터는 메트릭 서버에서 가져온 것입니다. 과거 데이터는 제한되어 있습니다.",
+    "prometheusConnectionTitle": "Prometheus 연결을 사용할 수 없음",
+    "prometheusConnectionDescription": "연결에 Prometheus URL이 설정되어 있고 플러그인이 접근할 수 있는지 확인하세요.",
+    "prometheusMetricsTitle": "Prometheus 메트릭 없음",
+    "prometheusMetricsDescription": "Prometheus에 연결되지만 데이터가 없습니다. cAdvisor의 container_* 메트릭과 namespace, pod, container 레이블을 확인하세요."
   },
   "login": {
     "title": "로그인",
@@ -2144,7 +2148,10 @@
     "last1Hour": "지난 1시간",
     "last24Hours": "지난 24시간",
     "off": "끄다",
-    "seconds": "{{count}} 초"
+    "seconds": "{{count}} 초",
+    "last15Min": "지난 15분",
+    "last2Days": "지난 2일",
+    "last7Days": "지난 7일"
   },
   "terminalContent": {
     "terminalTheme": "터미널 테마",

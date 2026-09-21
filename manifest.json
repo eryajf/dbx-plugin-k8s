@@ -255,6 +255,20 @@
           }
         },
         {
+          "key": "prometheus_url",
+          "label": "Prometheus URL",
+          "type": "text",
+          "binding": "config",
+          "visible_when": {
+            "field": "show_advanced",
+            "one_of": [
+              "true"
+            ]
+          },
+          "placeholder": "http://prometheus.example.com:9090",
+          "description": "Optional Prometheus endpoint used for resource and network monitoring metrics."
+        },
+        {
           "key": "insecure_skip_tls_verify",
           "label": "Skip TLS verification",
           "type": "boolean",
@@ -379,6 +393,11 @@
             "namespace": {
               "label": "命名空间",
               "description": "未填写时使用 default。"
+            },
+            "prometheus_url": {
+              "label": "Prometheus",
+              "placeholder": "http://prometheus.example.com:9090",
+              "description": "可选。配置后，概览和资源详情中的监控指标将从该 Prometheus 获取。"
             }
           }
         },

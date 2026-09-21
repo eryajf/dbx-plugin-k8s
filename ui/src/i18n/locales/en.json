@@ -486,7 +486,11 @@
     "limits": "Limits",
     "total": "Total",
     "available": "Available",
-    "limitedHistory": "Current data is from metrics-server; historical data is limited."
+    "limitedHistory": "Current data is from metrics-server; historical data is limited.",
+    "prometheusConnectionTitle": "Prometheus connection unavailable",
+    "prometheusConnectionDescription": "Check that a Prometheus URL is configured for this connection and that the plugin can reach it.",
+    "prometheusMetricsTitle": "Prometheus metrics are missing",
+    "prometheusMetricsDescription": "Prometheus is reachable, but no data was returned for this resource. Check that cAdvisor collects container_* metrics and that namespace, pod, and container labels are present."
   },
   "login": {
     "title": "Sign In",
@@ -2144,7 +2148,10 @@
     "last1Hour": "Last 1 hour",
     "last24Hours": "Last 24 hours",
     "off": "Off",
-    "seconds": "{{count}} seconds"
+    "seconds": "{{count}} seconds",
+    "last15Min": "Last 15 min",
+    "last2Days": "Last 2 days",
+    "last7Days": "Last 7 days"
   },
   "terminalContent": {
     "terminalTheme": "Terminal Theme",

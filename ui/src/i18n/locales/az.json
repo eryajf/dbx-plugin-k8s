@@ -486,7 +486,11 @@
     "limits": "Limitlər",
     "total": "Cəmi",
     "available": "Mövcuddur",
-    "limitedHistory": "Cari məlumatlar metrik-serverdəndir; tarixi məlumatlar məhduddur."
+    "limitedHistory": "Cari məlumatlar metrik-serverdəndir; tarixi məlumatlar məhduddur.",
+    "prometheusConnectionTitle": "Prometheus bağlantısı əlçatan deyil",
+    "prometheusConnectionDescription": "Bu bağlantı üçün Prometheus URL-sinin qurulduğunu və plaqinin ona çata bildiyini yoxlayın.",
+    "prometheusMetricsTitle": "Prometheus göstəriciləri yoxdur",
+    "prometheusMetricsDescription": "Prometheus əlçatandır, lakin bu resurs üçün məlumat qaytarılmadı. cAdvisor container_* göstəricilərini və namespace, pod, container etiketlərini yoxlayın."
   },
   "login": {
     "title": "Daxil ol",
@@ -2144,7 +2148,10 @@
     "last1Hour": "Son 1 saat",
     "last24Hours": "Son 24 saat",
     "off": "Söndür",
-    "seconds": "{{count}} saniyə"
+    "seconds": "{{count}} saniyə",
+    "last15Min": "Son 15 dəq",
+    "last2Days": "Son 2 gün",
+    "last7Days": "Son 7 gün"
   },
   "terminalContent": {
     "terminalTheme": "Terminal mövzusu",

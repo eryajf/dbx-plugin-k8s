@@ -87,5 +87,5 @@ func overview(ctx context.Context, c *kube.Client) (any, error) {
 			restarts += s.RestartCount
 		}
 	}
-	return map[string]any{"nodes": len(nodes.Items), "readyNodes": ready, "unschedulableNodes": unschedulable, "namespaces": len(namespaces.Items), "pods": len(pods.Items), "podPhases": phases, "containerRestarts": restarts, "capacity": capacity, "allocatable": allocatable}, nil
+	return map[string]any{"prometheusEnabled": c.Prometheus != nil && c.PrometheusReachable, "nodes": len(nodes.Items), "readyNodes": ready, "unschedulableNodes": unschedulable, "namespaces": len(namespaces.Items), "pods": len(pods.Items), "podPhases": phases, "containerRestarts": restarts, "capacity": capacity, "allocatable": allocatable}, nil
 }
