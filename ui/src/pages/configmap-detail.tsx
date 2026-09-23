@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { IconCopy, IconLoader, IconTrash } from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import { ConfigMap } from 'kubernetes-types/core/v1'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -73,10 +73,27 @@ function toDataRecord(items: ConfigMapDataItem[]) {
 function ConfigMapDataTable(props: {
   entries: Record<string, string>
   emptyMessage: string
+  onEdit?: (key: string) => void
 }) {
-  const { entries, emptyMessage } = props
+  const { entries, emptyMessage, onEdit } = props
   const { t } = useTranslation()
+  const [search, setSearch] = useState('')
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const items = Object.entries(entries)
+  const filteredItems = items.filter(([key, value]) => {
+    const query = search.trim().toLowerCase()
+    return (
+      !query ||
+      key.toLowerCase().includes(query) ||
+      value.toLowerCase().includes(query)
+    )
+  })
+
+  useEffect(() => {
+    if (!filteredItems.some(([key]) => key === selectedKey)) {
+      setSelectedKey(filteredItems[0]?.[0] || null)
+    }
+  }, [filteredItems, selectedKey])
 
   const copyValue = async (value: string) => {
     await copyTextToClipboard(value)
@@ -87,35 +104,91 @@ function ConfigMapDataTable(props: {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>
   }
 
+  const selectedValue = selectedKey ? entries[selectedKey] : undefined
+
   return (
-    <div className="overflow-hidden rounded-md border">
-      <div className="grid grid-cols-[minmax(160px,280px)_minmax(0,1fr)_48px] border-b bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-        <div>{t('detail.fields.key')}</div>
-        <div>{t('detail.fields.value')}</div>
-        <div className="text-right">{t('common.actions', 'Actions')}</div>
-      </div>
-      <div className="divide-y">
-        {items.map(([key, value]) => (
-          <div
-            key={key}
-            className="grid grid-cols-[minmax(160px,280px)_minmax(0,1fr)_48px] items-start gap-3 px-3 py-2"
-          >
-            <div className="break-all font-mono text-sm font-medium">{key}</div>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-xs leading-relaxed">
-              {value}
-            </pre>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 justify-self-end"
-              aria-label={t('keyValueDataViewer.copyValue')}
-              onClick={() => copyValue(value)}
-            >
-              <IconCopy className="h-4 w-4" />
-            </Button>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="grid h-full min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden md:grid-cols-[minmax(180px,260px)_minmax(0,1fr)]">
+        <div className="min-h-0 overflow-hidden border-b bg-muted/20 md:border-b-0 md:border-r">
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">
+              {t('detail.fields.key')}
+            </span>
+            <div className="relative min-w-0 flex-1">
+              <Search className="text-muted-foreground absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('common.search', 'Search')}
+                className="h-8 pl-7 text-xs"
+                aria-label={t('common.search', 'Search')}
+              />
+            </div>
           </div>
-        ))}
+          <div className="min-h-0 overflow-y-auto p-1">
+            {filteredItems.map(([key]) => (
+              <button
+                key={key}
+                type="button"
+                className={`w-full rounded-md px-3 py-2 text-left font-mono text-sm transition-colors ${
+                  key === selectedKey
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-foreground hover:bg-muted'
+                }`}
+                onClick={() => setSelectedKey(key)}
+              >
+                <span className="block break-all">{key}</span>
+              </button>
+            ))}
+            {filteredItems.length === 0 && (
+              <p className="p-4 text-center text-sm text-muted-foreground">
+                {t('common.noResults', 'No results')}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background shadow-[inset_1px_0_0_hsl(var(--border)),-2px_0_8px_hsl(var(--foreground)/0.06)]">
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+            <span className="min-w-0 truncate font-mono text-xs font-medium text-muted-foreground">
+              {selectedKey || t('detail.fields.value')}
+            </span>
+            <div className="flex shrink-0 items-center gap-1">
+              {selectedKey && selectedValue !== undefined && onEdit && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(selectedKey)}
+                >
+                  <Pencil className="h-4 w-4" />
+                  {t('common.edit')}
+                </Button>
+              )}
+              {selectedKey && selectedValue !== undefined && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyValue(selectedValue)}
+                >
+                  <IconCopy className="h-4 w-4" />
+                  {t('keyValueDataViewer.copyValue')}
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-4">
+            {selectedValue !== undefined ? (
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
+                {selectedValue}
+              </pre>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t('detail.empty.noDataEntries')}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -126,8 +199,9 @@ function ConfigMapDataEditDialog(props: {
   onOpenChange: (open: boolean) => void
   configmap: ConfigMap
   onSave: (data: Record<string, string>) => Promise<boolean>
+  editKey?: string | null
 }) {
-  const { configmap, onOpenChange, onSave, open } = props
+  const { configmap, editKey, onOpenChange, onSave, open } = props
   const { t } = useTranslation()
   const [items, setItems] = useState<ConfigMapDataItem[]>([])
   const [pendingData, setPendingData] = useState<Record<string, string> | null>(
@@ -141,11 +215,12 @@ function ConfigMapDataEditDialog(props: {
       return
     }
 
-    setItems(toDataItems(configmap.data))
+    const dataItems = toDataItems(configmap.data)
+    setItems(editKey ? dataItems.filter((item) => item.key === editKey) : dataItems)
     setPendingData(null)
     setIsConfirmOpen(false)
     setIsSaving(false)
-  }, [configmap.data, open])
+  }, [configmap.data, editKey, open])
 
   const handleItemChange = (
     index: number,
@@ -189,7 +264,11 @@ function ConfigMapDataEditDialog(props: {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="flex h-[85vh] max-h-[85vh] flex-col overflow-hidden sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{t('configMaps.editDataTitle')}</DialogTitle>
+          <DialogTitle>
+            {editKey
+              ? `${t('common.edit')} ${editKey}`
+              : t('configMaps.editDataTitle')}
+          </DialogTitle>
             <DialogDescription>
               {t('configMaps.editDataDescription')}
             </DialogDescription>
@@ -199,62 +278,103 @@ function ConfigMapDataEditDialog(props: {
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
             onSubmit={handleSubmit}
           >
-            <div className="flex items-center justify-between gap-3 pb-4">
+            <div
+              className={
+                editKey
+                  ? 'hidden'
+                  : 'flex items-center justify-between gap-3 pb-4'
+              }
+            >
               <Label>{t('detail.tabs.data')}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setItems((current) => [{ key: '', value: '' }, ...current])
-                }
-              >
-                <Plus className="h-4 w-4" />
-                {t('common.add', 'Add')}
-              </Button>
+              {!editKey && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setItems((current) => [{ key: '', value: '' }, ...current])
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('common.add', 'Add')}
+                </Button>
+              )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div
+              className={
+                editKey
+                  ? 'flex min-h-0 flex-1 overflow-hidden'
+                  : 'min-h-0 flex-1 overflow-y-auto pr-1'
+              }
+            >
               {items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {t('detail.empty.noDataEntries')}
                 </p>
               ) : null}
 
-              <div className="space-y-3">
+              <div
+                className={
+                  editKey ? 'flex h-full min-h-0 flex-1' : 'space-y-3'
+                }
+              >
                 {items.map((item, index) => (
                   <div
                     key={`configmap-data-${index}`}
-                    className="grid grid-cols-[minmax(160px,240px)_minmax(0,1fr)_auto] gap-2 rounded-md border p-3"
+                    className={
+                      editKey
+                        ? 'flex h-full min-h-0 flex-1 flex-col gap-2 rounded-md border p-3'
+                        : 'grid grid-cols-[minmax(160px,240px)_minmax(0,1fr)_auto] gap-2 rounded-md border p-3'
+                    }
                   >
-                    <Input
-                      value={item.key}
-                      onChange={(event) =>
-                        handleItemChange(index, 'key', event.target.value)
-                      }
-                      placeholder={t('common.key', 'Key')}
-                    />
+                    {editKey ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Label className="shrink-0 text-xs text-muted-foreground">
+                          {t('common.key', 'Key')}
+                        </Label>
+                        <Input
+                          value={item.key}
+                          disabled
+                          className="h-9 min-w-0 flex-1 font-mono"
+                        />
+                      </div>
+                    ) : (
+                      <Input
+                        value={item.key}
+                        onChange={(event) =>
+                          handleItemChange(index, 'key', event.target.value)
+                        }
+                        placeholder={t('common.key', 'Key')}
+                      />
+                    )}
                     <Textarea
                       value={item.value}
                       onChange={(event) =>
                         handleItemChange(index, 'value', event.target.value)
                       }
                       placeholder={t('common.value', 'Value')}
-                      className="min-h-20 font-mono text-xs"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t('common.remove', 'Remove')}
-                      onClick={() =>
-                        setItems((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index)
-                        )
+                      className={
+                        editKey
+                          ? 'min-h-0 flex-1 resize-none font-mono text-xs'
+                          : 'min-h-20 font-mono text-xs'
                       }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    />
+                    {!editKey && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t('common.remove', 'Remove')}
+                        onClick={() =>
+                          setItems((current) =>
+                            current.filter((_, itemIndex) => itemIndex !== index)
+                          )
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -320,6 +440,7 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDataEditDialogOpen, setIsDataEditDialogOpen] = useState(false)
+  const [editingDataKey, setEditingDataKey] = useState<string | null>(null)
 
   const { t } = useTranslation()
 
@@ -366,18 +487,26 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
     try {
       await updateResource('configmaps', name, namespace, {
         ...(data as ConfigMap),
-        data: nextData,
+        data: editingDataKey ? { ...(data.data || {}), ...nextData } : nextData,
       })
-      trackResourceAction('configmaps', 'data_form_save', {
+      trackResourceAction(
+        'configmaps',
+        editingDataKey ? 'data_entry_save' : 'data_form_save',
+        {
         result: 'success',
-      })
+        }
+      )
       toast.success(t('configMaps.dataSaved'))
       await handleRefresh()
       return true
     } catch (error) {
-      trackResourceAction('configmaps', 'data_form_save', {
+      trackResourceAction(
+        'configmaps',
+        editingDataKey ? 'data_entry_save' : 'data_form_save',
+        {
         result: 'error',
-      })
+        }
+      )
       toast.error(translateError(error, t))
       return false
     }
@@ -444,6 +573,17 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
             namespace={namespace}
             name={name}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditingDataKey(null)
+              setIsDataEditDialogOpen(true)
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            {t('common.edit')}
+          </Button>
           <Button
             variant="destructive"
             size="sm"
@@ -558,29 +698,30 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
                     />
                   </CardContent>
                 </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      {t('detail.tabs.data')}
-                      {dataCount > 0 && (
-                        <Badge variant="secondary">{dataCount}</Badge>
-                      )}
-                    </CardTitle>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsDataEditDialogOpen(true)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      {t('common.edit')}
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
+              </div>
+            ),
+          },
+          {
+            value: 'data',
+            label: (
+              <span className="flex items-center gap-2">
+                {t('detail.tabs.data')}
+                {totalCount > 0 && (
+                  <Badge variant="secondary">{totalCount}</Badge>
+                )}
+              </span>
+            ),
+            content: (
+              <div className="space-y-4">
+                <Card className="h-[calc(100vh-11rem)] min-h-[520px] gap-0 p-0">
+                  <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
                     <ConfigMapDataTable
                       entries={configmap.data || {}}
                       emptyMessage={t('detail.empty.noDataEntries')}
+                      onEdit={(key) => {
+                        setEditingDataKey(key)
+                        setIsDataEditDialogOpen(true)
+                      }}
                     />
                   </CardContent>
                 </Card>
@@ -672,9 +813,15 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
 
       <ConfigMapDataEditDialog
         open={isDataEditDialogOpen}
-        onOpenChange={setIsDataEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsDataEditDialogOpen(open)
+          if (!open) {
+            setEditingDataKey(null)
+          }
+        }}
         configmap={configmap}
         onSave={handleSaveData}
+        editKey={editingDataKey}
       />
     </div>
   )
