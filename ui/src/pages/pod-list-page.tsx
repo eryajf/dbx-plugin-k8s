@@ -293,6 +293,7 @@ export function PodListPage() {
         resourceName="Pods"
         columns={columns}
         clusterScope={false}
+        initialSorting={[{ id: 'creationTimestamp', desc: true }]}
         searchQueryFilter={podSearchFilter}
         batchDeleteConfirmationValue={t(
           'deleteConfirmation.confirmDeleteKeyword'

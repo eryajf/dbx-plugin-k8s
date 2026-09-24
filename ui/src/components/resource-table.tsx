@@ -93,6 +93,7 @@ export interface ResourceTableProps<T> {
   onCreateClick?: () => void // Callback for create button click
   extraToolbars?: React.ReactNode[] // Additional toolbar components
   defaultHiddenColumns?: string[] // Columns to hide by default
+  initialSorting?: SortingState
   batchDeleteConfirmationValue?: string
   getRowContextMenuItems?: (item: T) => RowContextMenuItem<T>[]
 }
@@ -107,13 +108,14 @@ export function ResourceTable<T>({
   onCreateClick,
   extraToolbars = [],
   defaultHiddenColumns = [],
+  initialSorting = [],
   batchDeleteConfirmationValue,
   getRowContextMenuItems,
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
   const { currentCluster } = useCluster()
   const canUseBatchActions = useFeature('resource.batchActions')
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const currentCluster = localStorage.getItem('current-cluster')
     const storageKey = `${currentCluster}-${resourceName}-columnFilters`

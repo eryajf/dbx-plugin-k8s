@@ -8,7 +8,7 @@
 
 **在 DBX 中连接、查看和管理 Kubernetes 集群**
 
-[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.16-4c8bf5)](https://github.com/t8y2/dbx)
+[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.17-4c8bf5)](https://github.com/t8y2/dbx)
 [![License](https://img.shields.io/github/license/eryajf/dbx-plugin-k8s)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-eryajf%2Fdbx--plugin--k8s-181717?logo=github)](https://github.com/eryajf/dbx-plugin-k8s)
 
@@ -31,6 +31,8 @@ DBX Kubernetes 插件为 DBX 提供一个面向日常运维的 Kubernetes 工作
 - **API Server + 客户端证书**：填写 API Server、客户端证书、客户端私钥和可选的 CA 证书。
 
 连接表单还支持请求超时、默认命名空间、TLS 校验和 kubeconfig exec 凭据开关。敏感字段通过 DBX 的 secret 绑定保存；只有在确认 kubeconfig 来源可信时才建议启用 exec 凭据。
+
+Kubeconfig 连接支持通过 DBX 的 SSH 跳板或 SOCKS5 传输层访问 API Server；此功能需要 DBX 0.6.17 或更高版本。此 Provider 未声明静态 host/port，因此 HTTP 隧道及非 SOCKS5 代理层不适用于本插件；请使用支持 SOCKS5 `proxy_route` 的传输方式。
 
 ### 集群概览与监控
 
@@ -83,7 +85,7 @@ DBX Kubernetes 插件为 DBX 提供一个面向日常运维的 Kubernetes 工作
 3. 点击 **测试连接**，确认 API Server 可访问且凭据有效。
 4. 点击 **连接**，进入 Kubernetes 工作台。
 
-插件要求 DBX <code>>=0.6.16</code>。集群账号需要拥有对应资源的 Kubernetes RBAC 权限；如果只需要查看，可以使用只读权限。日志、终端、文件操作、端口转发、节点维护和资源变更分别需要额外的 Kubernetes 权限。
+插件要求 DBX <code>>=0.6.17</code>。集群账号需要拥有对应资源的 Kubernetes RBAC 权限；如果只需要查看，可以使用只读权限。日志、终端、文件操作、端口转发、节点维护和资源变更分别需要额外的 Kubernetes 权限。
 
 ## 安全与数据
 

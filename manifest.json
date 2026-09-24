@@ -8,7 +8,7 @@
   "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
   "icon": "assets/plugin.png",
   "engines": {
-    "dbx": ">=0.6.16",
+    "dbx": ">=0.6.17",
     "host_api": "1"
   },
   "permissions": [
@@ -311,7 +311,8 @@
         "test",
         "connect",
         "disconnect"
-      ]
+      ],
+      "proxy_route": true
     },
     {
       "type": "workbench",

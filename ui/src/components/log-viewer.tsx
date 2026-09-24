@@ -553,7 +553,7 @@ export function LogViewer({
   const logsOptions = useMemo(
     () => ({
       container: selectedContainer,
-      tailLines,
+      tailLines: tailLines === -1 ? undefined : tailLines,
       timestamps,
       previous,
       enabled: !!selectPodName,

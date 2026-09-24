@@ -175,9 +175,14 @@ describe('PodListPage', () => {
     render(<PodListPage />)
 
     const resourceTableProps = mockResourceTable.mock.calls[0]?.[0] as {
+      initialSorting: { id: string; desc: boolean }[]
       columns: ColumnDef<Pod>[]
       searchQueryFilter: (pod: Pod, query: string) => boolean
     }
+
+    expect(resourceTableProps.initialSorting).toEqual([
+      { id: 'creationTimestamp', desc: true },
+    ])
 
     expect(resourceTableProps.columns.map((column) => column.id)).toEqual(
       expect.arrayContaining([

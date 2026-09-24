@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { LogViewer } from "./log-viewer";
@@ -261,6 +262,32 @@ it("pauses and resumes automatic log scrolling from one toolbar button", async (
   expect(
     screen.getByRole("button", { name: "logViewer.pauseScrolling" }),
   ).toHaveAttribute("aria-pressed", "false");
+});
+
+it("omits tailLines when all logs are selected", async () => {
+  render(<LogViewer namespace="default" podName="pod" />);
+  await screen.findByTestId("editor");
+  expect(state.options).toEqual(expect.objectContaining({ tailLines: 100 }));
+
+  const user = userEvent.setup();
+  const settingsButton = screen
+    .getAllByRole("button")
+    .find((button) => button.querySelector(".tabler-icon-settings"));
+  expect(settingsButton).toBeDefined();
+  await user.click(settingsButton!);
+  const tailLinesSelect = within(screen.getByRole("dialog")).getAllByRole(
+    "combobox",
+  )[0];
+  await user.click(tailLinesSelect);
+  await user.click(screen.getByRole("option", { name: "logViewer.all" }));
+
+  expect(state.options).toEqual(
+    expect.objectContaining({ tailLines: undefined }),
+  );
+
+  await user.click(tailLinesSelect);
+  await user.click(screen.getByRole("option", { name: "100" }));
+  expect(state.options).toEqual(expect.objectContaining({ tailLines: 100 }));
 });
 
 it("highlights every literal occurrence and new logs, then resets filtering when cleared", async () => {

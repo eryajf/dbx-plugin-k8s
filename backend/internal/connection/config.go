@@ -226,5 +226,8 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		resolved.Config.CAFile = ""
 	}
 	resolved.Config.Timeout = resolved.Timeout
+	if err := applyRuntimeProxy(values, resolved.Config); err != nil {
+		return nil, err
+	}
 	return resolved, nil
 }

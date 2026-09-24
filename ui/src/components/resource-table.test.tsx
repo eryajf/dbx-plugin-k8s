@@ -1,7 +1,13 @@
 import '@/i18n'
 
 import { createColumnHelper } from '@tanstack/react-table'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import i18n from 'i18next'
 import { Deployment } from 'kubernetes-types/apps/v1'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +18,22 @@ const deleteResourceMock = vi.fn()
 const useFeatureMock = vi.fn()
 const useResourcesMock = vi.fn()
 const useClusterInfoMock = vi.fn()
+let resourceData: Array<{
+  metadata: {
+    name: string
+    namespace: string
+    uid: string
+    creationTimestamp?: string
+  }
+}> = [
+  {
+    metadata: {
+      name: 'demo',
+      namespace: 'default',
+      uid: 'deploy-1',
+    },
+  },
+]
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
@@ -32,15 +54,7 @@ vi.mock('@/lib/api', async () => {
       useResourcesMock(...args)
       return {
         isLoading: false,
-        data: [
-          {
-            metadata: {
-              name: 'demo',
-              namespace: 'default',
-              uid: 'deploy-1',
-            },
-          },
-        ],
+        data: resourceData,
         isError: false,
         error: null,
         refetch: vi.fn(),
@@ -79,6 +93,15 @@ describe('ResourceTable batch delete confirmation', () => {
     localStorage.removeItem('test-clusterselectedNamespace')
     deleteResourceMock.mockReset()
     useResourcesMock.mockReset()
+    resourceData = [
+      {
+        metadata: {
+          name: 'demo',
+          namespace: 'default',
+          uid: 'deploy-1',
+        },
+      },
+    ]
     useClusterInfoMock.mockReset()
     deleteResourceMock.mockResolvedValue(undefined)
     useFeatureMock.mockReset()
@@ -301,6 +324,52 @@ describe('ResourceTable batch delete confirmation', () => {
       )
     })
     expect(screen.getByText('ops')).toBeInTheDocument()
+  })
+
+  it('applies initial sorting before the user changes table sorting', () => {
+    resourceData = [
+      {
+        metadata: {
+          name: 'older',
+          namespace: 'default',
+          uid: 'deploy-older',
+          creationTimestamp: '2026-05-01T00:00:00Z',
+        },
+      },
+      {
+        metadata: {
+          name: 'newer',
+          namespace: 'default',
+          uid: 'deploy-newer',
+          creationTimestamp: '2026-05-02T00:00:00Z',
+        },
+      },
+    ]
+
+    const columnHelper = createColumnHelper<Deployment>()
+
+    render(
+      <ResourceTable
+        resourceName="Deployments"
+        resourceType="deployments"
+        clusterScope={true}
+        initialSorting={[{ id: 'created', desc: true }]}
+        columns={[
+          columnHelper.accessor('metadata.name', {
+            header: 'Name',
+          }),
+          columnHelper.accessor('metadata.creationTimestamp', {
+            id: 'created',
+            header: 'Created',
+          }),
+        ]}
+      />
+    )
+
+    const rows = screen.getAllByRole('row').slice(1)
+    expect(
+      rows.map((row) => within(row).getAllByRole('cell')[1]?.textContent)
+    ).toEqual(['newer', 'older'])
   })
 
   it('keeps a saved namespace ahead of the connected cluster default', async () => {

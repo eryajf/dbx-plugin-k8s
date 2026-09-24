@@ -7,7 +7,7 @@
 
 **Connect to, inspect, and manage Kubernetes clusters from DBX**
 
-[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.16-4c8bf5)](https://github.com/t8y2/dbx)
+[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.17-4c8bf5)](https://github.com/t8y2/dbx)
 [![License](https://img.shields.io/github/license/eryajf/dbx-plugin-k8s)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-eryajf%2Fdbx--plugin--k8s-181717?logo=github)](https://github.com/eryajf/dbx-plugin-k8s)
 
@@ -30,6 +30,8 @@ Three authentication modes are available:
 - **API Server + Client Certificate**: provide the API Server, client certificate, client key, and an optional CA certificate.
 
 The connection form also supports request timeouts, a default namespace, TLS verification settings, and kubeconfig exec credentials. Sensitive fields use DBX secret bindings. Enable exec credentials only for kubeconfig files you trust.
+
+Kubeconfig connections can use DBX SSH jump hosts or SOCKS5 transport layers to reach the API Server; this requires DBX 0.6.17 or later. This provider does not declare static host/port bindings, so HTTP tunnels and non-SOCKS5 proxy layers are not supported; use a transport path that provides the SOCKS5 `proxy_route` capability.
 
 ### Overview and monitoring
 
@@ -82,7 +84,7 @@ Resource lists include namespace selection, name or label filters, sorting, pagi
 3. Select **Test connection** to verify API Server reachability and credentials.
 4. Select **Connect** to open the Kubernetes workbench.
 
-The plugin requires DBX <code>>=0.6.16</code>. The cluster identity must have the Kubernetes RBAC permissions for the resources and actions you want to use. A read-only identity is sufficient for inspection. Logs, terminals, file operations, port forwarding, node maintenance, and resource changes each require their corresponding Kubernetes permissions.
+The plugin requires DBX <code>>=0.6.17</code>. The cluster identity must have the Kubernetes RBAC permissions for the resources and actions you want to use. A read-only identity is sufficient for inspection. Logs, terminals, file operations, port forwarding, node maintenance, and resource changes each require their corresponding Kubernetes permissions.
 
 ## Security and data
 
