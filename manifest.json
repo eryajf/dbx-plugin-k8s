@@ -12,6 +12,7 @@
     "host_api": "1"
   },
   "permissions": [
+    "host.workbench",
     "host.events"
   ],
   "entrypoints": {

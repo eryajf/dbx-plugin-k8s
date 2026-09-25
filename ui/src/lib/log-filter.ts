@@ -38,6 +38,8 @@ export class LogBuffer {
   get lines(): LogLine[] {
     if (!this.pending) return this.completed;
     // Do not display an incomplete SGR escape until the next chunk completes it.
+    // ANSI escape sequences are the input this parser is designed to handle.
+    // eslint-disable-next-line no-control-regex
     const text = this.pending.replace(/\u001b(?:\[[0-9;]*)?$/, "");
     if (!text) return this.completed;
     const parsed = parseAnsi(text, this.state);

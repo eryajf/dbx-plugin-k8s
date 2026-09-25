@@ -32,7 +32,7 @@ export function ResourceActions({ resource, object, invoke, onChanged, connectio
         group: resource.group, version: resource.version, resource: resource.resource,
         name: object.metadata.name, namespace: object.metadata.namespace ?? '',
         ...(scaling ? { replicas: Number(replicas), resourceVersion: object.metadata.resourceVersion } : {}),
-        ...(action.method === 'cronjob/suspend' ? { suspend: !Boolean(object.spec?.suspend) } : {}),
+        ...(action.method === 'cronjob/suspend' ? { suspend: !object.spec?.suspend } : {}),
         ...(action.method === 'node/drain' ? { force: false, ignoreDaemonSets: true, deleteLocalData: false } : {}),
       })
       setAction(null); onChanged()

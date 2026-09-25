@@ -75,6 +75,9 @@ export function renderMetadataTooltipContent(
   items?: Record<string, string>,
   emptyLabel = 'None'
 ) {
+  // This helper is called while rendering its parent component, so the hook
+  // is always invoked unconditionally even though the helper is lower case.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { t } = useTranslation()
 
   const entries = Object.entries(items || {})

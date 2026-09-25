@@ -31,7 +31,7 @@ function Workspace({connectionId,connectionLabel,invoke,error:hostError,locale}:
  const [favorites,setFavorites]=useState<Saved[]>([]),[recent,setRecent]=useState<Saved[]>(preferences.recent),[columns,setColumns]=useState(preferences.columns)
  const [overview,setOverview]=useState<Record<string,any>|null>(null),[info,setInfo]=useState<Record<string,string>|null>(null),[events,setEvents]=useState<any[]>([])
 
- useEffect(()=>{if(!connectionId)return;try{localStorage.setItem(`dbx-k8s:${connectionId}`,JSON.stringify({recent,columns,refreshInterval:interval}))}catch{}},[connectionId,recent,columns,interval])
+ useEffect(()=>{if(!connectionId)return;try{localStorage.setItem(`dbx-k8s:${connectionId}`,JSON.stringify({recent,columns,refreshInterval:interval}))}catch{ /* Storage may be unavailable in a restricted host. */ }},[connectionId,recent,columns,interval])
  const reload=()=>setRefresh(n=>n+1)
  useEffect(()=>{setLanguage(locale.startsWith('zh')?'zh':'en')},[locale])
  useEffect(()=>{
