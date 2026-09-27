@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "Ümumi",
     "description": "Qlobal xüsusiyyət açarlarını və əlaqəli konfiqurasiyanı idarə edin.",
-    "aiAgent": {
-      "title": "AI agenti",
-      "description": "AI köməkçisini aktivləşdirin və modelin son nöqtəsini konfiqurasiya edin.",
-      "form": {
-        "model": "Model",
-        "modelHint": "Siz model adını əl ilə yaza və ya provayder model siyahısını əldə edib birini seçə bilərsiniz.",
-        "provider": "Provayder",
-        "apiKey": "API Açar",
-        "apiKeyPlaceholder": "Cari API Açarını saxlamaq üçün boş buraxın",
-        "baseUrl": "Əsas URL",
-        "fetchModels": "Modelləri gətirin",
-        "fetchingModels": "Alınır...",
-        "searchModels": "Modelləri axtarın...",
-        "noModels": "Model tapılmadı.",
-        "connectionTest": "Bağlantı testi",
-        "connectionTestHint": "Xidmətin işlədiyini yoxlamaq üçün cari Əsas URL, API Açar və model ilə qısa \"salam\" sorğusu göndərin.",
-        "testConnection": "Test Konfiqurasiyası",
-        "testingConnection": "Test edilir...",
-        "maxTokens": "Maks Tokens",
-        "maxTokensHelp": "Modelin bir cavabda yarada biləcəyi maksimum işarələrə nəzarət edir. Daha böyük dəyərlər daha uzun cavablara imkan verir, lakin gecikmə və işarət istifadəsini artıra bilər.",
-        "chatHistorySessionLimit": "Söhbət Tarixi Sessiya Limiti",
-        "chatHistorySessionLimitHint": "Hər klasterdə saxlamaq üçün AI söhbət sessiyalarının maksimum sayı.",
-        "openMode": "AI Chat Açıq rejimi",
-        "openModeHint": "Süni intellekt söhbətinin pəncərədaxili üst-üstə düşmə, yoxsa docked yan araba pəncərəsi kimi açılacağını seçin.",
-        "openModes": {
-          "overlay": "Üst qat",
-          "sidecar": "Yan avtomobil pəncərəsi"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "kubectl terminalını aktivləşdirin və iş vaxtı şəklini konfiqurasiya edin.",

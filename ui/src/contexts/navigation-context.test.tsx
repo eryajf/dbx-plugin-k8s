@@ -216,7 +216,7 @@ describe('NavigationProvider', () => {
 
   it('does not register document shortcuts for non-main desktop windows', async () => {
     const user = userEvent.setup()
-    desktopWindowName = 'ai-sidecar'
+    desktopWindowName = 'secondary-window'
 
     renderNavigation()
 

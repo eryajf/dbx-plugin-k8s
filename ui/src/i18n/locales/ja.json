@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "一般的な",
     "description": "グローバル機能スイッチと関連構成を管理します。",
-    "aiAgent": {
-      "title": "AIエージェント",
-      "description": "AI アシスタントを有効にし、モデル エンドポイントを構成します。",
-      "form": {
-        "model": "モデル",
-        "modelHint": "モデル名を手動で入力することも、プロバイダー モデルのリストを取得して選択することもできます。",
-        "provider": "プロバイダー",
-        "apiKey": "API キー",
-        "apiKeyPlaceholder": "現在の API キーを保持するには、空のままにしてください",
-        "baseUrl": "ベースURL",
-        "fetchModels": "モデルのフェッチ",
-        "fetchingModels": "取得中...",
-        "searchModels": "モデルを検索...",
-        "noModels": "モデルが見つかりませんでした。",
-        "connectionTest": "接続テスト",
-        "connectionTestHint": "現在のベース URL、API キー、およびモデルを使用して短い「hi」リクエストを送信し、サービスが動作していることを確認します。",
-        "testConnection": "テスト構成",
-        "testingConnection": "テスト中...",
-        "maxTokens": "最大トークン数",
-        "maxTokensHelp": "モデルが 1 回の応答で生成できる最大トークンを制御します。値を大きくすると、より長い応答が可能になりますが、待ち時間とトークンの使用量が増加する可能性があります。",
-        "chatHistorySessionLimit": "チャット履歴セッション制限",
-        "chatHistorySessionLimitHint": "クラスターごとに保持する AI チャット セッションの最大数。",
-        "openMode": "AIチャットオープンモード",
-        "openModeHint": "AI チャットをウィンドウ内オーバーレイとして開くか、ドッキングされたサイドカー ウィンドウとして開くかを選択します。",
-        "openModes": {
-          "overlay": "かぶせる",
-          "sidecar": "サイドカーウィンドウ"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "クベクトル",
       "description": "kubectl ターミナルを有効にし、ランタイム イメージを構成します。",

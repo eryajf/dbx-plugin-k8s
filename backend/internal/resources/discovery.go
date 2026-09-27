@@ -74,6 +74,12 @@ func resolve(c *kube.Client, req Request) (Resource, error) {
 	}
 	return Resource{}, fmt.Errorf("resource %s is not served by %s", req.Resource, gv.String())
 }
+
+// ResolveResource resolves a served Kubernetes resource for adapters that need
+// to build a request outside the regular RPC handler (for example AI tools).
+func ResolveResource(c *kube.Client, req Request) (Resource, error) {
+	return resolve(c, req)
+}
 func endpoint(c *kube.Client, r Resource, namespace string) dynamic.ResourceInterface {
 	resource := c.Dynamic.Resource(schema.GroupVersionResource{Group: r.Group, Version: r.Version, Resource: r.Resource})
 	if r.Namespaced {

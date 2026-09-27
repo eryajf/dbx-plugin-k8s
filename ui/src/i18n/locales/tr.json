@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "Genel",
     "description": "Genel özellik anahtarlarını ve ilgili yapılandırmayı yönetin.",
-    "aiAgent": {
-      "title": "Yapay Zeka Temsilcisi",
-      "description": "AI asistanını etkinleştirin ve model uç noktasını yapılandırın.",
-      "form": {
-        "model": "Modeli",
-        "modelHint": "Bir model adını manüel olarak yazabilir veya sağlayıcı model listesini getirip bir model seçebilirsiniz.",
-        "provider": "sağlayıcı",
-        "apiKey": "API Anahtarı",
-        "apiKeyPlaceholder": "Mevcut API Anahtarını korumak için boş bırakın",
-        "baseUrl": "Temel URL",
-        "fetchModels": "Modelleri Getir",
-        "fetchingModels": "Getiriliyor...",
-        "searchModels": "Modelleri ara...",
-        "noModels": "Hiçbir model bulunamadı.",
-        "connectionTest": "Bağlantı Testi",
-        "connectionTestHint": "Hizmetin çalıştığını doğrulamak için geçerli Temel URL, API Anahtarı ve modeli içeren kısa bir \"merhaba\" isteği gönderin.",
-        "testConnection": "Test Yapılandırması",
-        "testingConnection": "Test...",
-        "maxTokens": "Maksimum Jeton",
-        "maxTokensHelp": "Modelin tek bir yanıtta üretebileceği maksimum jetonu kontrol eder. Daha büyük değerler daha uzun yanıtlara izin verir ancak gecikmeyi ve belirteç kullanımını artırabilir.",
-        "chatHistorySessionLimit": "Sohbet Geçmişi Oturum Sınırı",
-        "chatHistorySessionLimitHint": "Küme başına tutulacak maksimum AI sohbet oturumu sayısı.",
-        "openMode": "AI Sohbet Açık Modu",
-        "openModeHint": "Yapay zeka sohbetinin pencere içi yer paylaşımı olarak mı yoksa sabitlenmiş bir sepet penceresi olarak mı açılacağını seçin.",
-        "openModes": {
-          "overlay": "Kaplama",
-          "sidecar": "Sepet Penceresi"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "kubectl terminalini etkinleştirin ve çalışma zamanı görüntüsünü yapılandırın.",

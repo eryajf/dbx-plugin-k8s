@@ -4,7 +4,6 @@ const staticPageKeyMap: Record<string, string> = {
   '/settings': 'settings',
   '/favorites': 'favorites',
   '/networking/advanced': 'networking/advanced',
-  '/ai-chat-box': 'ai-chat',
 }
 
 function normalizePathname(pathname: string) {

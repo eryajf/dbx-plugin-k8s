@@ -11,7 +11,6 @@ describe('getAnalyticsPageKey', () => {
     expect(getAnalyticsPageKey('/networking/advanced')).toBe(
       'networking/advanced'
     )
-    expect(getAnalyticsPageKey('/ai-chat-box')).toBe('ai-chat')
   })
 
   it('maps resource list and detail routes without leaking object names', () => {

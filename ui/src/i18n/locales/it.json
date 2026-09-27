@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "Generale",
     "description": "Gestire le opzioni di funzionalità globali e la relativa configurazione.",
-    "aiAgent": {
-      "title": "Agente dell'IA",
-      "description": "Abilita l'assistente AI e configura l'endpoint del modello.",
-      "form": {
-        "model": "Modello",
-        "modelHint": "È possibile digitare manualmente il nome di un modello oppure recuperare l'elenco dei modelli del fornitore e sceglierne uno.",
-        "provider": "Fornitore",
-        "apiKey": "Tasto API",
-        "apiKeyPlaceholder": "Lasciare vuoto per mantenere la chiave API corrente",
-        "baseUrl": "URL di base",
-        "fetchModels": "Recupera modelli",
-        "fetchingModels": "Recupero...",
-        "searchModels": "Cerca modelli...",
-        "noModels": "Nessun modello trovato.",
-        "connectionTest": "Prova di connessione",
-        "connectionTestHint": "Invia una breve richiesta \"ciao\" con l'URL di base corrente, la chiave API e il modello per verificare che il servizio funzioni.",
-        "testConnection": "Prova di configurazione",
-        "testingConnection": "Prova...",
-        "maxTokens": "Gettoni massimi",
-        "maxTokensHelp": "Controlla il numero massimo di token che il modello può generare in una singola risposta. Valori più grandi consentono risposte più lunghe, ma possono aumentare la latenza e l'utilizzo dei token.",
-        "chatHistorySessionLimit": "Limite sessione cronologia chat",
-        "chatHistorySessionLimitHint": "Numero massimo di sessioni di chat AI da conservare per cluster.",
-        "openMode": "Modalità aperta chat AI",
-        "openModeHint": "Scegli se la chat AI si apre come sovrapposizione nella finestra o come finestra sidecar ancorata.",
-        "openModes": {
-          "overlay": "Sovrapposizione",
-          "sidecar": "Finestrino del sidecar"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "Abilita il terminale kubectl e configura l'immagine runtime.",

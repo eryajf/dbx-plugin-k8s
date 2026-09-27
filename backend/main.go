@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/eryajf/dbx-plugin-k8s/internal/ai"
 	"github.com/eryajf/dbx-plugin-k8s/internal/connection"
+	"github.com/eryajf/dbx-plugin-k8s/internal/mcp"
 	"github.com/eryajf/dbx-plugin-k8s/internal/operations"
 	"github.com/eryajf/dbx-plugin-k8s/internal/resources"
 	"github.com/eryajf/dbx-plugin-k8s/internal/sessions"
@@ -82,6 +84,36 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 		return p.handleFavorites(method, v, raw)
 	case "ui/preferences-get", "ui/preferences-set":
 		return p.handlePreferences(method, v, raw)
+	case "mcp/tools":
+		return mcp.Tools(), nil
+	case "mcp/call":
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		out, err := mcp.Call(ctx, p.connections, raw, func(method string, params any) {
+			if emitter != nil {
+				_ = emitter.Event(method, params)
+			}
+		})
+		if err != nil {
+			return nil, classify(err)
+		}
+		return out, nil
+	case "ai/snapshot":
+		id := connection.ID(v)
+		if id == "" {
+			return nil, dbx.NewError(-32602, "missing connectionId")
+		}
+		c, err := p.connections.Get(id)
+		if err != nil {
+			return nil, classify(err)
+		}
+		ctx, cancel := c.RequestContext(60 * time.Second)
+		defer cancel()
+		out, err := ai.Snapshot(ctx, c, raw)
+		if err != nil {
+			return nil, classify(err)
+		}
+		return out, nil
 	}
 	if (strings.HasSuffix(method, "-read") && method != "pod/file-read") || strings.HasSuffix(method, "-close") || method == "session/read" || method == "session/close" || method == "pod/exec-write" || method == "pod/exec-resize" || method == "terminal/exec-write" || method == "terminal/exec-resize" || method == "port-forward/close" {
 		sid, ok := v["sessionId"].(string)
@@ -168,6 +200,7 @@ func knownMethod(method string) bool {
 	switch method {
 	case "connection/test", "connection/connect", "connection/disconnect", "dbx-plugin-k8s/ping",
 		"ui/preferences-get", "ui/preferences-set",
+		"mcp/tools", "mcp/call", "ai/snapshot",
 		"kube/cluster-info", "kube/discover", "prometheus/resource-usage-history", "prometheus/pods-metrics", "kube/namespaces", "kube/overview", "kube/metrics", "kube/recent-events", "kube/search",
 		"resource/list", "resource/get", "resource/create", "resource/update", "resource/patch", "resource/delete", "resource/describe", "resource/related", "resource/apply", "resource/search", "resource/watch", "resource/watch-read", "resource/watch-close",
 		"node/cordon", "node/uncordon", "node/drain", "workload/restart", "workload/scale", "workload/history", "workload/rollback", "cronjob/trigger", "cronjob/suspend",
@@ -246,7 +279,7 @@ func main() {
 	p := &plugin{connections: connection.New(), sessions: sessions.New()}
 	defer p.connections.Close()
 	defer p.sessions.Close()
-	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.5", Capabilities: []string{"connections", "events"}}, p)
+	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.7", Capabilities: []string{"connections", "events", "mcp"}}, p)
 	if e := s.Serve(); e != nil {
 		log.Fatal(e)
 	}

@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "General",
     "description": "Administre los interruptores de funciones globales y la configuración relacionada.",
-    "aiAgent": {
-      "title": "Agente de IA",
-      "description": "Habilite el asistente de IA y configure el punto final del modelo.",
-      "form": {
-        "model": "Modelo",
-        "modelHint": "Puede escribir un nombre de modelo manualmente o buscar la lista de modelos de proveedores y elegir uno.",
-        "provider": "Proveedor",
-        "apiKey": "Clave API",
-        "apiKeyPlaceholder": "Déjelo vacío para mantener la clave API actual.",
-        "baseUrl": "URL básica",
-        "fetchModels": "Obtener modelos",
-        "fetchingModels": "Atractivo...",
-        "searchModels": "Buscar modelos...",
-        "noModels": "No se encontraron modelos.",
-        "connectionTest": "Prueba de conexión",
-        "connectionTestHint": "Envíe una breve solicitud de \"hola\" con la URL base actual, la clave API y el modelo para verificar que el servicio esté funcionando.",
-        "testConnection": "Configuración de prueba",
-        "testingConnection": "Pruebas...",
-        "maxTokens": "Fichas máximas",
-        "maxTokensHelp": "Controla el máximo de tokens que el modelo puede generar en una sola respuesta. Los valores más altos permiten respuestas más largas, pero pueden aumentar la latencia y el uso de tokens.",
-        "chatHistorySessionLimit": "Límite de sesión del historial de chat",
-        "chatHistorySessionLimitHint": "Número máximo de sesiones de chat de IA que se pueden mantener por grupo.",
-        "openMode": "Modo abierto de chat AI",
-        "openModeHint": "Elija si el chat AI se abre como una ventana superpuesta o una ventana acoplada.",
-        "openModes": {
-          "overlay": "Cubrir",
-          "sidecar": "Ventana del sidecar"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "Habilite el terminal kubectl y configure la imagen en tiempo de ejecución.",

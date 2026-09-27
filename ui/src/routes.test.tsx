@@ -12,7 +12,6 @@ vi.mock('./App', () => ({
       <Outlet />
     </div>
   ),
-  StandaloneAIChatApp: () => <div>standalone ai chat</div>,
 }))
 
 vi.mock('./pages/overview', () => ({

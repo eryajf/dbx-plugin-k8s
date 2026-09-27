@@ -144,13 +144,14 @@ func TestRecentEventsSortsAndLimits(t *testing.T) {
 	now := time.Now()
 	old := &corev1.Event{ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: "default"}, LastTimestamp: metav1.Time{Time: now.Add(-time.Hour)}}
 	fresh := &corev1.Event{ObjectMeta: metav1.ObjectMeta{Name: "fresh", Namespace: "default"}, LastTimestamp: metav1.Time{Time: now}}
-	c := &kube.Client{Core: fake.NewSimpleClientset(old, fresh)}
-	got, err := Handle(context.Background(), c, "kube/recent-events", json.RawMessage(`{"namespace":"default"}`))
+	middle := &corev1.Event{ObjectMeta: metav1.ObjectMeta{Name: "middle", Namespace: "default"}, LastTimestamp: metav1.Time{Time: now.Add(-time.Minute)}}
+	c := &kube.Client{Core: fake.NewSimpleClientset(old, fresh, middle)}
+	got, err := Handle(context.Background(), c, "kube/recent-events", json.RawMessage(`{"namespace":"default","limit":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	items := got.(map[string]any)["items"].([]corev1.Event)
-	if len(items) != 2 || items[0].Name != "fresh" {
+	if len(items) != 2 || items[0].Name != "fresh" || items[1].Name != "middle" {
 		t.Fatalf("unexpected ordering: %#v", items)
 	}
 }

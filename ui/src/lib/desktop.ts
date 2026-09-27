@@ -35,18 +35,6 @@ export interface DesktopWindowOptions {
   minHeight?: number
 }
 
-export interface DesktopAIChatPageContext {
-  page: string
-  namespace: string
-  resourceName: string
-  resourceKind: string
-}
-
-interface DesktopAIChatSidecarRequest extends DesktopWindowOptions {
-  pageContext: DesktopAIChatPageContext
-  sessionId?: string
-}
-
 export interface NativeFileFilter {
   displayName: string
   pattern: string
@@ -248,38 +236,6 @@ export async function openURL(
       transport: 'browser',
     })
   }
-}
-
-export async function openAIChatSidecar(
-  request: DesktopAIChatSidecarRequest
-): Promise<boolean> {
-  if (!(await isDesktopMode())) {
-    return false
-  }
-
-  await postDesktop<DesktopActionResponse>(
-    '/api/desktop/ai-sidecar/open',
-    request
-  )
-  return true
-}
-
-export async function toggleAIChatSidecar(
-  request: DesktopAIChatSidecarRequest
-): Promise<boolean> {
-  if (!(await isDesktopMode())) {
-    return false
-  }
-
-  await postDesktop<DesktopActionResponse>(
-    '/api/desktop/ai-sidecar/toggle',
-    request
-  )
-  return true
-}
-
-export async function closeAIChatSidecar(): Promise<boolean> {
-  return invokeDesktopAction('/api/desktop/ai-sidecar/close')
 }
 
 export async function openNativeFile(

@@ -27,6 +27,7 @@ type Request struct {
 	Container        string   `json:"container"`
 	PodNames         []string `json:"podNames"`
 	LabelSelector    string   `json:"labelSelector"`
+	Limit            int64    `json:"limit"`
 }
 
 // Handle preserves Kubernetes StatusErrors so the protocol layer can classify them.

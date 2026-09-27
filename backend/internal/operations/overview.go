@@ -29,15 +29,22 @@ func metrics(ctx context.Context, c *kube.Client, r Request) (any, error) {
 }
 
 func recentEvents(ctx context.Context, c *kube.Client, r Request) (any, error) {
-	events, err := c.Core.CoreV1().Events(r.Namespace).List(ctx, metav1.ListOptions{})
+	limit := r.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	events, err := c.Core.CoreV1().Events(r.Namespace).List(ctx, metav1.ListOptions{Limit: limit})
 	if err != nil {
 		return nil, err
 	}
 	items := make([]corev1.Event, len(events.Items))
 	copy(items, events.Items)
 	sort.Slice(items, func(i, j int) bool { return items[i].LastTimestamp.After(items[j].LastTimestamp.Time) })
-	if len(items) > 20 {
-		items = items[:20]
+	if int64(len(items)) > limit {
+		items = items[:int(limit)]
 	}
 	return map[string]any{"items": items}, nil
 }

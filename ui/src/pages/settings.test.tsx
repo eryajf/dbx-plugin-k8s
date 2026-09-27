@@ -21,10 +21,6 @@ vi.mock('@/components/settings/about-management', () => ({
   AboutManagement: () => <div>About</div>,
 }))
 
-vi.mock('@/components/settings/general-management', () => ({
-  GeneralManagement: () => <div>General</div>,
-}))
-
 vi.mock('@/components/settings/cluster-management', () => ({
   ClusterManagement: () => <div>Cluster</div>,
 }))

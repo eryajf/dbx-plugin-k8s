@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "一般",
     "description": "管理全域功能開關和相關配置。",
-    "aiAgent": {
-      "title": "AI 助理",
-      "description": "啟用 AI 助理並配置模型與介面位址。",
-      "form": {
-        "model": "模型",
-        "modelHint": "模型既支援手動輸入，也可以先拉取服務端模型清單再選擇。",
-        "provider": "服務提供方",
-        "apiKey": "API 金鑰",
-        "apiKeyPlaceholder": "留空將保持目前 API Key",
-        "baseUrl": "基礎 URL",
-        "fetchModels": "取得模型",
-        "fetchingModels": "獲取中...",
-        "searchModels": "搜尋模型...",
-        "noModels": "沒有找到模型。",
-        "connectionTest": "連接測試",
-        "connectionTestHint": "使用目前 Base URL、API Key 和模型傳送一條簡短的「hi」請求，確認模型服務是否可用。",
-        "testConnection": "測試配置",
-        "testingConnection": "測試中...",
-        "maxTokens": "最大 Token 數",
-        "maxTokensHelp": "控制模型單次回覆最多可產生多少 Token。數值更大可以獲得更長的回答，但也可能增加反應耗時和 Token 消耗。",
-        "chatHistorySessionLimit": "聊天歷史會話上限",
-        "chatHistorySessionLimitHint": "每個叢集最多保留多少個 AI 對話會話。",
-        "openMode": "AI 對話開啟方式",
-        "openModeHint": "選擇 AI 對話是以內嵌浮層打開，還是以右側 Sidecar 視窗開啟。",
-        "openModes": {
-          "overlay": "浮層",
-          "sidecar": "側邊欄窗口"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "啟用 kubectl 終端並配置運作鏡像。",

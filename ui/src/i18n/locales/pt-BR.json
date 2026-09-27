@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "Em geral",
     "description": "Gerencie opções de recursos globais e configurações relacionadas.",
-    "aiAgent": {
-      "title": "Agente de IA",
-      "description": "Habilite o assistente de IA e configure o endpoint do modelo.",
-      "form": {
-        "model": "Modelo",
-        "modelHint": "Você pode digitar um nome de modelo manualmente ou buscar a lista de modelos de provedores e escolher um.",
-        "provider": "Provedor",
-        "apiKey": "Chave API",
-        "apiKeyPlaceholder": "Deixe em branco para manter a chave API atual",
-        "baseUrl": "URL base",
-        "fetchModels": "Buscar modelos",
-        "fetchingModels": "Buscando...",
-        "searchModels": "Pesquisar modelos...",
-        "noModels": "Nenhum modelo encontrado.",
-        "connectionTest": "Teste de conexão",
-        "connectionTestHint": "Envie uma solicitação curta de \"oi\" com o URL base atual, a chave API e o modelo para verificar se o serviço está funcionando.",
-        "testConnection": "Configuração de teste",
-        "testingConnection": "Testando...",
-        "maxTokens": "Máximo de tokens",
-        "maxTokensHelp": "Controla o máximo de tokens que o modelo pode gerar em uma única resposta. Valores maiores permitem respostas mais longas, mas podem aumentar a latência e o uso de tokens.",
-        "chatHistorySessionLimit": "Limite de sessão do histórico de bate-papo",
-        "chatHistorySessionLimitHint": "Número máximo de sessões de chat de IA a serem mantidas por cluster.",
-        "openMode": "Modo aberto de bate-papo AI",
-        "openModeHint": "Escolha se o bate-papo com IA abre como uma sobreposição na janela ou como uma janela lateral encaixada.",
-        "openModes": {
-          "overlay": "Sobreposição",
-          "sidecar": "Janela lateral"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "Habilite o terminal kubectl e configure a imagem de tempo de execução.",

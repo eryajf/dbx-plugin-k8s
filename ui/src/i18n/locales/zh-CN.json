@@ -801,40 +801,6 @@
   "generalManagement": {
     "title": "通用",
     "description": "管理全局功能开关和相关配置。",
-    "aiAgent": {
-      "title": "AI 助手",
-      "description": "启用 AI 助手并配置模型与接口地址。",
-      "form": {
-        "model": "模型",
-        "modelHint": "模型既支持手动输入，也可以先拉取服务端模型列表再选择。",
-        "provider": "服务提供方",
-        "apiKey": "API 密钥",
-        "apiKeyPlaceholder": "留空将保持当前 API Key",
-        "baseUrl": "基础 URL",
-        "fetchModels": "获取模型",
-        "fetchingModels": "获取中...",
-        "searchModels": "搜索模型...",
-        "noModels": "没有找到模型。",
-        "connectionTest": "连接测试",
-        "connectionTestHint": "使用当前 Base URL、API Key 和模型发送一条简短的“hi”请求，确认模型服务是否可用。",
-        "testConnection": "测试配置",
-        "testingConnection": "测试中...",
-        "maxTokens": "最大 Token 数",
-        "maxTokensHelp": "控制模型单次回复最多可生成多少 Token。数值更大可以获得更长的回答，但也可能增加响应耗时和 Token 消耗。",
-        "chatHistorySessionLimit": "聊天历史会话上限",
-        "chatHistorySessionLimitHint": "每个集群最多保留多少条 AI 对话会话。",
-        "openMode": "AI 对话打开方式",
-        "openModeHint": "选择 AI 对话是以内嵌浮层打开，还是以右侧 Sidecar 窗口打开。",
-        "openModes": {
-          "overlay": "浮层",
-          "sidecar": "侧边栏窗口"
-        },
-        "providers": {
-          "openai": "OpenAI",
-          "anthropic": "Anthropic"
-        }
-      }
-    },
     "kubectl": {
       "title": "Kubectl",
       "description": "启用 kubectl 终端并配置运行镜像。",
