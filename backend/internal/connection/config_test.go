@@ -1,6 +1,10 @@
 package connection
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 const sampleConfig = `apiVersion: v1
 kind: Config
@@ -43,6 +47,20 @@ func TestResolveFlatKubeconfigWithoutAuthMode(t *testing.T) {
 	}
 	if r.Config.Host != "https://cluster.example" || r.ContextName != "production" {
 		t.Fatalf("flat kubeconfig payload not resolved correctly: host=%s context=%s", r.Config.Host, r.ContextName)
+	}
+}
+
+func TestResolvePreservesKubeconfigPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(path, []byte(sampleConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Resolve(map[string]any{"connection": map[string]any{"external_config": map[string]any{"auth_mode": "kubeconfig", "kubeconfig_path": path}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.KubeconfigPath != path {
+		t.Fatalf("kubeconfig path = %q, want %q", r.KubeconfigPath, path)
 	}
 }
 func TestCredentialsMustNotComeFromExternalConfig(t *testing.T) {

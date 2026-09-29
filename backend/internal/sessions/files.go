@@ -10,10 +10,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Bound output independently of container tools and filenames.
@@ -26,7 +26,20 @@ func (b *fileOutput) Write(p []byte) (int, error) {
 	return b.Buffer.Write(p)
 }
 
-var safePath = regexp.MustCompile(`^/[A-Za-z0-9._/-]*$`)
+// validateFilePath keeps shell metacharacters and control characters out of
+// file operations while allowing legitimate Unicode names and spaces. The
+// command builders still quote every path before passing it to a shell.
+func validateFilePath(value string, allowRoot bool) error {
+	if !path.IsAbs(value) || (!allowRoot && path.Clean(value) == "/") {
+		return fmt.Errorf("path must be an absolute file path")
+	}
+	for _, r := range value {
+		if unicode.IsControl(r) || strings.ContainsRune(";|&$`()<>", r) {
+			return fmt.Errorf("path must be an absolute file path")
+		}
+	}
+	return nil
+}
 
 // filesList is deliberately read-only and does not expose arbitrary commands.
 func filesList(ctx context.Context, c *kube.Client, raw json.RawMessage) (any, error) {
@@ -43,8 +56,8 @@ func filesList(ctx context.Context, c *kube.Client, raw json.RawMessage) (any, e
 	if p.Path == "" {
 		p.Path = "/"
 	}
-	if !safePath.MatchString(p.Path) {
-		return nil, fmt.Errorf("path must be absolute and contain only safe characters")
+	if err := validateFilePath(p.Path, true); err != nil {
+		return nil, err
 	}
 	p.Path = path.Clean(p.Path)
 	if p.Depth < 1 || p.Depth > 5 {
@@ -110,8 +123,8 @@ func fileRead(ctx context.Context, c *kube.Client, raw json.RawMessage) (any, er
 	if p.Namespace == "" || p.Name == "" || p.Path == "" {
 		return nil, fmt.Errorf("namespace, name and path are required")
 	}
-	if !safePath.MatchString(p.Path) || path.Clean(p.Path) == "/" {
-		return nil, fmt.Errorf("path must be an absolute file path")
+	if err := validateFilePath(p.Path, false); err != nil {
+		return nil, err
 	}
 	p.Path = path.Clean(p.Path)
 	client, cfg, err := streamCore(c)
@@ -145,8 +158,8 @@ func fileDelete(ctx context.Context, c *kube.Client, raw json.RawMessage) (any, 
 	if p.Namespace == "" || p.Name == "" || p.Path == "" {
 		return nil, fmt.Errorf("namespace, name and path are required")
 	}
-	if !safePath.MatchString(p.Path) || path.Clean(p.Path) == "/" {
-		return nil, fmt.Errorf("path must be an absolute file path")
+	if err := validateFilePath(p.Path, false); err != nil {
+		return nil, err
 	}
 	p.Path = path.Clean(p.Path)
 	client, cfg, err := streamCore(c)
@@ -177,8 +190,8 @@ func fileWrite(ctx context.Context, c *kube.Client, raw json.RawMessage) (any, e
 	if p.Namespace == "" || p.Name == "" || p.Path == "" {
 		return nil, fmt.Errorf("namespace, name and path are required")
 	}
-	if !safePath.MatchString(p.Path) || path.Clean(p.Path) == "/" {
-		return nil, fmt.Errorf("path must be an absolute file path")
+	if err := validateFilePath(p.Path, false); err != nil {
+		return nil, err
 	}
 	if len(p.Content) > 262144 {
 		return nil, fmt.Errorf("file content exceeds 256 KiB")

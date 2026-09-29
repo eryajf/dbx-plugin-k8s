@@ -38,13 +38,14 @@ func (m *Manager) Get(id string) (*kube.Client, error) {
 }
 
 type Info struct {
-	Success      bool   `json:"success"`
-	ConnectionID string `json:"connectionId,omitempty"`
-	Version      string `json:"version"`
-	Platform     string `json:"platform"`
-	Context      string `json:"context"`
-	Namespace    string `json:"namespace"`
-	Message      string `json:"message"`
+	Success        bool   `json:"success"`
+	ConnectionID   string `json:"connectionId,omitempty"`
+	Version        string `json:"version"`
+	Platform       string `json:"platform"`
+	Context        string `json:"context"`
+	KubeconfigPath string `json:"kubeconfigPath,omitempty"`
+	Namespace      string `json:"namespace"`
+	Message        string `json:"message"`
 }
 
 func Probe(ctx context.Context, c *kube.Client) (*Info, error) {
@@ -52,7 +53,7 @@ func Probe(ctx context.Context, c *kube.Client) (*Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Info{Success: true, Version: v.GitVersion, Platform: v.Platform, Context: c.ContextName, Namespace: c.Namespace, Message: "Kubernetes API reachable"}, nil
+	return &Info{Success: true, Version: v.GitVersion, Platform: v.Platform, Context: c.ContextName, KubeconfigPath: c.KubeconfigPath, Namespace: c.Namespace, Message: "Kubernetes API reachable"}, nil
 }
 
 // Prepare does not publish failed connections to the shared registry.
@@ -65,6 +66,7 @@ func Prepare(values map[string]any) (*kube.Client, *Info, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	c.KubeconfigPath = r.KubeconfigPath
 	ctx, cancel := c.RequestContext(r.Timeout)
 	defer cancel()
 	promURL := r.PrometheusURL

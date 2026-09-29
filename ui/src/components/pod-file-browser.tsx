@@ -19,6 +19,7 @@ import {
   podUploadFile,
   usePodFiles,
 } from '@/lib/api'
+import { DBXUploadFallbackError } from '@/lib/dbx-files'
 import { toSimpleContainer } from '@/lib/k8s'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ import { RefreshButton } from '@/components/refresh-button'
 
 import { ErrorMessage } from './error-message'
 import { ContainerSelector } from './selector/container-selector'
+import { KubectlCpDialog } from './kubectl-cp-dialog'
 
 interface PodFileBrowserProps {
   namespace: string
@@ -59,6 +61,7 @@ export function PodFileBrowser({
   )
   const [currentPath, setCurrentPath] = useState<string>('/')
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadFallback, setUploadFallback] = useState<DBXUploadFallbackError | null>(null)
   const { t } = useTranslation()
 
   const {
@@ -119,7 +122,8 @@ export function PodFileBrowser({
       refetch()
       toast.success(t('podFiles.uploadedSuccess', { name: file.name }))
     } catch (error) {
-      toast.error(translateError(error, t))
+      if (error instanceof DBXUploadFallbackError) setUploadFallback(error)
+      else toast.error(translateError(error, t))
     } finally {
       setIsUploading(false)
       e.target.value = ''
@@ -128,6 +132,7 @@ export function PodFileBrowser({
 
   return (
     <div className="space-y-4">
+      <KubectlCpDialog reason={uploadFallback?.reason ?? null} command={uploadFallback?.command ?? ''} ready={uploadFallback?.ready ?? false} onClose={() => setUploadFallback(null)} />
       <div className="flex items-center gap-4">
         <ContainerSelector
           containers={containers}

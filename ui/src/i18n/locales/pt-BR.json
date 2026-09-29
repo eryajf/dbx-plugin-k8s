@@ -1532,6 +1532,9 @@
     "loadingEditor": "Carregando editor..."
   },
   "podFiles": {
+    "kubectlCpTitle": "Enviar com kubectl cp",
+    "kubectlCpSize": "Este arquivo excede o limite de envio online de 256 KiB.",
+    "kubectlCpBinary": "Arquivos binários ou que não sejam UTF-8 não podem ser enviados online.",
     "uploadedSuccess": "{{name}} carregado com sucesso",
     "goToParentDirectory": "Vá para o diretório pai",
     "goToHomeDirectory": "Vá para o diretório inicial",
@@ -1561,7 +1564,8 @@
     "fileDeleted": "Arquivo excluído",
     "directoryDeleted": "Diretório excluído",
     "deleteConfirmTitle": "Excluir caminho",
-    "deleteConfirmDescription": "Excluir {{path}}? Esta operação não pode ser desfeita."
+    "deleteConfirmDescription": "Excluir {{path}}? Esta operação não pode ser desfeita.",
+    "kubectlCpMissingContext": "A cópia fica desativada até que o caminho local do kubeconfig e o contexto estejam disponíveis. Preencha-os antes de executar o comando."
   },
   "siteHeader": {
     "createNewResource": "Criar novo recurso",

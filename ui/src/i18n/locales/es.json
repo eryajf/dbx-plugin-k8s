@@ -1532,6 +1532,9 @@
     "loadingEditor": "Cargando editor..."
   },
   "podFiles": {
+    "kubectlCpTitle": "Subir con kubectl cp",
+    "kubectlCpSize": "Este archivo supera el límite de carga en línea de 256 KiB.",
+    "kubectlCpBinary": "Los archivos binarios o que no sean UTF-8 no se pueden subir en línea.",
     "uploadedSuccess": "Subido {{name}} exitosamente",
     "goToParentDirectory": "Ir al directorio superior",
     "goToHomeDirectory": "Ir al directorio de inicio",
@@ -1561,7 +1564,8 @@
     "fileDeleted": "Archivo eliminado",
     "directoryDeleted": "Directorio eliminado",
     "deleteConfirmTitle": "Eliminar ruta",
-    "deleteConfirmDescription": "¿Eliminar {{path}}? Esta operación no se puede deshacer."
+    "deleteConfirmDescription": "¿Eliminar {{path}}? Esta operación no se puede deshacer.",
+    "kubectlCpMissingContext": "La copia está desactivada hasta disponer de la ruta local de kubeconfig y el contexto. Complételos antes de ejecutar el comando."
   },
   "siteHeader": {
     "createNewResource": "Crear nuevo recurso",

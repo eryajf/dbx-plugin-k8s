@@ -1532,6 +1532,9 @@
     "loadingEditor": "Loading editor..."
   },
   "podFiles": {
+    "kubectlCpTitle": "Use kubectl cp to upload",
+    "kubectlCpSize": "This file exceeds the 256 KiB online upload limit.",
+    "kubectlCpBinary": "Binary or non-UTF-8 files cannot be uploaded online.",
     "uploadedSuccess": "Uploaded {{name}} successfully",
     "goToParentDirectory": "Go to parent directory",
     "goToHomeDirectory": "Go to home directory",
@@ -1561,7 +1564,8 @@
     "fileDeleted": "File deleted",
     "directoryDeleted": "Directory deleted",
     "deleteConfirmTitle": "Delete path",
-    "deleteConfirmDescription": "Delete {{path}}? This operation cannot be undone."
+    "deleteConfirmDescription": "Delete {{path}}? This operation cannot be undone.",
+    "kubectlCpMissingContext": "Copying is disabled until both a local kubeconfig path and context are available. Fill them in before running this command."
   },
   "siteHeader": {
     "createNewResource": "Create new resource",

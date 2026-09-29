@@ -21,12 +21,17 @@ describe('DBX files',()=>{
   expect(invoke).toHaveBeenLastCalledWith('pod/file-write',{...params,path:'/tmp/config.txt',content:'hello',overwrite:false})
  })
  it('rejects binary and oversized uploads before RPC',async()=>{
-  const invoke=vi.fn()
+  const invoke=vi.fn().mockResolvedValue({context:'prod',kubeconfigPath:'/tmp/config'})
   for(const file of [new File([new Uint8Array([255,254])],'binary'),new File(['x'.repeat(262145)],'big')]){
    const form=new FormData();form.append('file',file)
-   await expect(dispatchDBXFiles(invoke,params,'upload','PUT',form)).rejects.toThrow()
+   await expect(dispatchDBXFiles(invoke,params,'upload','PUT',form)).rejects.toMatchObject({name:'DBXUploadFallbackError',reason:expect.any(String),command:expect.stringContaining('--context=\'prod\'')})
   }
-  expect(invoke).not.toHaveBeenCalled()
+  expect(invoke).toHaveBeenCalledWith('kube/cluster-info', {})
+ })
+ it('marks the fallback unavailable when connection metadata is missing',async()=>{
+  const invoke=vi.fn().mockRejectedValue(new Error('unavailable'))
+  const form=new FormData();form.append('file',new File(['x'.repeat(262145)],'big'))
+  await expect(dispatchDBXFiles(invoke,params,'upload','PUT',form)).rejects.toMatchObject({name:'DBXUploadFallbackError',ready:false})
  })
  it('routes deletes without fabricating results',async()=>{
   const invoke=vi.fn().mockRejectedValue(new Error('permission denied'))

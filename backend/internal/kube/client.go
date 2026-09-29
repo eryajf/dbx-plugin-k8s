@@ -21,6 +21,7 @@ type Client struct {
 	Context             context.Context
 	Namespace           string
 	ContextName         string
+	KubeconfigPath      string
 	cancel              context.CancelFunc
 	once                sync.Once
 	httpClient          *http.Client

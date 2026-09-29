@@ -17,12 +17,13 @@ import (
 
 // Resolved is never serialized: it contains private keys and bearer tokens.
 type Resolved struct {
-	ID            string
-	Config        *rest.Config
-	ContextName   string
-	Namespace     string
-	Timeout       time.Duration
-	PrometheusURL string
+	ID             string
+	Config         *rest.Config
+	ContextName    string
+	KubeconfigPath string
+	Namespace      string
+	Timeout        time.Duration
+	PrometheusURL  string
 }
 
 func object(v any) map[string]any { m, _ := v.(map[string]any); return m }
@@ -167,6 +168,7 @@ func Resolve(values map[string]any) (*Resolved, error) {
 				}
 				path = filepath.Join(home, path[2:])
 			}
+			resolved.KubeconfigPath = path
 			rules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: path}
 			loader = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
 			raw, err := loader.RawConfig()

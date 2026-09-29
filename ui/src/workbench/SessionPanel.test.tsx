@@ -48,7 +48,7 @@ describe('Pod file operations', () => {
     const invoke = setup()
     upload('a\0b')
     expect(await screen.findByRole('alert')).toHaveTextContent('UTF-8')
-    expect(invoke).not.toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalledWith('pod/file-write', expect.anything())
   })
   it('keeps a failed upload distinct from a failed directory refresh', async () => {
     const invoke = setup(vi.fn(async (method: string) => {

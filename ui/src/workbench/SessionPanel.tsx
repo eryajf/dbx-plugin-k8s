@@ -6,11 +6,16 @@ import '@xterm/xterm/css/xterm.css'
 import type { Invoke, KubeObject, ResourceType } from './types'
 import './session.css'
 import { KiteSessionTransport } from '../lib/kite-session-transport'
+import { kubectlCpCommand, kubectlCpReady, type ClusterInfo } from '../lib/kubectl-cp'
 
 type Mode = 'logs' | 'exec' | 'files' | 'forward'
 type Frame = { sessionId: string; data?: string; closed?: boolean; ready?: boolean; error?: string; droppedBytes?: number; ports?: { Local: number; Remote: number }[] }
 type Props = { resource: ResourceType; object: KubeObject; invoke: Invoke; onClose: () => void }
 type Live = { id: string; invoke: Invoke; generation: number }
+class UploadFallbackError extends Error {
+  readonly reason: 'size' | 'binary'
+  constructor(reason: 'size' | 'binary', message: string) { super(message); this.reason = reason }
+}
 
 // Resource identity is also a lifecycle boundary when a parent reuses the panel.
 export default function SessionPanel(props: Props) {
@@ -32,6 +37,9 @@ function SessionContent({ resource, object, invoke, onClose }: Props) {
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileEntries, setFileEntries] = useState<{type:string;path:string}[]>([])
   const [copyStatus, setCopyStatus] = useState('')
+  const [copyCommand, setCopyCommand] = useState('')
+  const [copyReady, setCopyReady] = useState(false)
+  const [copyReason, setCopyReason] = useState<'size' | 'binary' | null>(null)
   const uploadInput = useRef<HTMLInputElement>(null)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const fileMutation = useRef(false)
@@ -175,15 +183,19 @@ function SessionContent({ resource, object, invoke, onClose }: Props) {
     const call = rpc.current
     const identity = { namespace: object.metadata?.namespace, name: object.metadata?.name, container: container || containers[0]?.name }
     const current = () => mounted.current && generation.current === token && rpc.current === call
-    setBusy(true); setError(''); setPendingDelete(null)
+    setBusy(true); setError(''); setPendingDelete(null); setCopyReason(null); setCopyCommand(''); setCopyReady(false)
     try {
       let content: string | undefined
       if (file) {
-        if (file.size > 262144) throw new Error('文件超过 256 KiB / File exceeds 256 KiB')
+        if (file.size > 262144) throw new UploadFallbackError('size', '文件超过 256 KiB / File exceeds 256 KiB')
         const bytes = await file.arrayBuffer()
         // Reject binary/invalid text instead of silently corrupting uploads.
-        content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
-        if (content.includes('\0')) throw new Error('请选择 UTF-8 文本文件 / Choose a UTF-8 text file')
+        try {
+          content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+        } catch {
+          throw new UploadFallbackError('binary', '请选择 UTF-8 文本文件 / Choose a UTF-8 text file')
+        }
+        if (content.includes('\0')) throw new UploadFallbackError('binary', '请选择 UTF-8 文本文件 / Choose a UTF-8 text file')
         if (!current()) return
       }
       await call(`pod/file-${kind}`, { ...identity, path: target, ...(file ? { content } : {}) })
@@ -199,11 +211,23 @@ function SessionContent({ resource, object, invoke, onClose }: Props) {
       } catch (e) {
         if (current()) setError(`${message}；目录刷新失败 / Directory refresh failed: ${String(e)}`)
       }
-    } catch (e) { if (current()) setError(String(e)) }
+    } catch (e) {
+      if (current() && e instanceof UploadFallbackError && file) {
+        setError(e.message)
+        setCopyReason(e.reason)
+        try {
+          const info = await call<ClusterInfo>('kube/cluster-info')
+          if (current()) { setCopyCommand(kubectlCpCommand(file.name, String(identity.namespace || ''), String(identity.name || ''), target, String(identity.container || ''), info)); setCopyReady(kubectlCpReady(info)) }
+        } catch {
+          if (current()) setCopyCommand(kubectlCpCommand(file.name, String(identity.namespace || ''), String(identity.name || ''), target, String(identity.container || '')))
+        }
+      } else if (current()) setError(String(e))
+    }
     finally { fileMutation.current = false; if (current()) setBusy(false) }
   }
   async function uploadFile(file: File) {
-    const target = `${filePath.replace(/\/$/, '')}/${file.name}`
+    const name = file.name.split(/[\\/]/).pop() || file.name
+    const target = `${filePath.replace(/\/$/, '')}/${name}`
     await mutateFile('write', target, file)
   }
 
@@ -293,8 +317,9 @@ function SessionContent({ resource, object, invoke, onClose }: Props) {
       <button disabled={!locked} onClick={stop}>停止 Stop</button>
     </div>
     <div role="status" className="k8s-session-status">{status}</div>{mode === 'files' && <div className="k8s-file-entries" role="list">{fileEntries.map(entry => <button role="listitem" key={entry.path} onClick={() => entry.type === 'directory' ? setFilePath(entry.path) : setFileReadPath(entry.path)} title={entry.path}>{entry.type === 'directory' ? '📁 ' : '📄 '}{entry.path}</button>)}{!fileEntries.length && <span>暂无条目 / No entries</span>}</div>}
+    {copyReason && copyCommand && <div role="alertdialog" aria-label="使用 kubectl cp 上传 Use kubectl cp to upload"><p>{copyReason === 'size' ? '文件超过在线上传大小限制，请使用 kubectl cp。 / File exceeds the online upload limit; use kubectl cp.' : '二进制或非 UTF-8 文件不能在线上传，请使用 kubectl cp。 / Binary or non-UTF-8 files must be uploaded with kubectl cp.'}</p>{!copyReady && <p role="status">本机 kubeconfig 路径和 Context 均可用后才能复制命令。 / Copying is disabled until local kubeconfig path and context are available.</p>}<pre>{copyCommand}</pre><button disabled={!copyReady} onClick={() => { void navigator.clipboard.writeText(copyCommand).then(() => setCopyStatus('命令已复制 / Command copied')).catch(() => setCopyStatus('复制失败 / Copy failed')) }}>复制命令 Copy command</button><button onClick={() => { setCopyReason(null); setCopyCommand(''); setCopyReady(false) }}>关闭 Close</button></div>}
     {error && <div role="alert" className="k8s-session-error">{error}</div>}
-    {mode === 'files' && <p className="k8s-session-hint">可浏览、读取和删除文件；上传限 256 KiB UTF-8 文本，同名文件会被拒绝。 / Upload UTF-8 text up to 256 KiB; existing files are not overwritten.</p>}{mode === 'exec' && <p className="k8s-session-hint">点击连接后启动容器内 Shell，使用当前连接的 pods/exec 权限。关闭面板会结束会话。 / Connect starts a container shell.</p>}
+    {mode === 'files' && <p className="k8s-session-hint">可浏览、读取和删除文件；在线上传限 256 KiB UTF-8 文本，超大或二进制文件会提供 kubectl cp 命令，同名文件会被拒绝。 / Browse, read, and delete files; online uploads are limited to 256 KiB UTF-8 text, and kubectl cp is provided for larger or binary files.</p>}{mode === 'exec' && <p className="k8s-session-hint">点击连接后启动容器内 Shell，使用当前连接的 pods/exec 权限。关闭面板会结束会话。 / Connect starts a container shell.</p>}
     {mode !== 'forward' ? <><div className="k8s-session-search"><input aria-label="搜索输出 Search output" placeholder="搜索输出 / Search output" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') searchAddon.current?.findNext(search) }} /><button onClick={() => searchAddon.current?.findNext(search)}>查找 Find</button><button onClick={() => terminal.current?.clear()}>清屏 Clear</button><span>最多保留 5000 行 / 5000 lines</span></div><div className="k8s-terminal" ref={terminalElement} /></> : <><p className="k8s-session-hint">仅监听 127.0.0.1；本地端口 0 自动分配。此面板创建的转发会在关闭面板时结束。 / Local port 0 selects a free port.</p><h4>当前连接的转发 / Connection forwards</h4>{!forwards.length && <p>暂无端口转发 / No forwards</p>}<ul className="k8s-forward-list">{forwards.map(f => <li key={f.sessionId}><code>{f.sessionId.slice(0, 8)}</code><span>{f.closed ? '已结束 / Closed' : f.ready ? '就绪 / Ready' : '连接中 / Connecting'}</span>{f.ports?.map(p => <code key={`${p.Local}:${p.Remote}`}>127.0.0.1:{p.Local} → {p.Remote}</code>)}{f.error && <span role="alert">{f.error}</span>}<button onClick={async () => { try { if (live.current?.id === f.sessionId) stop(); else await rpc.current('port-forward/close', { sessionId: f.sessionId }); ownedForwards.current.delete(f.sessionId); await refreshForwards() } catch (e) { setError(String(e)) } }}>关闭 Close</button></li>)}</ul></>}
   </section>
 }

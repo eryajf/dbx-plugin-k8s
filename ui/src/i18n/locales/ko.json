@@ -1532,6 +1532,9 @@
     "loadingEditor": "편집기 로드 중..."
   },
   "podFiles": {
+    "kubectlCpTitle": "kubectl cp로 업로드",
+    "kubectlCpSize": "이 파일은 온라인 업로드 제한인 256 KiB를 초과합니다.",
+    "kubectlCpBinary": "바이너리 또는 UTF-8이 아닌 파일은 온라인으로 업로드할 수 없습니다.",
     "uploadedSuccess": "{{name}}를 성공적으로 업로드했습니다.",
     "goToParentDirectory": "상위 디렉터리로 이동",
     "goToHomeDirectory": "홈 디렉터리로 이동",
@@ -1561,7 +1564,8 @@
     "fileDeleted": "파일이 삭제되었습니다.",
     "directoryDeleted": "디렉터리가 삭제되었습니다.",
     "deleteConfirmTitle": "경로 삭제",
-    "deleteConfirmDescription": "{{path}}를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다."
+    "deleteConfirmDescription": "{{path}}를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+    "kubectlCpMissingContext": "로컬 kubeconfig 경로와 Context를 모두 사용할 수 있을 때까지 복사할 수 없습니다. 입력한 후 실행하세요."
   },
   "siteHeader": {
     "createNewResource": "새 리소스 만들기",

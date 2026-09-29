@@ -26,6 +26,7 @@ import {
   usePodFiles,
 } from '@/lib/api'
 import { copyTextToClipboard } from '@/lib/desktop'
+import { DBXUploadFallbackError } from '@/lib/dbx-files'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -48,6 +49,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 import { ErrorMessage } from './error-message'
 import { RefreshButton } from './refresh-button'
+import { KubectlCpDialog } from './kubectl-cp-dialog'
 
 interface PodTerminalFileTreeProps {
   clusterName?: string
@@ -87,6 +89,7 @@ export function PodTerminalFileTree({
   const { t } = useTranslation()
   const [currentPath, setCurrentPath] = useState('/')
   const [uploadDirectory, setUploadDirectory] = useState<string | null>(null)
+  const [uploadFallback, setUploadFallback] = useState<DBXUploadFallbackError | null>(null)
   const [editingPath, setEditingPath] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -274,7 +277,8 @@ export function PodTerminalFileTree({
       toast.success(t('podFiles.uploadedSuccess', { name: file.name }))
       refreshVisibleFiles()
     } catch (error) {
-      toast.error(translateError(error, t))
+      if (error instanceof DBXUploadFallbackError) setUploadFallback(error)
+      else toast.error(translateError(error, t))
     } finally {
       event.target.value = ''
       setUploadDirectory(null)
@@ -418,6 +422,7 @@ export function PodTerminalFileTree({
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r bg-background">
+      <KubectlCpDialog reason={uploadFallback?.reason ?? null} command={uploadFallback?.command ?? ''} ready={uploadFallback?.ready ?? false} onClose={() => setUploadFallback(null)} />
       <div className="flex shrink-0 items-center gap-2 border-b p-3">
         <IconFolderOpen className="h-4 w-4 text-muted-foreground" />
         <Input

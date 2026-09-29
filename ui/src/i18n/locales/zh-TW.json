@@ -1532,6 +1532,9 @@
     "loadingEditor": "正在載入編輯器..."
   },
   "podFiles": {
+    "kubectlCpTitle": "使用 kubectl cp 上傳",
+    "kubectlCpSize": "此檔案超過線上上傳的 256 KiB 限制。",
+    "kubectlCpBinary": "二進位或非 UTF-8 檔案無法線上上傳。",
     "uploadedSuccess": "已成功上傳 {{name}}",
     "goToParentDirectory": "回上一級目錄",
     "goToHomeDirectory": "回到根目錄",
@@ -1561,7 +1564,8 @@
     "fileDeleted": "文件已刪除",
     "directoryDeleted": "目錄已刪除",
     "deleteConfirmTitle": "刪除路徑",
-    "deleteConfirmDescription": "確認刪除 {{path}} 嗎？此操作不可撤銷。"
+    "deleteConfirmDescription": "確認刪除 {{path}} 嗎？此操作不可撤銷。",
+    "kubectlCpMissingContext": "只有本機 kubeconfig 路徑和 Context 都可用時才能複製命令，請補齊後再執行。"
   },
   "siteHeader": {
     "createNewResource": "建立新資源",

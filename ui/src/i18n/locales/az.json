@@ -1532,6 +1532,9 @@
     "loadingEditor": "Redaktor yüklənir..."
   },
   "podFiles": {
+    "kubectlCpTitle": "kubectl cp ilə yüklə",
+    "kubectlCpSize": "Bu fayl 256 KiB onlayn yükləmə limitini aşır.",
+    "kubectlCpBinary": "İkili və ya UTF-8 olmayan fayllar onlayn yüklənə bilməz.",
     "uploadedSuccess": "{{name}} uğurla yükləndi",
     "goToParentDirectory": "Üst qovluğa keç",
     "goToHomeDirectory": "Ev qovluğuna keç",
@@ -1561,7 +1564,8 @@
     "fileDeleted": "Fayl silindi",
     "directoryDeleted": "Kataloq silindi",
     "deleteConfirmTitle": "Yolu silin",
-    "deleteConfirmDescription": "{{path}} silinsin? Bu əməliyyat geri qaytarıla bilməz."
+    "deleteConfirmDescription": "{{path}} silinsin? Bu əməliyyat geri qaytarıla bilməz.",
+    "kubectlCpMissingContext": "Yerli kubeconfig yolu və context mövcud olana qədər kopyalama deaktivdir. Komutu işlətməzdən əvvəl onları tamamlayın."
   },
   "siteHeader": {
     "createNewResource": "Yeni resurs yaradın",

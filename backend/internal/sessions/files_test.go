@@ -18,6 +18,19 @@ func TestFilesListRejectsUnsafePath(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateFilePathAllowsUnicodeAndSpaces(t *testing.T) {
+	for _, value := range []string{"/tmp/配置 文件/应用.yaml", "/tmp/a'b.txt"} {
+		if err := validateFilePath(value, false); err != nil {
+			t.Fatalf("path %q was rejected: %v", value, err)
+		}
+	}
+	for _, value := range []string{"relative/file", "/tmp/a;id", "/tmp/a\x00b"} {
+		if err := validateFilePath(value, false); err == nil {
+			t.Fatalf("path %q was accepted", value)
+		}
+	}
+}
 func TestShellQuote(t *testing.T) {
 	if got := shellQuote("/tmp/a'b"); got != "'/tmp/a'\\''b'" {
 		t.Fatalf("got %q", got)
