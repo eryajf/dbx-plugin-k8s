@@ -27,11 +27,20 @@ type Discovery struct {
 }
 
 func discover(c *kube.Client) (*Discovery, error) {
-	_, lists, err := c.Core.Discovery().ServerGroupsAndResources()
+	result, _, err := discoverWithCache(c)
+	return result, err
+}
+
+func discoverWithCache(c *kube.Client) (*Discovery, bool, error) {
+	return discoverWithCacheContext(context.Background(), c)
+}
+
+func discoverWithCacheContext(ctx context.Context, c *kube.Client) (*Discovery, bool, error) {
+	lists, err, hit := c.CachedAPIResourceListsContext(ctx)
 	result := &Discovery{Resources: []Resource{}, Warnings: []string{}}
 	if err != nil {
 		if len(lists) == 0 {
-			return nil, err
+			return nil, hit, err
 		}
 		result.Warnings = append(result.Warnings, err.Error())
 	}
@@ -51,7 +60,7 @@ func discover(c *kube.Client) (*Discovery, error) {
 		a, b := result.Resources[i], result.Resources[j]
 		return a.Group+"/"+a.Resource+"/"+a.Version < b.Group+"/"+b.Resource+"/"+b.Version
 	})
-	return result, nil
+	return result, hit, nil
 }
 func resolve(c *kube.Client, req Request) (Resource, error) {
 	if req.Version == "" || req.Resource == "" {

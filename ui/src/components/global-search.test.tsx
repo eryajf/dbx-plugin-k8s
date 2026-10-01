@@ -284,7 +284,10 @@ describe('GlobalSearch', () => {
     })
 
     await waitFor(() => {
-      expect(globalSearchMock).toHaveBeenCalledWith('ng', { limit: 10 })
+      expect(globalSearchMock).toHaveBeenCalledWith('ng', {
+        limit: 10,
+        namespace: undefined,
+      })
     })
 
     await waitFor(() => {
@@ -315,6 +318,47 @@ describe('GlobalSearch', () => {
         namespace: 'default',
       }),
     ])
+  })
+
+  it('passes the active namespace and ignores stale search responses', async () => {
+    let resolveFirst: ((value: { results: unknown[] }) => void) | undefined
+    const firstResponse = new Promise<{ results: unknown[] }>((resolve) => {
+      resolveFirst = resolve
+    })
+    globalSearchMock
+      .mockImplementationOnce(() => firstResponse)
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'new-pod',
+            name: 'nginx-new',
+            namespace: 'default',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+
+    render(
+      <MemoryRouter initialEntries={['/pods?namespace=default']}>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    const input = screen.getByPlaceholderText('globalSearch.placeholder')
+    fireEvent.change(input, { target: { value: 'ng' } })
+    await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(1))
+    expect(globalSearchMock).toHaveBeenCalledWith('ng', {
+      limit: 10,
+      namespace: 'default',
+    })
+
+    fireEvent.change(input, { target: { value: 'nginx' } })
+    await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(2))
+    resolveFirst?.({ results: [{ id: 'old', name: 'old', resourceType: 'pods' }] })
+
+    await waitFor(() => expect(screen.getByText('nginx-new')).toBeInTheDocument())
+    expect(screen.queryByText('old')).not.toBeInTheDocument()
   })
 
   it('tracks cluster selection in cluster mode', async () => {

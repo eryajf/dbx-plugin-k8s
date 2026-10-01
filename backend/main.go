@@ -170,6 +170,10 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 	default:
 		return nil, dbx.MethodNotFound(method)
 	}
+	if e == nil && isSearchMutation(method) {
+		c.InvalidateSearchResourceCache()
+		c.InvalidateDiscoveryCache()
+	}
 	pe := classify(e)
 	if pe != nil {
 		data := pe.Data.(map[string]any)
@@ -196,6 +200,19 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 	}
 	return out, pe
 }
+
+func isSearchMutation(method string) bool {
+	switch method {
+	case "resource/create", "resource/update", "resource/patch", "resource/delete", "resource/apply",
+		"node/cordon", "node/uncordon", "node/drain",
+		"workload/restart", "workload/scale", "workload/rollback",
+		"cronjob/trigger", "cronjob/suspend":
+		return true
+	default:
+		return false
+	}
+}
+
 func knownMethod(method string) bool {
 	switch method {
 	case "connection/test", "connection/connect", "connection/disconnect", "dbx-plugin-k8s/ping",
@@ -279,7 +296,7 @@ func main() {
 	p := &plugin{connections: connection.New(), sessions: sessions.New()}
 	defer p.connections.Close()
 	defer p.sessions.Close()
-	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.8", Capabilities: []string{"connections", "events", "mcp"}}, p)
+	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.9", Capabilities: []string{"connections", "events", "mcp"}}, p)
 	if e := s.Serve(); e != nil {
 		log.Fatal(e)
 	}

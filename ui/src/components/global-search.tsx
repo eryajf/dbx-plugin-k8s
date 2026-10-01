@@ -1,4 +1,4 @@
-import { ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
+import { ComponentType, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRuntime } from '@/contexts/runtime-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
 import {
@@ -28,7 +28,7 @@ import {
   IconTopologyBus,
 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { Cluster } from '@/types/api'
 import { trackDesktopEvent } from '@/lib/analytics'
@@ -157,7 +157,12 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [recentClusters, setRecentClusters] = useState<string[]>([])
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
+  const searchRequest = useRef(0)
+  const searchCache = useRef(
+    new Map<string, { response: Awaited<ReturnType<typeof globalSearch>>; expiresAt: number }>()
+  )
   const navigate = useNavigate()
+  const location = useLocation()
   const { isDesktop } = useRuntime()
   const { config, getIconComponent } = useSidebarConfig()
   const { setTheme, actualTheme } = useAppearance()
@@ -169,6 +174,15 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
     isSwitching,
     isLoading: isClusterLoading,
   } = useCluster()
+  const currentNamespace = useMemo(() => {
+    const queryNamespace = new URLSearchParams(location.search)
+      .get('namespace')
+      ?.trim()
+    const pathParts = location.pathname.split('/').filter(Boolean)
+    const pathNamespace = pathParts.length >= 3 ? pathParts[1]?.trim() : ''
+    const namespace = queryNamespace || pathNamespace
+    return namespace || undefined
+  }, [location.pathname, location.search])
 
   // Simple theme toggle function
   const toggleTheme = useCallback(() => {
@@ -475,17 +489,46 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
 
   // Debounced search function
   const performSearch = useCallback(
-    async (searchQuery: string) => {
+    async (searchQuery: string, requestId: number) => {
       try {
         setIsLoading(true)
-        const response = await globalSearch(searchQuery, { limit: 10 })
+        const cacheKey = `${currentCluster}\u0000${currentNamespace || ''}\u0000${searchQuery.trim().toLowerCase()}`
+        const cached = searchCache.current.get(cacheKey)
+        if (cached && cached.expiresAt > Date.now()) {
+          if (requestId === searchRequest.current) {
+            setResults(cached.response.results)
+          }
+          return
+        }
+        if (cached) {
+          searchCache.current.delete(cacheKey)
+        }
+        const response = await globalSearch(searchQuery, {
+          limit: 10,
+          namespace: currentNamespace,
+        })
+        if (requestId !== searchRequest.current) {
+          return
+        }
         setResults(response.results)
+        searchCache.current.set(cacheKey, {
+          response,
+          expiresAt: Date.now() + 3000,
+        })
+        while (searchCache.current.size > 32) {
+          const oldest = searchCache.current.keys().next().value
+          if (oldest === undefined) break
+          searchCache.current.delete(oldest)
+        }
         trackDesktopEvent('global_search_query', {
           mode,
           query_length: searchQuery.trim().length,
           result_count: response.results.length,
         })
       } catch (error) {
+        if (requestId !== searchRequest.current) {
+          return
+        }
         console.error('Search failed:', error)
         setResults([])
         trackDesktopEvent('global_search_query', {
@@ -495,10 +538,12 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
           result: 'error',
         })
       } finally {
-        setIsLoading(false)
+        if (requestId === searchRequest.current) {
+          setIsLoading(false)
+        }
       }
     },
-    [mode]
+    [currentCluster, currentNamespace, mode]
   )
 
   const saveHistoryEntry = useCallback(
@@ -512,27 +557,28 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   // Debounce search calls
   useEffect(() => {
     if (mode === 'cluster') {
+      searchRequest.current += 1
       setIsLoading(false)
       setResults([])
       return
     }
 
-    if (query.length > 0) {
-      setResults(null)
-    }
     if (!query || query.length < 2) {
+      searchRequest.current += 1
+      setIsLoading(false)
       if (query.length === 0) {
         setResults(favorites)
       }
       return
     }
     setIsLoading(true)
+    const requestId = ++searchRequest.current
     const timeoutId = setTimeout(() => {
-      performSearch(query)
-    }, 300) // 300ms debounce
+      void performSearch(query, requestId)
+    }, 220)
 
     return () => clearTimeout(timeoutId)
-  }, [favorites, mode, performSearch, query])
+  }, [currentNamespace, favorites, mode, performSearch, query])
 
   // Handle item selection
   const handleSelect = useCallback(
@@ -560,6 +606,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   // Clear state when dialog closes
   useEffect(() => {
     if (!open) {
+      searchRequest.current += 1
       setQuery('')
       setResults([])
       setIsLoading(false)
