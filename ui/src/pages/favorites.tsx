@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import type { SearchResult } from '@/lib/api'
+import { getDBXResourcePath } from '@/lib/dbx-resource-discovery'
 import { useCluster } from '@/hooks/use-cluster'
 import { useFavorites } from '@/hooks/use-favorites'
 import { Badge } from '@/components/ui/badge'
@@ -100,11 +101,7 @@ const RESOURCE_CONFIG: Record<
 }
 
 function getFavoritePath(favorite: SearchResult) {
-  if (favorite.namespace) {
-    return `/${favorite.resourceType}/${favorite.namespace}/${favorite.name}`
-  }
-
-  return `/${favorite.resourceType}/${favorite.name}`
+  return getDBXResourcePath(favorite)
 }
 
 function getResourcePresentation(resourceType: string) {

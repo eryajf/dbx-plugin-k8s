@@ -52,6 +52,7 @@ const (
 	searchTimeout       = 2 * time.Second
 	exactSearchTimeout  = 1200 * time.Millisecond
 	searchMinQueryChars = 2
+	searchPageSize      = 500
 )
 
 var searchResourcePriority = map[string]int{
@@ -170,23 +171,17 @@ func search(ctx context.Context, c *kube.Client, req Request) (any, error) {
 		if result, ok := fast.(SearchResult); ok {
 			staticResult = result
 			haveStaticResult = true
-			limit := req.Limit
-			if limit <= 0 {
-				limit = 200
-			}
-			// Continue to discovery when the core catalog did not fill the
-			// requested result window. This keeps same-name and supplementary CRD
-			// matches visible without scanning custom resources when the result set
-			// is already complete.
-			if strings.TrimSpace(req.Query) == "" || int64(len(result.Items)) >= limit {
+			// An explicit built-in resource scope is complete after the static
+			// catalog scan. Do not pay the discovery cost for a missing name.
+			if resource != "" {
 				return result, nil
 			}
-		}
-		// An explicit built-in resource scope is complete after the static
-		// catalog scan. Do not pay the discovery cost just to prove a missing
-		// Deployment/Pod name is absent.
-		if resource != "" {
-			return fast, nil
+			// An empty query is intentionally limited to the stable core catalog.
+			// For a real query we must still scan discovery resources: a full core
+			// result window must not hide an equally good CRD match.
+			if strings.TrimSpace(req.Query) == "" {
+				return result, nil
+			}
 		}
 	}
 	// Discovery is part of the interactive search path and must not inherit the
@@ -233,9 +228,61 @@ func searchNameFieldSelector(existing, name string) string {
 	return fields.AndSelectors(selector, exact).String()
 }
 
-// Search deliberately bounds both resource kinds and objects scanned. Kubernetes has no
-// server-side substring filter; parallel collection plus deterministic ranking keeps the
-// fast name/namespace stage responsive while labels provide a second-stage fallback.
+// searchResourceList walks every page returned by the Kubernetes API. The
+// search matcher needs to inspect all objects because Kubernetes does not offer
+// a server-side substring selector for metadata.name. SearchResourceList keeps
+// each page cached independently, so repeated searches still share the work.
+func searchResourceList(ctx context.Context, c *kube.Client, r Resource, req Request) (*unstructured.UnstructuredList, error) {
+	options := metav1.ListOptions{
+		LabelSelector: req.labels(),
+		FieldSelector: req.FieldSelector,
+		Limit:         searchPageSize,
+	}
+	namespace := req.Namespace
+	if !r.Namespaced {
+		namespace = ""
+	}
+	var all unstructured.UnstructuredList
+	for {
+		list, _, err := c.SearchResourceList(ctx, schema.GroupVersionResource{Group: r.Group, Version: r.Version, Resource: r.Resource}, namespace, options)
+		if err != nil {
+			if all.Object == nil {
+				return nil, err
+			}
+			// Preserve pages already fetched. The caller can still return matches
+			// from those pages while marking the result as incomplete.
+			return &all, err
+		}
+		if list == nil {
+			err := fmt.Errorf("Kubernetes List returned no response")
+			if all.Object != nil {
+				return &all, err
+			}
+			return nil, err
+		}
+		if all.Object == nil {
+			all.Object = map[string]any{}
+			all.SetAPIVersion(list.GetAPIVersion())
+			all.SetKind(list.GetKind())
+		}
+		all.Items = append(all.Items, list.Items...)
+		next := list.GetContinue()
+		if next == "" {
+			return &all, nil
+		}
+		if next == options.Continue {
+			err := fmt.Errorf("Kubernetes List returned an unchanged continue token")
+			return &all, err
+		}
+		options.Continue = next
+	}
+}
+
+// Kubernetes has no server-side substring filter; parallel collection plus
+// deterministic ranking keeps name/namespace matches responsive while labels
+// provide a second-stage fallback. The request timeout bounds the total scan,
+// and callers can use MaxResources when a stricter resource-kind budget is
+// needed.
 func searchCatalog(ctx context.Context, c *kube.Client, req Request, catalog *Discovery, discoveryHit bool, started time.Time) (any, error) {
 	return searchCatalogWithTimeout(ctx, c, req, catalog, discoveryHit, started, searchTimeout)
 }
@@ -250,14 +297,18 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 	if max > 1000 {
 		max = 1000
 	}
+	// A normal global search must consider every discovered resource type. The
+	// old implicit limit of 80 silently excluded CRDs on clusters with a large
+	// API surface. Callers that need a tighter bound can still provide
+	// maxResources explicitly; the timeout remains the final safety bound.
 	maxResources := req.MaxResources
-	if maxResources <= 0 {
-		maxResources = 80
+	if maxResources < 0 {
+		maxResources = 0
 	}
 	if maxResources > 200 {
 		maxResources = 200
 	}
-	candidates := make([]Resource, 0, maxResources)
+	candidates := make([]Resource, 0)
 	seen := map[string]bool{}
 	for _, r := range catalog.Resources {
 		if !can(r, "list") || (r.Resource == "secrets" && req.Resource != "secrets") {
@@ -299,7 +350,7 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 		}
 		return candidates[i].Group+"/"+candidates[i].Resource+"/"+candidates[i].Version < candidates[j].Group+"/"+candidates[j].Resource+"/"+candidates[j].Version
 	})
-	if len(candidates) > maxResources {
+	if maxResources > 0 && len(candidates) > maxResources {
 		result.Truncated = true
 		result.Warnings = append(result.Warnings, fmt.Sprintf("search limited to %d resource types; results may be incomplete", maxResources))
 		candidates = candidates[:maxResources]
@@ -334,12 +385,7 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 						listErr = fmt.Errorf("list failed: %v", recovered)
 					}
 				}()
-				options := metav1.ListOptions{LabelSelector: req.labels(), FieldSelector: req.FieldSelector, Limit: 500}
-				namespace := req.Namespace
-				if !r.Namespaced {
-					namespace = ""
-				}
-				list, _, listErr = c.SearchResourceList(searchCtx, schema.GroupVersionResource{Group: r.Group, Version: r.Version, Resource: r.Resource}, namespace, options)
+				list, listErr = searchResourceList(searchCtx, c, r, req)
 			}()
 			results <- listResult{resource: r, list: list, err: listErr}
 		}(resource)
@@ -362,22 +408,29 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 					result.Warnings = append(result.Warnings, fmt.Sprintf("search timed out after %s; results may be incomplete", timeout.Round(time.Millisecond)))
 					timeoutWarning = true
 				}
+			} else {
+				result.Truncated = true
+				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: %v", key, listed.err))
+			}
+			if listed.list == nil {
 				continue
 			}
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: %v", key, listed.err))
-			continue
 		}
-		if listed.list.GetContinue() != "" {
-			result.Truncated = true
-			result.Warnings = append(result.Warnings, key+": scan limited to 500 objects")
+		if listed.list == nil {
+			continue
 		}
 		for _, object := range listed.list.Items {
 			score, matched := searchMatch(&object, query)
 			if !matched {
 				continue
 			}
+			createdAt := ""
+			if timestamp := object.GetCreationTimestamp(); !timestamp.IsZero() {
+				createdAt = timestamp.UTC().Format(time.RFC3339)
+			}
+			stableID := strings.Join([]string{listed.resource.Group, listed.resource.Version, listed.resource.Resource, object.GetNamespace(), object.GetName()}, "/")
 			scored = append(scored, scoredSearchResult{
-				item:  map[string]any{"group": listed.resource.Group, "version": listed.resource.Version, "resource": listed.resource.Resource, "kind": listed.resource.Kind, "name": object.GetName(), "namespace": object.GetNamespace(), "uid": object.GetUID(), "labels": object.GetLabels()},
+				item:  map[string]any{"id": stableID, "group": listed.resource.Group, "version": listed.resource.Version, "resource": listed.resource.Resource, "kind": listed.resource.Kind, "name": object.GetName(), "namespace": object.GetNamespace(), "uid": object.GetUID(), "labels": object.GetLabels(), "createdAt": createdAt},
 				score: score, group: listed.resource.Group, res: listed.resource.Resource, name: object.GetName(), ns: object.GetNamespace(),
 			})
 		}

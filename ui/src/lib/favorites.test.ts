@@ -32,4 +32,20 @@ describe('favorites helpers', () => {
       })
     ).toBe('services::prod::api-service')
   })
+
+  it('keeps custom resources from different groups distinct', () => {
+    expect(
+      buildFavoriteKeyFromResource({
+        resourceType: 'widgets.example.com',
+        namespace: 'default',
+        name: 'one',
+      })
+    ).not.toBe(
+      buildFavoriteKeyFromResource({
+        resourceType: 'widgets.other.example.com',
+        namespace: 'default',
+        name: 'one',
+      })
+    )
+  })
 })

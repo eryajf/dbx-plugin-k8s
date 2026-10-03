@@ -62,7 +62,9 @@
     "saving": "保存中…",
     "theme": "主題",
     "copyNamespace": "複製命名空間",
-    "noData": "暫無數據"
+    "noData": "暫無數據",
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏"
   },
   "modeToggle": {
     "toggleTheme": "切換主題"
@@ -81,6 +83,7 @@
     "favorites": "收藏",
     "resources": "資源",
     "noResults": "未找到結果",
+    "incompleteResults": "部分結果可能未顯示，請縮小搜尋範圍以提高準確性。",
     "noClusterResults": "未找到匹配的集群",
     "navigation": "導航",
     "hidden": "已隱藏",

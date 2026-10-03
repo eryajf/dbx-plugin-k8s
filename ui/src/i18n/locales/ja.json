@@ -62,7 +62,9 @@
     "saving": "保存中...",
     "theme": "テーマ",
     "copyNamespace": "名前空間をコピー",
-    "noData": "データがありません"
+    "noData": "データがありません",
+    "favorite": "お気に入りに追加",
+    "unfavorite": "お気に入りから削除"
   },
   "modeToggle": {
     "toggleTheme": "テーマの切り替え"
@@ -81,6 +83,7 @@
     "favorites": "お気に入り",
     "resources": "リソース",
     "noResults": "結果が見つかりませんでした",
+    "incompleteResults": "一部の結果が表示されていない可能性があります。検索範囲を絞って精度を高めてください。",
     "noClusterResults": "一致するクラスターが見つかりませんでした",
     "navigation": "ナビゲーション",
     "hidden": "隠れた",

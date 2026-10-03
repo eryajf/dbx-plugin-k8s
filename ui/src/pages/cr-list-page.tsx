@@ -8,6 +8,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { CustomResource, ResourceType } from '@/types/api'
 import { useResource } from '@/lib/api'
+import { getDBXResourceIdentityForCRD } from '@/lib/dbx-resource-discovery'
 import { getPrinterColumnValue } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -124,11 +125,22 @@ export function CRListPage() {
     return <div>{t('common.error')}: CRD name is required</div>
   }
 
+  const crdVersion =
+    crdData.spec.versions.find((version) => version.storage)?.name ||
+    crdData.spec.versions[0]?.name ||
+    ''
+  const crdResourceIdentity = getDBXResourceIdentityForCRD({
+    group: crdData.spec.group,
+    plural: crdData.spec.names.plural,
+    version: crdVersion,
+  })
+
   return (
     <>
       <ResourceTable
         resourceName={crdData.spec.names.kind || 'Custom Resources'}
-        resourceType={crd as ResourceType}
+        resourceType={crdResourceIdentity.resourceType as ResourceType}
+        customResource={crdResourceIdentity.customResource}
         columns={columns}
         clusterScope={crdData.spec.scope === 'Cluster'}
         searchQueryFilter={searchQueryFilter}

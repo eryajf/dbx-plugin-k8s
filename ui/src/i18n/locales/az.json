@@ -62,7 +62,9 @@
     "saving": "Saxlanılır...",
     "theme": "Mövzu",
     "copyNamespace": "Ad sahəsini kopyala",
-    "noData": "Məlumat yoxdur"
+    "noData": "Məlumat yoxdur",
+    "favorite": "Sevimlilərə əlavə et",
+    "unfavorite": "Sevimlilərdən sil"
   },
   "modeToggle": {
     "toggleTheme": "Mövzunu dəyişin"
@@ -81,6 +83,7 @@
     "favorites": "Sevimlilər",
     "resources": "Resurslar",
     "noResults": "Heç bir nəticə tapılmadı",
+    "incompleteResults": "Bəzi nəticələr çatışmır. Dəqiqliyi artırmaq üçün axtarışı daraldın.",
     "noClusterResults": "Uyğun klaster tapılmadı",
     "navigation": "Naviqasiya",
     "hidden": "Gizli",

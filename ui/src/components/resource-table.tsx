@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  Star,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -31,17 +32,20 @@ import { toast } from 'sonner'
 import { ResourceType } from '@/types/api'
 import {
   deleteResource,
+  SearchResult,
   useClusterInfo,
   useResources,
   useResourcesWatch,
 } from '@/lib/api'
+import { useFavorites } from '@/hooks/use-favorites'
+import { getDBXResourceIdentity } from '@/lib/dbx-resource-discovery'
 import {
   loadResourceTablePreference,
   loadWorkspacePreference,
   updateResourceTablePreference,
   updateWorkspacePreference,
 } from '@/lib/desktop-preferences'
-import { cn } from '@/lib/utils'
+import { cn, translateError } from '@/lib/utils'
 import { useCluster } from '@/hooks/use-cluster'
 import { useFeature } from '@/hooks/use-license'
 import { Badge } from '@/components/ui/badge'
@@ -96,6 +100,8 @@ export interface ResourceTableProps<T> {
   initialSorting?: SortingState
   batchDeleteConfirmationValue?: string
   getRowContextMenuItems?: (item: T) => RowContextMenuItem<T>[]
+  enableFavorites?: boolean
+  customResource?: boolean
 }
 
 export function ResourceTable<T>({
@@ -111,9 +117,18 @@ export function ResourceTable<T>({
   initialSorting = [],
   batchDeleteConfirmationValue,
   getRowContextMenuItems,
+  enableFavorites = true,
+  customResource = false,
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
   const { currentCluster } = useCluster()
+  const {
+    isFavorite,
+    isError: isFavoritesError,
+    isLoading: isFavoritesLoading,
+    isMutating: isFavoritesMutating,
+    toggleFavorite,
+  } = useFavorites()
   const canUseBatchActions = useFeature('resource.batchActions')
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
@@ -126,11 +141,10 @@ export function ResourceTable<T>({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('')
-  const [searchQuery, setSearchQuery] = useState<string>(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-searchQuery`
-    return sessionStorage.getItem(storageKey) || ''
-  })
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchQueryStorageKeyRef = React.useRef<string | null>(null)
+  const searchQueryHydratedKeyRef = React.useRef<string | null>(null)
+  const pendingSearchQueryRef = React.useRef<string | null>(null)
 
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
@@ -322,18 +336,49 @@ export function ResourceTable<T>({
     }
   }, [clusterScope, connectionId, resourceStorageKey])
 
+  // Load the query belonging to the active cluster when the table is reused
+  // during a cluster switch. Keeping the previous cluster's query would make
+  // otherwise valid resources appear to be missing.
+  useEffect(() => {
+    const storageKey = currentCluster
+      ? `${currentCluster}-${resourceName}-searchQuery`
+      : null
+    const loadedQuery = storageKey
+      ? sessionStorage.getItem(storageKey)?.trim() || ''
+      : ''
+    searchQueryStorageKeyRef.current = storageKey
+    searchQueryHydratedKeyRef.current = null
+    pendingSearchQueryRef.current = loadedQuery
+    setSearchQuery(loadedQuery)
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+  }, [currentCluster, resourceName])
+
   // (moved below after error is defined)
 
   // Update sessionStorage when search query changes
   useEffect(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-searchQuery`
-    if (searchQuery) {
-      sessionStorage.setItem(storageKey, searchQuery)
+    const storageKey = currentCluster
+      ? `${currentCluster}-${resourceName}-searchQuery`
+      : null
+    if (
+      !storageKey ||
+      storageKey !== searchQueryStorageKeyRef.current
+    ) {
+      return
+    }
+    if (searchQueryHydratedKeyRef.current !== storageKey) {
+      if (pendingSearchQueryRef.current !== searchQuery) {
+        return
+      }
+      searchQueryHydratedKeyRef.current = storageKey
+    }
+    const normalizedQuery = searchQuery.trim()
+    if (normalizedQuery) {
+      sessionStorage.setItem(storageKey, normalizedQuery)
     } else {
       sessionStorage.removeItem(storageKey)
     }
-  }, [searchQuery, resourceName])
+  }, [currentCluster, searchQuery, resourceName])
 
   // Update sessionStorage when column visibility changes
   useEffect(() => {
@@ -456,14 +501,78 @@ export function ResourceTable<T>({
     }
 
     const hasActionsColumn = columns.some((col) => col.id === 'actions')
+    const favoriteResourceType = (
+      resourceType ?? resourceName
+    ).toLowerCase()
+    const getMenuItems = (item: T): RowContextMenuItem<T>[] => {
+      const customMenuItems = getRowContextMenuItems?.(item) ?? []
+      const metadata = (item as T & {
+        metadata?: { name?: string; namespace?: string }
+      }).metadata
+      const apiVersion = (item as T & { apiVersion?: unknown }).apiVersion
+      const name = metadata?.name
+      const [group, version] =
+        typeof apiVersion === 'string' && apiVersion.includes('/')
+          ? apiVersion.split('/', 2)
+          : ['', typeof apiVersion === 'string' ? apiVersion : '']
+      const identity =
+        version && group
+          ? getDBXResourceIdentity({
+              group,
+              version,
+              resource: favoriteResourceType.includes('.')
+                ? favoriteResourceType.slice(0, favoriteResourceType.indexOf('.'))
+                : favoriteResourceType,
+            })
+          : undefined
+      const favoriteResource: SearchResult | null = name
+        ? {
+            id: `${favoriteResourceType}:${metadata?.namespace || ''}:${name}`,
+            name,
+            namespace: metadata?.namespace,
+            resourceType: identity?.resourceType || favoriteResourceType,
+            customResource: identity?.customResource ?? customResource,
+            group: group || undefined,
+            version: version || undefined,
+            createdAt: '',
+          }
+        : null
+      const favoriteItem: RowContextMenuItem<T>[] =
+        enableFavorites && favoriteResource
+        ? [
+            {
+              key: 'toggle-favorite',
+              label: isFavorite(favoriteResource)
+                ? t('common.unfavorite', 'Remove from favorites')
+                : t('common.favorite', 'Add to favorites'),
+              icon: <Star className="h-4 w-4" />,
+              disabled:
+                isFavoritesLoading ||
+                isFavoritesError ||
+                isFavoritesMutating,
+              onSelect: async () => {
+                try {
+                  await toggleFavorite(favoriteResource)
+                } catch (error) {
+                  toast.error(translateError(error, t))
+                }
+              },
+            },
+            ...(customMenuItems.length
+              ? [{ type: 'separator' as const, key: 'favorite-separator' }]
+              : []),
+          ]
+        : []
+      return [...favoriteItem, ...customMenuItems]
+    }
     const actionColumn: ColumnDef<T> | null =
-      getRowContextMenuItems && !hasActionsColumn
+      (getRowContextMenuItems || enableFavorites) && !hasActionsColumn
         ? {
             id: 'actions',
             header: t('common.actions', 'Actions'),
             meta: { align: 'right' },
             cell: ({ row }) => {
-              const menuItems = getRowContextMenuItems(row.original) ?? []
+              const menuItems = getMenuItems(row.original)
 
               if (menuItems.length === 0) {
                 return null
@@ -540,7 +649,21 @@ export function ResourceTable<T>({
       }
     }
     return baseColumns
-  }, [columns, clusterScope, getRowContextMenuItems, selectedNamespace, t])
+  }, [
+    columns,
+    clusterScope,
+    enableFavorites,
+    getRowContextMenuItems,
+    isFavorite,
+    isFavoritesError,
+    isFavoritesLoading,
+    isFavoritesMutating,
+    resourceName,
+    resourceType,
+    selectedNamespace,
+    t,
+    toggleFavorite,
+  ])
 
   const data = useMemo(() => {
     if (useSSE) return watchData
@@ -611,7 +734,7 @@ export function ResourceTable<T>({
     state: {
       sorting,
       columnFilters,
-      globalFilter: searchQuery,
+      globalFilter: searchQuery.trim(),
       pagination,
       rowSelection,
       columnVisibility,
@@ -622,9 +745,12 @@ export function ResourceTable<T>({
     // Improve filtering performance and consistency
     globalFilterFn: (row, _columnId, value) => {
       if (searchQueryFilter) {
-        return searchQueryFilter(row.original as T, String(value).toLowerCase())
+        return searchQueryFilter(
+          row.original as T,
+          String(value).trim().toLowerCase()
+        )
       }
-      const searchValue = String(value).toLowerCase()
+      const searchValue = String(value).trim().toLowerCase()
 
       // Search across all visible columns
       return row.getVisibleCells().some((cell) => {
@@ -709,7 +835,7 @@ export function ResourceTable<T>({
 
   // Check if there are active filters
   const hasActiveFilters = useMemo(() => {
-    return Boolean(searchQuery) || columnFilters.length > 0
+    return Boolean(searchQuery.trim()) || columnFilters.length > 0
   }, [searchQuery, columnFilters])
 
   const filterableColumns = table.getAllColumns().filter((column) => {

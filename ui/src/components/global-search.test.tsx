@@ -1,12 +1,25 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GlobalSearch } from './global-search'
 
-const { openSearchMock, globalSearchMock } = vi.hoisted(() => ({
+const {
+  openSearchMock,
+  globalSearchMock,
+  toastErrorMock,
+  toggleFavoriteMock,
+  favoritesState,
+} = vi.hoisted(() => ({
   openSearchMock: vi.fn(),
   globalSearchMock: vi.fn().mockResolvedValue({ results: [] }),
+  toastErrorMock: vi.fn(),
+  toggleFavoriteMock: vi.fn(),
+  favoritesState: {
+    isLoading: false,
+    isError: false,
+    isMutating: false,
+  },
 }))
 const { trackDesktopEvent, setCurrentClusterMock } = vi.hoisted(() => ({
   trackDesktopEvent: vi.fn(),
@@ -139,8 +152,15 @@ vi.mock('@/hooks/use-favorites', () => ({
   useFavorites: () => ({
     favorites: favoritesMock,
     isFavorite: () => false,
-    toggleFavorite: vi.fn(),
+    ...favoritesState,
+    toggleFavorite: toggleFavoriteMock,
   }),
+}))
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastErrorMock,
+  },
 }))
 
 vi.mock('@/contexts/runtime-context', () => ({
@@ -195,6 +215,12 @@ describe('GlobalSearch', () => {
     globalSearchMock.mockClear()
     trackDesktopEvent.mockClear()
     setCurrentClusterMock.mockClear()
+    toastErrorMock.mockReset()
+    toggleFavoriteMock.mockReset()
+    toggleFavoriteMock.mockResolvedValue(true)
+    favoritesState.isLoading = false
+    favoritesState.isError = false
+    favoritesState.isMutating = false
   })
 
   it('shows quick actions in all mode and can jump into cluster mode', () => {
@@ -320,6 +346,42 @@ describe('GlobalSearch', () => {
     ])
   })
 
+  it('routes custom resource results through the CRD detail route', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        {
+          id: 'widget-1',
+          name: 'widget-one',
+          namespace: 'default',
+          resourceType: 'widgets.example.com',
+          customResource: true,
+          createdAt: '',
+        },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'widget' },
+    })
+    fireEvent.click(await waitFor(() => screen.getByText('widget-one')))
+
+    expect(
+      JSON.parse(localStorage.getItem('global-search-history-v1-prod') || '[]')
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: '/crds/widgets.example.com/default/widget-one',
+        }),
+      ])
+    )
+  })
+
   it('passes the active namespace and ignores stale search responses', async () => {
     let resolveFirst: ((value: { results: unknown[] }) => void) | undefined
     const firstResponse = new Promise<{ results: unknown[] }>((resolve) => {
@@ -359,6 +421,236 @@ describe('GlobalSearch', () => {
 
     await waitFor(() => expect(screen.getByText('nginx-new')).toBeInTheDocument())
     expect(screen.queryByText('old')).not.toBeInTheDocument()
+  })
+
+  it('extracts the namespace from custom resource detail routes', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        {
+          id: 'widget-1',
+          name: 'widget-two',
+          namespace: 'default',
+          resourceType: 'widgets.example.com',
+          customResource: true,
+          createdAt: '',
+        },
+      ],
+    })
+
+    render(
+      <MemoryRouter
+        initialEntries={['/crds/widgets.example.com/default/widget-one']}
+      >
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'widget' },
+    })
+
+    await waitFor(() => {
+      expect(globalSearchMock).toHaveBeenCalledWith('widget', {
+        limit: 10,
+        namespace: 'default',
+      })
+    })
+  })
+
+  it('clears stale results for short or blank queries and normalizes the next search', async () => {
+    globalSearchMock
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'old-pod',
+            name: 'old-pod',
+            namespace: 'default',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'api-pod',
+            name: 'api-pod',
+            namespace: 'default',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    const input = screen.getByPlaceholderText('globalSearch.placeholder')
+    fireEvent.change(input, { target: { value: 'old' } })
+    await waitFor(() => expect(screen.getByText('old-pod')).toBeInTheDocument())
+
+    fireEvent.change(input, { target: { value: 'o' } })
+    expect(screen.queryByText('old-pod')).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: '  ' } })
+    expect(screen.queryByText('old-pod')).not.toBeInTheDocument()
+    expect(globalSearchMock).toHaveBeenCalledTimes(1)
+
+    fireEvent.change(input, { target: { value: '  api  ' } })
+    await waitFor(() => {
+      expect(globalSearchMock).toHaveBeenCalledWith('api', {
+        limit: 10,
+        namespace: undefined,
+      })
+    })
+    await waitFor(() => expect(screen.getByText('api-pod')).toBeInTheDocument())
+  })
+
+  it('shows a status when the backend reports incomplete search results', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [],
+      warnings: ['pods: timed out'],
+      truncated: false,
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'api' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toBeInTheDocument()
+    })
+  })
+
+  it.each([
+    ['while favorites are loading', { isLoading: true }],
+    ['when loading favorites failed', { isError: true }],
+    ['while a favorite mutation is pending', { isMutating: true }],
+  ])('disables result favorite toggles %s', async (_label, state) => {
+    Object.assign(favoritesState, state)
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        {
+          id: 'pod-1',
+          name: 'nginx',
+          namespace: 'default',
+          resourceType: 'pods',
+          createdAt: '',
+        },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'ng' },
+    })
+
+    const favoriteButton = await waitFor(() =>
+      screen.getByRole('button', { name: 'Add to favorites' })
+    )
+    expect(favoriteButton).toBeDisabled()
+    expect(favoriteButton).toHaveAttribute(
+      'aria-busy',
+      state.isLoading || state.isMutating ? 'true' : 'false'
+    )
+    fireEvent.click(favoriteButton)
+    expect(toggleFavoriteMock).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when a result favorite toggle fails', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        {
+          id: 'pod-1',
+          name: 'nginx',
+          namespace: 'default',
+          resourceType: 'pods',
+          createdAt: '',
+        },
+      ],
+    })
+    toggleFavoriteMock.mockRejectedValueOnce(new Error('favorite failed'))
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'ng' },
+    })
+
+    const favoriteButton = await waitFor(() =>
+      screen.getByRole('button', { name: 'Add to favorites' })
+    )
+    fireEvent.click(favoriteButton)
+
+    await waitFor(() => {
+      expect(toggleFavoriteMock).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'nginx' })
+      )
+      expect(toastErrorMock).toHaveBeenCalledWith('favorite failed')
+    })
+  })
+
+  it('blocks duplicate result favorite toggles while the request is pending', async () => {
+    let resolveToggle!: () => void
+    toggleFavoriteMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveToggle = resolve
+        })
+    )
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        {
+          id: 'pod-1',
+          name: 'nginx',
+          namespace: 'default',
+          resourceType: 'pods',
+          createdAt: '',
+        },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'ng' },
+    })
+
+    const favoriteButton = await waitFor(() =>
+      screen.getByRole('button', { name: 'Add to favorites' })
+    )
+    fireEvent.click(favoriteButton)
+
+    await waitFor(() => expect(favoriteButton).toBeDisabled())
+    expect(favoriteButton).toHaveAttribute('aria-busy', 'true')
+    fireEvent.click(favoriteButton)
+    expect(toggleFavoriteMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveToggle()
+    })
   })
 
   it('tracks cluster selection in cluster mode', async () => {

@@ -62,7 +62,9 @@
     "saving": "Guardando...",
     "theme": "Tema",
     "copyNamespace": "Copiar espacio de nombres",
-    "noData": "Sin datos"
+    "noData": "Sin datos",
+    "favorite": "Añadir a favoritos",
+    "unfavorite": "Quitar de favoritos"
   },
   "modeToggle": {
     "toggleTheme": "Alternar tema"
@@ -81,6 +83,7 @@
     "favorites": "Favoritos",
     "resources": "Recursos",
     "noResults": "No se encontraron resultados",
+    "incompleteResults": "Es posible que falten algunos resultados. Reduce el alcance de la búsqueda para mejorar la precisión.",
     "noClusterResults": "No se encontraron grupos coincidentes",
     "navigation": "Navegación",
     "hidden": "Oculto",

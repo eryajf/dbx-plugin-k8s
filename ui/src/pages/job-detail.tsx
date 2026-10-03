@@ -36,6 +36,7 @@ import { PodTable } from '@/components/pod-table'
 import { RefreshButton } from '@/components/refresh-button'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
+import { ResourceFavoriteButton } from '@/components/resource-favorite-button'
 import { VolumeTable } from '@/components/volume-table'
 import { YamlEditor } from '@/components/yaml-editor'
 
@@ -234,7 +235,12 @@ export function JobDetail(props: { namespace: string; name: string }) {
     <div className="space-y-2">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold">{name}</h1>
+          <div className="flex items-center gap-1">
+            <h1 className="text-lg font-bold">{name}</h1>
+            <ResourceFavoriteButton
+              resource={{ name, namespace, resourceType: 'jobs' }}
+            />
+          </div>
           <p className="text-muted-foreground">
             {t('detail.fields.namespace')}:{' '}
             <span className="font-medium">{namespace}</span>

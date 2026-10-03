@@ -29,10 +29,12 @@ import {
 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Cluster } from '@/types/api'
 import { trackDesktopEvent } from '@/lib/analytics'
 import { globalSearch, SearchResult } from '@/lib/api'
+import { getDBXResourcePath } from '@/lib/dbx-resource-discovery'
 import {
   readGlobalSearchHistory,
   saveGlobalSearchHistoryEntry,
@@ -41,6 +43,7 @@ import {
 } from '@/lib/global-search-history'
 import { useCluster } from '@/hooks/use-cluster'
 import { useFavorites } from '@/hooks/use-favorites'
+import { translateError } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
   Command,
@@ -150,14 +153,44 @@ function isClusterIntent(query: string) {
   )
 }
 
+/**
+ * Resolve the namespace represented by the current resource route.
+ *
+ * Custom-resource detail routes have an extra `crds` and resource segment
+ * (`/crds/:resource/:namespace/:name`), so the namespace is at index 2.
+ * Built-in resource routes only have the resource segment
+ * (`/:resource/:namespace/:name`), so the namespace is at index 1.
+ */
+function getSearchNamespace(pathname: string, search: string): string | undefined {
+  const queryNamespace = new URLSearchParams(search).get('namespace')?.trim()
+  if (queryNamespace) {
+    return queryNamespace
+  }
+
+  const pathParts = pathname.split('/').filter(Boolean)
+  const pathNamespace =
+    pathParts[0] === 'crds'
+      ? pathParts.length === 4
+        ? pathParts[2]?.trim()
+        : undefined
+      : pathParts.length === 3
+        ? pathParts[1]?.trim()
+        : undefined
+
+  return pathNamespace || undefined
+}
+
 export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>([])
+  const [searchIncomplete, setSearchIncomplete] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isFavoriteTogglePending, setIsFavoriteTogglePending] = useState(false)
   const [recentClusters, setRecentClusters] = useState<string[]>([])
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
   const searchRequest = useRef(0)
+  const favoriteTogglePendingRef = useRef(false)
   const searchCache = useRef(
     new Map<string, { response: Awaited<ReturnType<typeof globalSearch>>; expiresAt: number }>()
   )
@@ -174,15 +207,10 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
     isSwitching,
     isLoading: isClusterLoading,
   } = useCluster()
-  const currentNamespace = useMemo(() => {
-    const queryNamespace = new URLSearchParams(location.search)
-      .get('namespace')
-      ?.trim()
-    const pathParts = location.pathname.split('/').filter(Boolean)
-    const pathNamespace = pathParts.length >= 3 ? pathParts[1]?.trim() : ''
-    const namespace = queryNamespace || pathNamespace
-    return namespace || undefined
-  }, [location.pathname, location.search])
+  const currentNamespace = useMemo(
+    () => getSearchNamespace(location.pathname, location.search),
+    [location.pathname, location.search]
+  )
 
   // Simple theme toggle function
   const toggleTheme = useCallback(() => {
@@ -474,17 +502,38 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   const {
     favorites,
     isFavorite,
+    isError: isFavoritesError,
+    isLoading: isFavoritesLoading,
+    isMutating: isFavoritesMutating,
     toggleFavorite: toggleResourceFavorite,
   } = useFavorites()
+  const isFavoriteToggleDisabled =
+    isFavoritesLoading ||
+    isFavoritesError ||
+    isFavoritesMutating ||
+    isFavoriteTogglePending
 
   // Handle favorite toggle
   const toggleFavorite = useCallback(
     async (result: SearchResult, event: React.MouseEvent) => {
       event.stopPropagation() // Prevent item selection
 
-      await toggleResourceFavorite(result)
+      if (isFavoriteToggleDisabled || favoriteTogglePendingRef.current) {
+        return
+      }
+
+      favoriteTogglePendingRef.current = true
+      setIsFavoriteTogglePending(true)
+      try {
+        await toggleResourceFavorite(result)
+      } catch (error) {
+        toast.error(translateError(error, t))
+      } finally {
+        favoriteTogglePendingRef.current = false
+        setIsFavoriteTogglePending(false)
+      }
     },
-    [toggleResourceFavorite]
+    [isFavoriteToggleDisabled, t, toggleResourceFavorite]
   )
 
   // Debounced search function
@@ -497,6 +546,9 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
         if (cached && cached.expiresAt > Date.now()) {
           if (requestId === searchRequest.current) {
             setResults(cached.response.results)
+            setSearchIncomplete(
+              Boolean(cached.response.truncated || cached.response.warnings?.length)
+            )
           }
           return
         }
@@ -511,6 +563,9 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
           return
         }
         setResults(response.results)
+        setSearchIncomplete(
+          Boolean(response.truncated || response.warnings?.length)
+        )
         searchCache.current.set(cacheKey, {
           response,
           expiresAt: Date.now() + 3000,
@@ -531,6 +586,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
         }
         console.error('Search failed:', error)
         setResults([])
+        setSearchIncomplete(false)
         trackDesktopEvent('global_search_query', {
           mode,
           query_length: searchQuery.trim().length,
@@ -556,25 +612,30 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
 
   // Debounce search calls
   useEffect(() => {
+    const requestId = ++searchRequest.current
+
     if (mode === 'cluster') {
-      searchRequest.current += 1
       setIsLoading(false)
       setResults([])
+      setSearchIncomplete(false)
       return
     }
 
-    if (!query || query.length < 2) {
-      searchRequest.current += 1
+    const normalizedQuery = query.trim()
+    if (normalizedQuery.length < 2) {
       setIsLoading(false)
-      if (query.length === 0) {
-        setResults(favorites)
-      }
+      setResults(normalizedQuery.length === 0 ? favorites : [])
+      setSearchIncomplete(false)
       return
     }
     setIsLoading(true)
-    const requestId = ++searchRequest.current
+    // Do not leave results from the previous query visible while the new
+    // request is pending. This also makes clearing and immediately searching
+    // again deterministic when requests resolve out of order.
+    setResults([])
+    setSearchIncomplete(false)
     const timeoutId = setTimeout(() => {
-      void performSearch(query, requestId)
+      void performSearch(normalizedQuery, requestId)
     }, 220)
 
     return () => clearTimeout(timeoutId)
@@ -609,6 +670,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
       searchRequest.current += 1
       setQuery('')
       setResults([])
+      setSearchIncomplete(false)
       setIsLoading(false)
     }
   }, [open])
@@ -623,6 +685,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   useEffect(() => {
     if (open && query === '' && mode === 'all') {
       setResults(favorites) // Show favorites when dialog opens
+      setSearchIncomplete(false)
     }
   }, [favorites, mode, open, query])
 
@@ -678,6 +741,14 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
             onValueChange={setQuery}
           />
           <CommandList>
+            {searchIncomplete && (
+              <div
+                role="status"
+                className="px-3 py-2 text-xs text-muted-foreground"
+              >
+                {t('globalSearch.incompleteResults')}
+              </div>
+            )}
             <CommandEmpty>
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2 py-6">
@@ -686,7 +757,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                 </div>
               ) : mode === 'cluster' ? (
                 t('globalSearch.noClusterResults')
-              ) : query.length < 2 ? (
+              ) : query.trim().length < 2 ? (
                 t('globalSearch.emptyHint')
               ) : (
                 t('globalSearch.noResults')
@@ -902,7 +973,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
             {mode !== 'cluster' && results && results.length > 0 && (
               <CommandGroup
                 heading={
-                  query.length < 2
+                  query.trim().length < 2
                     ? t('globalSearch.favorites')
                     : t('globalSearch.resources')
                 }
@@ -914,12 +985,13 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                   }
                   const Icon = config.icon
                   const isFav = isFavorite(result)
-                  const path = result.namespace
-                    ? `/${result.resourceType}/${result.namespace}/${result.name}`
-                    : `/${result.resourceType}/${result.name}`
+                  const path = getDBXResourcePath(result)
                   return (
                     <CommandItem
-                      key={result.id}
+                      key={
+                        result.id ||
+                        `${result.resourceType}:${result.namespace || ''}:${result.name}`
+                      }
                       value={`${result.name} ${result.namespace || ''} ${result.resourceType} ${
                         RESOURCE_CONFIG[result.resourceType]?.label ||
                         result.resourceType
@@ -936,7 +1008,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                             type: 'resource',
                             label: result.name,
                             path,
-                            query,
+                            query: query.trim(),
                             resourceType: result.resourceType,
                             namespace: result.namespace,
                           }
@@ -964,6 +1036,18 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                         )}
                       </div>
                       <button
+                        type="button"
+                        disabled={isFavoriteToggleDisabled}
+                        aria-busy={
+                          isFavoritesLoading ||
+                          isFavoritesMutating ||
+                          isFavoriteTogglePending
+                        }
+                        aria-label={
+                          isFav
+                            ? t('common.unfavorite', 'Remove from favorites')
+                            : t('common.favorite', 'Add to favorites')
+                        }
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()

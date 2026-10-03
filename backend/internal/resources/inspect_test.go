@@ -2,9 +2,13 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/eryajf/dbx-plugin-k8s/internal/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,10 +16,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	discoveryfake "k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
 
 func searchClient(objects ...runtime.Object) *kube.Client {
 	core := kubernetesfake.NewSimpleClientset()
@@ -138,6 +150,202 @@ func TestSearchExactDeploymentUsesServerSelectorAndAlias(t *testing.T) {
 	}
 }
 
+func TestSearchMatchesPartialDeploymentNameAcrossListPages(t *testing.T) {
+	firstPageObject := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":      "other-deployment",
+			"namespace": "default",
+		},
+	}}
+	target := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":      "akamai-check-deployment",
+			"namespace": "default",
+		},
+	}}
+	var requests []*http.Request
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requests = append(requests, request.Clone(request.Context()))
+		page := len(requests)
+		list := map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "DeploymentList",
+			"metadata":   map[string]any{},
+		}
+		if page == 1 {
+			list["metadata"] = map[string]any{"continue": "page-2"}
+			list["items"] = []unstructured.Unstructured{firstPageObject}
+		} else {
+			list["items"] = []unstructured.Unstructured{target}
+		}
+		body, err := json.Marshal(list)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(string(body))),
+			Request:    request,
+		}, nil
+	})
+	dynamicClient, err := dynamic.NewForConfigAndClient(&rest.Config{Host: "https://kube.test"}, &http.Client{Transport: transport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &kube.Client{Dynamic: dynamicClient}
+	defer client.Close()
+
+	value, err := searchCatalogWithTimeout(context.Background(), client, Request{Query: "akamai", Namespace: "default", Limit: 10}, &Discovery{Resources: []Resource{{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"list"}}}}, false, time.Now(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 || result.Items[0]["name"] != "akamai-check-deployment" {
+		t.Fatalf("got %#v, want the deployment from the second page", result.Items)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("List requests = %d, want 2", len(requests))
+	}
+	if got := requests[0].URL.Query().Get("limit"); got != "500" {
+		t.Fatalf("first page limit = %q, want 500", got)
+	}
+	if got := requests[0].URL.Query().Get("continue"); got != "" {
+		t.Fatalf("first page continue = %q, want empty", got)
+	}
+	if got := requests[1].URL.Query().Get("limit"); got != "500" {
+		t.Fatalf("second page limit = %q, want 500", got)
+	}
+	if got := requests[1].URL.Query().Get("continue"); got != "page-2" {
+		t.Fatalf("second page continue = %q, want page-2", got)
+	}
+}
+
+func TestSearchKeepsMatchesWhenLaterListPageFails(t *testing.T) {
+	target := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":      "akamai-check-deployment",
+			"namespace": "default",
+		},
+	}}
+	client := searchClient()
+	client.Core.Discovery().(*discoveryfake.FakeDiscovery).Resources = nil
+	dynamic := client.Dynamic.(*fake.FakeDynamicClient)
+	page := 0
+	dynamic.PrependReactor("list", "deployments", func(ktesting.Action) (bool, runtime.Object, error) {
+		page++
+		if page == 1 {
+			return true, &unstructured.UnstructuredList{Object: map[string]any{
+				"apiVersion": "apps/v1",
+				"kind":       "DeploymentList",
+				"metadata":   map[string]any{"continue": "page-2"},
+			}, Items: []unstructured.Unstructured{target}}, nil
+		}
+		return true, nil, fmt.Errorf("second page unavailable")
+	})
+	defer client.Close()
+
+	value, err := search(context.Background(), client, Request{Query: "akamai", Namespace: "default", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 || result.Items[0]["name"] != "akamai-check-deployment" {
+		t.Fatalf("got %#v, want the first-page deployment", result.Items)
+	}
+	if !result.Truncated {
+		t.Fatal("expected partial search result to be marked truncated")
+	}
+	if !strings.Contains(strings.Join(result.Warnings, "\n"), "second page unavailable") {
+		t.Fatalf("missing later-page warning: %v", result.Warnings)
+	}
+}
+
+func TestSearchKeepsMatchesWhenLaterListPageTimesOut(t *testing.T) {
+	target := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":      "akamai-check-deployment",
+			"namespace": "default",
+		},
+	}}
+	client := searchClient()
+	dynamic := client.Dynamic.(*fake.FakeDynamicClient)
+	page := 0
+	started := make(chan struct{})
+	release := make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	dynamic.PrependReactor("list", "deployments", func(ktesting.Action) (bool, runtime.Object, error) {
+		page++
+		if page == 1 {
+			return true, &unstructured.UnstructuredList{Object: map[string]any{
+				"apiVersion": "apps/v1",
+				"kind":       "DeploymentList",
+				"metadata":   map[string]any{"continue": "page-2"},
+			}, Items: []unstructured.Unstructured{target}}, nil
+		}
+		close(started)
+		<-release
+		return true, nil, context.DeadlineExceeded
+	})
+	defer client.Close()
+
+	done := make(chan struct {
+		value any
+		err   error
+	}, 1)
+	go func() {
+		value, err := searchCatalogWithTimeout(
+			context.Background(),
+			client,
+			Request{Query: "akamai", Namespace: "default", Limit: 10},
+			&Discovery{Resources: []Resource{{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"list"}}}},
+			false,
+			time.Now(),
+			20*time.Millisecond,
+		)
+		done <- struct {
+			value any
+			err   error
+		}{value: value, err: err}
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("second list page did not start")
+	}
+	time.Sleep(30 * time.Millisecond)
+	close(release)
+	resultValue := <-done
+	if resultValue.err != nil {
+		t.Fatal(resultValue.err)
+	}
+	result := resultValue.value.(SearchResult)
+	if len(result.Items) != 1 || result.Items[0]["name"] != "akamai-check-deployment" {
+		t.Fatalf("got %#v, want the first-page deployment", result.Items)
+	}
+	if !result.Truncated {
+		t.Fatal("expected timed out partial search result to be marked truncated")
+	}
+	if !strings.Contains(strings.Join(result.Warnings, "\n"), "search timed out") {
+		t.Fatalf("missing timeout warning: %v", result.Warnings)
+	}
+}
+
 func TestSearchFindsCustomResourcesByPartialNameAndLabel(t *testing.T) {
 	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
 	widget := &unstructured.Unstructured{Object: map[string]any{
@@ -170,6 +378,51 @@ func TestSearchFindsCustomResourcesByPartialNameAndLabel(t *testing.T) {
 		if len(result.Items) != 1 || result.Items[0]["resource"] != "widgets" {
 			t.Fatalf("query %q returned %#v, want the custom widget", query, result.Items)
 		}
+	}
+}
+
+func TestSearchDoesNotSkipDiscoveryWhenCoreResultsFillLimit(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
+	widget := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "example.com/v1",
+		"kind":       "Widget",
+		"metadata": map[string]any{
+			"name":      "same",
+			"namespace": "default",
+		},
+	}}
+	core := kubernetesfake.NewSimpleClientset()
+	core.Discovery().(*discoveryfake.FakeDiscovery).Resources = []*metav1.APIResourceList{
+		{GroupVersion: "v1", APIResources: []metav1.APIResource{{Name: "pods", Kind: "Pod", Namespaced: true, Verbs: []string{"list"}}}},
+		{GroupVersion: "example.com/v1", APIResources: []metav1.APIResource{{Name: "widgets", Kind: "Widget", Namespaced: true, Verbs: []string{"list"}}}},
+	}
+	listKinds := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+		gvr: "WidgetList",
+	}
+	objects := make([]runtime.Object, 0, 11)
+	for i := 0; i < 10; i++ {
+		objects = append(objects, pod(fmt.Sprintf("same-%d", i), "default", nil))
+	}
+	objects = append(objects, widget)
+	dynamic := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objects...)
+	client := &kube.Client{Core: core, Dynamic: dynamic}
+	defer client.Close()
+
+	value, err := search(context.Background(), client, Request{Query: "same", Namespace: "default", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	foundWidget := false
+	for _, item := range result.Items {
+		if item["resource"] == "widgets" && item["name"] == "same" {
+			foundWidget = true
+			break
+		}
+	}
+	if !foundWidget {
+		t.Fatalf("got %#v, want the exact custom resource alongside core matches", result.Items)
 	}
 }
 
@@ -218,15 +471,16 @@ func TestSearchUsesDiscoveryCachePerClient(t *testing.T) {
 	}
 }
 
-func TestSearchRetainsCoreMatchesWhenResourceCatalogIsTruncated(t *testing.T) {
+func TestSearchKeepsCoreMatchesWhenResourceCatalogIsLarge(t *testing.T) {
 	for _, tc := range []struct {
-		name         string
-		maxResources int
-		wantLists    int
+		name            string
+		maxResources    int
+		wantLists       int
+		expectTruncated bool
 	}{
-		{name: "default limit", wantLists: 80},
-		{name: "explicit limit", maxResources: 2, wantLists: 2},
-		{name: "hard limit", maxResources: 300, wantLists: 200},
+		{name: "all discovered resources", wantLists: 265},
+		{name: "explicit limit", maxResources: 2, wantLists: 2, expectTruncated: true},
+		{name: "hard limit", maxResources: 300, wantLists: 200, expectTruncated: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			core := kubernetesfake.NewSimpleClientset()
@@ -237,8 +491,9 @@ func TestSearchRetainsCoreMatchesWhenResourceCatalogIsTruncated(t *testing.T) {
 				catalog = append(catalog, &metav1.APIResourceList{GroupVersion: gv.String(), APIResources: []metav1.APIResource{{Name: r.Resource, Kind: r.Kind, Namespaced: r.Namespaced, Verbs: r.Verbs}}})
 				listKinds[gv.WithResource(r.Resource)] = r.Kind + "List"
 			}
-			// These groups sort before apps/v1, pushing Deployments past the
-			// resource limit if the catalog is truncated before prioritization.
+			// These groups sort before apps/v1. The default search still scans
+			// every discovered resource, while explicit MaxResources remains a
+			// supported performance budget.
 			for i := 0; i < 250; i++ {
 				gv := schema.GroupVersion{Group: fmt.Sprintf("aaa%03d.example.com", i), Version: "v1"}
 				catalog = append(catalog, &metav1.APIResourceList{GroupVersion: gv.String(), APIResources: []metav1.APIResource{{Name: "widgets", Kind: "Widget", Namespaced: true, Verbs: metav1.Verbs{"list"}}}})
@@ -260,10 +515,10 @@ func TestSearchRetainsCoreMatchesWhenResourceCatalogIsTruncated(t *testing.T) {
 			if len(result.Items) != 2 || result.Items[0]["resource"] != "pods" || result.Items[1]["resource"] != "deployments" {
 				t.Fatalf("got %#v, want Pod then Deployment without duplicates", result.Items)
 			}
-			if !result.Truncated {
-				t.Fatal("expected resource-limit truncation")
+			if result.Truncated != tc.expectTruncated {
+				t.Fatalf("truncated = %t, want %t (warnings: %v)", result.Truncated, tc.expectTruncated, result.Warnings)
 			}
-			if !strings.Contains(strings.Join(result.Warnings, "\n"), fmt.Sprintf("search limited to %d resource types", tc.wantLists)) {
+			if tc.expectTruncated && !strings.Contains(strings.Join(result.Warnings, "\n"), fmt.Sprintf("search limited to %d resource types", tc.wantLists)) {
 				t.Fatalf("missing resource-limit warning: %v", result.Warnings)
 			}
 			listedTypes := make(map[schema.GroupVersionResource]int)

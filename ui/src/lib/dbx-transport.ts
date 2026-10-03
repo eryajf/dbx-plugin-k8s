@@ -1,9 +1,9 @@
 import { load, dump } from 'js-yaml'
 import { dispatchDBXFiles } from './dbx-files'
-import { resolveDBXResource } from './dbx-resource-discovery'
+import { getDBXResourceIdentity, resolveDBXResource } from './dbx-resource-discovery'
 export type DBXInvoke = (method: string, params: Record<string, unknown>) => Promise<unknown>
 type ObjectData = { apiVersion?: string; kind?: string; metadata?: { name?: string; namespace?: string; uid?: string; resourceVersion?: string }; [key: string]: unknown }
-type Favorite = { resource: { resource: string; group: string }; object: ObjectData }
+type Favorite = { resource: { resource: string; group: string; version: string }; object: ObjectData }
 
 /** Explicit REST-to-RPC boundary. Unknown actions fail rather than becoming resource writes. */
 export class DBXTransport {
@@ -27,19 +27,55 @@ export class DBXTransport {
         if (method === 'GET') return JSON.parse(localStorage.getItem(key) || (parts[1] === 'sidebar' ? '{"sidebar_preference":""}' : '{}'))
         localStorage.setItem(key, JSON.stringify(body)); return body
       }
-      const asFavorite = (f: Favorite, id: number) => ({ id, clusterName: this.connectionId, resourceType: f.resource.resource === 'customresourcedefinitions' ? 'crds' : f.resource.resource, resourceName: f.object.metadata?.name, namespace: f.object.metadata?.namespace, createdAt: '', updatedAt: '' })
+      const asFavorite = (f: Favorite, id: number) => {
+        const identity = getDBXResourceIdentity(f.resource)
+        const isCRD = f.resource.group === 'apiextensions.k8s.io' && f.resource.resource === 'customresourcedefinitions'
+        return {
+          id,
+          clusterName: this.connectionId,
+          resourceType: isCRD ? 'crds' : identity.resourceType,
+          customResource: isCRD ? false : identity.customResource,
+          group: f.resource.group,
+          version: f.resource.version,
+          resourceName: f.object.metadata?.name,
+          namespace: f.object.metadata?.namespace,
+          createdAt: '',
+          updatedAt: '',
+        }
+      }
       if (method === 'GET') {
         const result = await this.rpc<{items: Favorite[]}>('favorite/list')
         return result.items.map(asFavorite)
       }
-      const resource = await resolveDBXResource(this.connectionId, String(data.resourceType), this.invoke)
+      const resource = await resolveDBXResource(this.connectionId, String(data.resourceType), this.invoke, {
+        group: typeof data.group === 'string' ? data.group : undefined,
+        version: typeof data.version === 'string' ? data.version : undefined,
+      })
       const item = {resource, object: { apiVersion: resource.group ? `${resource.group}/${resource.version}` : resource.version, kind: resource.kind, metadata: {name: data.resourceName, namespace: data.namespace || undefined}}}
       await this.rpc('favorite/update', {item, remove: parts[2] === 'remove'})
       return asFavorite(item as Favorite, 0)
     }
     if (parts[0] === 'search') {
-      const result = await this.rpc<{items: Array<{uid: string; name: string; namespace: string; resource: string}>; warnings: string[]; truncated: boolean}>('resource/search', {query: query.q || query.query, namespace: query.namespace, limit: Number(query.limit || 50)})
-      return {results: result.items.map(item => ({id: item.uid, name: item.name, namespace: item.namespace, resourceType: item.resource, createdAt: ''})), total: result.items.length, warnings: result.warnings, truncated: result.truncated}
+      const result = await this.rpc<{items: Array<{id?: string; uid?: string; name: string; namespace: string; group: string; version: string; resource: string; createdAt?: string}>; warnings: string[]; truncated: boolean}>('resource/search', {query: query.q || query.query, namespace: query.namespace, limit: Number(query.limit || 50)})
+      return {
+        results: result.items.map(item => {
+          const identity = getDBXResourceIdentity(item)
+          const isCRD = item.group === 'apiextensions.k8s.io' && item.resource === 'customresourcedefinitions'
+          return {
+            id: item.uid || item.id || [isCRD ? 'crds' : identity.resourceType, item.namespace, item.name].filter(Boolean).join('/'),
+            name: item.name,
+            namespace: item.namespace,
+            resourceType: isCRD ? 'crds' : identity.resourceType,
+            customResource: isCRD ? false : identity.customResource,
+            group: item.group,
+            version: item.version,
+            createdAt: item.createdAt || '',
+          }
+        }),
+        total: result.items.length,
+        warnings: result.warnings,
+        truncated: result.truncated,
+      }
     }
     if (parts[0] === 'resources' && parts[1] === 'apply') {
       const object = load(String(data.yaml)) as ObjectData

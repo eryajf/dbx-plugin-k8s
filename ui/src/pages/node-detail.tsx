@@ -65,6 +65,7 @@ import { NodeImageTable } from '@/components/node-image-table'
 import { NodeMonitoring } from '@/components/node-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RefreshButton } from '@/components/refresh-button'
+import { ResourceFavoriteButton } from '@/components/resource-favorite-button'
 import { YamlEditor } from '@/components/yaml-editor'
 
 function NodePodsUsageSummary({
@@ -377,7 +378,12 @@ export function NodeDetail(props: { name: string }) {
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold">{name}</h1>
+          <div className="flex items-center gap-1">
+            <h1 className="text-lg font-bold">{name}</h1>
+            <ResourceFavoriteButton
+              resource={{ name, resourceType: 'nodes' }}
+            />
+          </div>
         </div>
         <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <RefreshButton

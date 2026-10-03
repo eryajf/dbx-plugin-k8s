@@ -11,6 +11,7 @@ type FavoriteItem = {
   name: string
   namespace?: string
   resourceType: string
+  customResource?: boolean
   createdAt: string
 }
 
@@ -267,6 +268,27 @@ describe('FavoritesPage', () => {
       )
     )
     expect(screen.queryByText('api')).not.toBeInTheDocument()
+  })
+
+  it('navigates custom favorites through the CRD detail route', async () => {
+    const user = userEvent.setup()
+    favoritesMock = [
+      {
+        id: 'widgets.example.com::default::widget-one',
+        name: 'widget-one',
+        namespace: 'default',
+        resourceType: 'widgets.example.com',
+        customResource: true,
+        createdAt: '2026-04-18T10:00:00.000Z',
+      },
+    ]
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /widget-one/ }))
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/crds/widgets.example.com/default/widget-one'
+    )
   })
 
   it('shows empty state actions when there are no favorites', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { IconLoader, IconTrash } from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,7 @@ import { ResourceType, ResourceTypeMap } from '@/types/api'
 import { trackResourceAction } from '@/lib/analytics'
 import { updateResource, useResource } from '@/lib/api'
 import { getOwnerInfo } from '@/lib/k8s'
+import { getDBXResourceIdentity } from '@/lib/dbx-resource-discovery'
 import { formatDate, translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +23,7 @@ import { ProResourceHistoryTable } from '@/components/license/pro-resource-histo
 import { RefreshButton } from '@/components/refresh-button'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
+import { ResourceFavoriteButton } from '@/components/resource-favorite-button'
 import { YamlEditor } from '@/components/yaml-editor'
 
 export function SimpleResourceDetail<T extends ResourceType>(props: {
@@ -53,6 +55,34 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
       setYamlContent(yaml.dump(data, { indent: 2 }))
     }
   }, [data])
+
+  const favoriteIdentity = useMemo(() => {
+    const apiVersion = (data as { apiVersion?: unknown } | undefined)?.apiVersion
+    if (typeof apiVersion !== 'string' || !apiVersion) {
+      return {
+        resourceType,
+        customResource: resourceType.includes('.'),
+      }
+    }
+
+    const separator = apiVersion.indexOf('/')
+    const group = separator === -1 ? '' : apiVersion.slice(0, separator)
+    const version = separator === -1 ? apiVersion : apiVersion.slice(separator + 1)
+    const resourceName = resourceType.includes('.')
+      ? resourceType.slice(0, resourceType.indexOf('.'))
+      : resourceType
+    const identity = getDBXResourceIdentity({
+      group,
+      version,
+      resource: resourceName,
+    })
+
+    return {
+      ...identity,
+      group: group || undefined,
+      version: version || undefined,
+    }
+  }, [data, resourceType])
 
   const handleSaveYaml = async (content: ResourceTypeMap[T]) => {
     setIsSavingYaml(true)
@@ -119,7 +149,12 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold">{name}</h1>
+          <div className="flex items-center gap-1">
+            <h1 className="text-lg font-bold">{name}</h1>
+            <ResourceFavoriteButton
+              resource={{ name, namespace, ...favoriteIdentity }}
+            />
+          </div>
           {namespace && (
             <p className="text-muted-foreground">
               {t('detail.fields.namespace')}:{' '}

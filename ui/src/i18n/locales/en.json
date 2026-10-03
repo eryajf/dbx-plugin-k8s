@@ -62,7 +62,9 @@
     "saving": "Saving...",
     "theme": "Theme",
     "copyNamespace": "Copy namespace",
-    "noData": "No data"
+    "noData": "No data",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites"
   },
   "modeToggle": {
     "toggleTheme": "Toggle theme"
@@ -81,6 +83,7 @@
     "favorites": "Favorites",
     "resources": "Resources",
     "noResults": "No results found",
+    "incompleteResults": "Some results may be missing. Narrow your search to improve accuracy.",
     "noClusterResults": "No matching clusters found",
     "navigation": "Navigation",
     "hidden": "Hidden",

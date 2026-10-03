@@ -120,6 +120,7 @@ export function CRDListPage() {
     <ResourceTable
       resourceName="Custom Resource Definitions"
       resourceType="crds"
+      enableFavorites={false}
       columns={columns}
       clusterScope={true} // CRDs are cluster-scoped
       searchQueryFilter={searchQueryFilter}

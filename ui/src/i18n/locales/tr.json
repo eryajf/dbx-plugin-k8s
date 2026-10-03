@@ -62,7 +62,9 @@
     "saving": "Kaydediliyor...",
     "theme": "Tema",
     "copyNamespace": "Ad alanını kopyala",
-    "noData": "Veri yok"
+    "noData": "Veri yok",
+    "favorite": "Favorilere ekle",
+    "unfavorite": "Favorilerden kaldır"
   },
   "modeToggle": {
     "toggleTheme": "Temayı değiştir"
@@ -81,6 +83,7 @@
     "favorites": "Favoriler",
     "resources": "Kaynaklar",
     "noResults": "Sonuç bulunamadı",
+    "incompleteResults": "Bazı sonuçlar eksik olabilir. Doğruluğu artırmak için aramanızı daraltın.",
     "noClusterResults": "Eşleşen küme bulunamadı",
     "navigation": "Navigasyon",
     "hidden": "Gizlenmiş",

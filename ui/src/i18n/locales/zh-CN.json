@@ -62,7 +62,9 @@
     "saving": "保存中……",
     "theme": "主题",
     "copyNamespace": "复制命名空间",
-    "noData": "暂无数据"
+    "noData": "暂无数据",
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏"
   },
   "modeToggle": {
     "toggleTheme": "切换主题"
@@ -81,6 +83,7 @@
     "favorites": "收藏",
     "resources": "资源",
     "noResults": "未找到结果",
+    "incompleteResults": "部分结果可能未显示，请缩小搜索范围以提高准确性。",
     "noClusterResults": "未找到匹配的集群",
     "navigation": "导航",
     "hidden": "已隐藏",

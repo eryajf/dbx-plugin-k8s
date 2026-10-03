@@ -121,6 +121,7 @@ export function EventListPage() {
   return (
     <ResourceTable<Event>
       resourceName="Events"
+      enableFavorites={false}
       columns={columns}
       clusterScope={false}
       searchQueryFilter={eventSearchFilter}

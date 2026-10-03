@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Rebuild and repackage the plugin whenever source files changed since the last
- * successful package. Every rebuild bumps the patch version, so each .dbxp can be
- * installed next to the previous one.
+ * successful package. Every rebuild selects the next unoccupied patch version,
+ * so each .dbxp can be installed next to the previous one without overwriting it.
  *
  *   node scripts/auto-package.mjs           # rebuild only when sources changed
  *   node scripts/auto-package.mjs --force   # rebuild regardless of the fingerprint
@@ -29,6 +29,7 @@ const IGNORED_DIRS = new Set(['node_modules', 'dist', '.dbx-dev', '.git', 'tmp',
 // them at once. Each file is hashed with the literal masked out, otherwise the bump
 // below would look like a source change and rebuild forever.
 const VERSION_SYNC = [
+  {file: 'manifest.json', jsonField: 'version'},
   {file: 'backend/main.go', regex: /Version: "\d+\.\d+\.\d+"/, rewrite: version => `Version: "${version}"`},
   {file: 'backend/internal/kube/client.go', regex: /dbx-plugin-k8s\/\d+\.\d+\.\d+/, rewrite: version => `dbx-plugin-k8s/${version}`},
 ]
@@ -167,17 +168,26 @@ function readState() {
 
 function versionSource(target) {
   const file = path.join(ROOT, target.file)
-  const found = readFileSync(file, 'utf8').match(target.regex)
+  const source = readFileSync(file, 'utf8')
+  if (target.jsonField) {
+    const version = JSON.parse(source)[target.jsonField]
+    if (typeof version !== 'string') throw new Error(`${target.file} has no string '${target.jsonField}' field`)
+    return version
+  }
+  const found = source.match(target.regex)
   // A hand-edited version that no longer matches the pattern would otherwise be
   // silently skipped, leaving the sidecar reporting a stale version.
   if (!found) throw new Error(`${target.file} has no version literal matching ${target.regex}`)
-  return found[0]
+  return found[0].match(/\d+\.\d+\.\d+/)[0]
 }
 
 function readVersion() {
-  const version = JSON.parse(readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version
+  const manifestTarget = VERSION_SYNC.find(target => target.file === 'manifest.json')
+  if (!manifestTarget) throw new Error('VERSION_SYNC must include manifest.json')
+  const version = versionSource(manifestTarget)
   for (const target of VERSION_SYNC) {
-    const current = versionSource(target).match(/\d+\.\d+\.\d+/)[0]
+    if (target === manifestTarget) continue
+    const current = versionSource(target)
     if (current !== version) {
       throw new Error(`${target.file} reports ${current} but manifest.json reports ${version}; align them before rebuilding`)
     }
@@ -186,13 +196,16 @@ function readVersion() {
 }
 
 function writeVersion(version) {
-  const manifestFile = path.join(ROOT, 'manifest.json')
-  const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'))
-  manifest.version = version
-  writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`)
   for (const target of VERSION_SYNC) {
     const file = path.join(ROOT, target.file)
-    writeFileSync(file, readFileSync(file, 'utf8').replace(target.regex, target.rewrite(version)))
+    const source = readFileSync(file, 'utf8')
+    if (target.jsonField) {
+      const manifest = JSON.parse(source)
+      manifest[target.jsonField] = version
+      writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`)
+    } else {
+      writeFileSync(file, source.replace(target.regex, target.rewrite(version)))
+    }
   }
 }
 
@@ -200,6 +213,23 @@ function nextPatch(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
   if (!match) throw new Error(`manifest version '${version}' is not plain semver; bump it by hand`)
   return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`
+}
+
+function packageVersionOccupied(version) {
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'))
+  const prefix = `${manifest.id}-${version}-`
+  return readdirSync(DIST).some(name =>
+    name.startsWith(prefix) &&
+    (name.endsWith('.dbxp') || name.endsWith('.artifact.json'))
+  )
+}
+
+function nextAvailablePatch(version) {
+  let candidate = nextPatch(version)
+  while (packageVersionOccupied(candidate)) {
+    candidate = nextPatch(candidate)
+  }
+  return candidate
 }
 
 // ---------------------------------------------------------------- main
@@ -232,22 +262,22 @@ function refreshDevBinary() {
 
 function main() {
   mkdirSync(DIST, {recursive: true})
+  const previousVersion = readVersion()
   const fingerprintNow = fingerprint()
   const state = readState()
   const packaged = state?.package ? path.join(ROOT, state.package) : null
-  const upToDate = !FORCE && state?.fingerprint === fingerprintNow && packaged && existsSync(packaged)
+  const upToDate = !FORCE && state?.version === previousVersion && state?.fingerprint === fingerprintNow && packaged && existsSync(packaged)
 
   if (upToDate) {
-    emit(summarize('up-to-date', {version: state.version, package: state.package, reason: 'no source changes since the last package'}))
+    emit(summarize('up-to-date', {version: previousVersion, package: state.package, reason: 'no source changes since the last package'}))
     return 0
   }
+  const version = nextAvailablePatch(previousVersion)
   if (CHECK_ONLY) {
-    emit(summarize('stale', {version: readVersion(), reason: FORCE ? 'forced' : 'sources changed since the last package'}))
+    emit(summarize('stale', {version: previousVersion, nextVersion: version, fingerprint: fingerprintNow, reason: FORCE ? 'forced' : 'sources changed since the last package'}))
     return 0
   }
 
-  const previousVersion = readVersion()
-  const version = nextPatch(previousVersion)
   log(`rebuilding ${previousVersion} -> ${version}`)
 
   run('ui build', withArgs('pnpm', 'run', 'build'), path.join(ROOT, 'ui'))

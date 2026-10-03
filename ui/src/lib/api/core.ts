@@ -88,18 +88,26 @@ export interface SearchResult {
   name: string
   namespace?: string
   resourceType: string
+  customResource?: boolean
+  group?: string
+  version?: string
   createdAt: string
 }
 
 export interface SearchResponse {
   results: SearchResult[]
   total: number
+  warnings?: string[]
+  truncated?: boolean
 }
 
 export interface FavoriteResource {
   id: number
   clusterName: string
   resourceType: string
+  customResource?: boolean
+  group?: string
+  version?: string
   namespace?: string
   resourceName: string
   createdAt: string
@@ -108,6 +116,8 @@ export interface FavoriteResource {
 
 export interface FavoriteResourceRequest {
   resourceType: string
+  group?: string
+  version?: string
   namespace?: string
   resourceName: string
 }
@@ -136,12 +146,13 @@ export const globalSearch = async (
     namespace?: string
   }
 ): Promise<SearchResponse> => {
-  if (query.length < 2) {
+  const normalizedQuery = query.trim()
+  if (normalizedQuery.length < 2) {
     return { results: [], total: 0 }
   }
 
   const params = new URLSearchParams({
-    q: query,
+    q: normalizedQuery,
     limit: String(options?.limit || 50),
   })
 

@@ -1,5 +1,10 @@
-import { useCallback, useMemo } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useContext, useMemo } from 'react'
+import {
+  QueryClient,
+  QueryClientContext,
+  useMutation,
+  useQuery,
+} from '@tanstack/react-query'
 
 import { trackDesktopEvent } from '@/lib/analytics'
 import {
@@ -12,6 +17,8 @@ import {
 import { buildFavoriteKeyFromResource } from '@/lib/favorites'
 import { useCluster } from '@/hooks/use-cluster'
 
+const fallbackQueryClient = new QueryClient()
+
 function favoriteToSearchResult(favorite: FavoriteResource): SearchResult {
   return {
     id: buildFavoriteKeyFromResource({
@@ -22,20 +29,29 @@ function favoriteToSearchResult(favorite: FavoriteResource): SearchResult {
     name: favorite.resourceName,
     namespace: favorite.namespace,
     resourceType: favorite.resourceType,
+    customResource: favorite.customResource,
+    group: favorite.group,
+    version: favorite.version,
     createdAt: favorite.createdAt,
   }
 }
 
 function toFavoriteRequest(resource: SearchResult) {
-  return {
+  const request = {
     resourceType: resource.resourceType,
     namespace: resource.namespace,
     resourceName: resource.name,
   }
+  return {
+    ...request,
+    ...(resource.group ? { group: resource.group } : {}),
+    ...(resource.version ? { version: resource.version } : {}),
+  }
 }
 
 export function useFavorites() {
-  const queryClient = useQueryClient()
+  const providerQueryClient = useContext(QueryClientContext)
+  const queryClient = providerQueryClient ?? fallbackQueryClient
   const { currentCluster } = useCluster()
   const queryKey = ['favorites', currentCluster] as const
 
@@ -47,8 +63,8 @@ export function useFavorites() {
       }
       return listFavoriteResources()
     },
-    enabled: !!currentCluster,
-  })
+    enabled: Boolean(providerQueryClient && currentCluster),
+  }, queryClient)
 
   const favorites = useMemo(
     () => (favoritesQuery.data || []).map(favoriteToSearchResult),
@@ -61,12 +77,39 @@ export function useFavorites() {
       ),
     [favorites]
   )
+  const findFavorite = useCallback(
+    (
+      resource: Pick<
+        SearchResult,
+        'name' | 'namespace' | 'resourceType' | 'group' | 'version'
+      >
+    ) => {
+      const key = buildFavoriteKeyFromResource(resource)
+      const matches = favorites.filter(
+        (favorite) => buildFavoriteKeyFromResource(favorite) === key
+      )
+      if (resource.group && resource.version) {
+        return (
+          matches.find(
+            (favorite) =>
+              favorite.group === resource.group &&
+              favorite.version === resource.version
+          ) ?? matches[0]
+        )
+      }
+      return matches[0]
+    },
+    [favorites]
+  )
 
   const refreshFavorites = useCallback(async () => {
+    if (!providerQueryClient) {
+      return
+    }
     await queryClient.invalidateQueries({
       queryKey: ['favorites', currentCluster],
     })
-  }, [queryClient, currentCluster])
+  }, [currentCluster, providerQueryClient, queryClient])
 
   const addMutation = useMutation({
     mutationFn: async (resource: SearchResult) =>
@@ -74,7 +117,7 @@ export function useFavorites() {
     onSuccess: async () => {
       await refreshFavorites()
     },
-  })
+  }, queryClient)
 
   const removeMutation = useMutation({
     mutationFn: async (resource: SearchResult) =>
@@ -82,7 +125,7 @@ export function useFavorites() {
     onSuccess: async () => {
       await refreshFavorites()
     },
-  })
+  }, queryClient)
 
   const addToFavorites = useCallback(
     async (resource: SearchResult) => {
@@ -97,13 +140,17 @@ export function useFavorites() {
 
   const removeFromFavorites = useCallback(
     async (resource: SearchResult) => {
-      await removeMutation.mutateAsync(resource)
+      // Resource list/detail views may only know the resource name and type.
+      // Reuse the loaded favorite's exact GVR so a multi-version resource (for
+      // example autoscaling/v1 and autoscaling/v2 HPAs) removes the same
+      // object that was originally saved.
+      await removeMutation.mutateAsync(findFavorite(resource) ?? resource)
       trackDesktopEvent('favorite_toggle', {
         action: 'remove',
         resource_type: resource.resourceType,
       })
     },
-    [removeMutation]
+    [findFavorite, removeMutation]
   )
 
   const isFavorite = useCallback(
@@ -116,7 +163,7 @@ export function useFavorites() {
   const toggleFavorite = useCallback(
     async (resource: SearchResult) => {
       if (favoriteKeys.has(buildFavoriteKeyFromResource(resource))) {
-        await removeMutation.mutateAsync(resource)
+        await removeMutation.mutateAsync(findFavorite(resource) ?? resource)
         trackDesktopEvent('favorite_toggle', {
           action: 'remove',
           resource_type: resource.resourceType,
@@ -131,7 +178,7 @@ export function useFavorites() {
       })
       return true
     },
-    [addMutation, favoriteKeys, removeMutation]
+    [addMutation, favoriteKeys, findFavorite, removeMutation]
   )
 
   return {
@@ -142,5 +189,7 @@ export function useFavorites() {
     toggleFavorite,
     refreshFavorites,
     isLoading: favoritesQuery.isLoading,
+    isError: favoritesQuery.isError,
+    isMutating: addMutation.isPending || removeMutation.isPending,
   }
 }
