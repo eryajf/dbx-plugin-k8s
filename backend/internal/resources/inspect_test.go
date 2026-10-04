@@ -90,6 +90,141 @@ func TestSearchRanksNameBeforeNamespaceAndLabels(t *testing.T) {
 	}
 }
 
+func TestSearchRanksCommonResourceKindsBeforeEndpoints(t *testing.T) {
+	core := kubernetesfake.NewSimpleClientset()
+	core.Discovery().(*discoveryfake.FakeDiscovery).Resources = []*metav1.APIResourceList{
+		{GroupVersion: "apps/v1", APIResources: []metav1.APIResource{{Name: "deployments", Kind: "Deployment", Namespaced: true, Verbs: []string{"list"}}}},
+		{GroupVersion: "v1", APIResources: []metav1.APIResource{
+			{Name: "pods", Kind: "Pod", Namespaced: true, Verbs: []string{"list"}},
+			{Name: "services", Kind: "Service", Namespaced: true, Verbs: []string{"list"}},
+			{Name: "endpoints", Kind: "Endpoints", Namespaced: true, Verbs: []string{"list"}},
+		}},
+	}
+	object := func(apiVersion, kind, name string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]any{
+				"name": name, "namespace": "default",
+			},
+		}}
+	}
+	listKinds := map[schema.GroupVersionResource]string{
+		{Group: "apps", Version: "v1", Resource: "deployments"}: "DeploymentList",
+		{Version: "v1", Resource: "pods"}:                       "PodList",
+		{Version: "v1", Resource: "services"}:                   "ServiceList",
+		{Version: "v1", Resource: "endpoints"}:                  "EndpointsList",
+	}
+	dynamic := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds,
+		object("apps/v1", "Deployment", "agent-q"),
+		object("v1", "Pod", "agent-q"),
+		object("v1", "Service", "agent-q"),
+		object("v1", "Endpoints", "agent-q"),
+	)
+	client := &kube.Client{Core: core, Dynamic: dynamic}
+	defer client.Close()
+
+	value, err := searchCatalogWithTimeout(context.Background(), client, Request{Query: "agent-q", Limit: 10}, &Discovery{Resources: []Resource{
+		{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"list"}},
+		{Version: "v1", Resource: "pods", Kind: "Pod", Namespaced: true, Verbs: metav1.Verbs{"list"}},
+		{Version: "v1", Resource: "services", Kind: "Service", Namespaced: true, Verbs: metav1.Verbs{"list"}},
+		{Version: "v1", Resource: "endpoints", Kind: "Endpoints", Namespaced: true, Verbs: metav1.Verbs{"list"}},
+	}}, true, time.Now(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	want := []string{"deployments", "pods", "services", "endpoints"}
+	if len(result.Items) != len(want) {
+		t.Fatalf("got %d results, want %d: %#v", len(result.Items), len(want), result.Items)
+	}
+	for i, item := range result.Items {
+		if item["resource"] != want[i] {
+			t.Fatalf("result %d = %#v, want resource %q", i, item, want[i])
+		}
+	}
+}
+
+func TestSearchOmitsEmptyLabelsFromResponseMetadata(t *testing.T) {
+	client := searchClient(pod("agent-y", "default", nil))
+	defer client.Close()
+
+	value, err := search(context.Background(), client, Request{Query: "agent-y", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 {
+		t.Fatalf("got %#v, want one result", result.Items)
+	}
+	if _, present := result.Items[0]["labels"]; present {
+		t.Fatalf("empty labels must be omitted from the response: %#v", result.Items[0])
+	}
+}
+
+func TestSearchColdGlobalResponseExplainsIncompleteScope(t *testing.T) {
+	client := searchClient(pod("web", "default", nil))
+	defer client.Close()
+
+	value, err := search(context.Background(), client, Request{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if result.Complete || !result.Syncing || result.Status != string(kube.SearchIndexCold) {
+		t.Fatalf("cold global search = complete=%t syncing=%t status=%q warnings=%v", result.Complete, result.Syncing, result.Status, result.Warnings)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatal("cold global search did not explain incomplete results")
+	}
+}
+
+func TestSearchColdAliasResponseExplainsIncompleteScope(t *testing.T) {
+	client := searchClient(pod("web", "default", nil))
+	defer client.Close()
+
+	value, err := search(context.Background(), client, Request{Query: "pod web", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 || result.Items[0]["name"] != "web" {
+		t.Fatalf("cold alias search = %#v", result.Items)
+	}
+	if result.Complete || !result.Syncing || result.Status != string(kube.SearchIndexCold) {
+		t.Fatalf("cold alias search = complete=%t syncing=%t status=%q warnings=%v", result.Complete, result.Syncing, result.Status, result.Warnings)
+	}
+}
+
+func TestSearchRealtimeFallbackDeduplicatesUIDAcrossServedVersions(t *testing.T) {
+	core := kubernetesfake.NewSimpleClientset()
+	core.Discovery().(*discoveryfake.FakeDiscovery).Resources = []*metav1.APIResourceList{
+		{GroupVersion: "example.com/v1", APIResources: []metav1.APIResource{{Name: "widgets", Kind: "Widget", Namespaced: true, Verbs: []string{"list"}}}},
+		{GroupVersion: "example.com/v2", APIResources: []metav1.APIResource{{Name: "widgets", Kind: "Widget", Namespaced: true, Verbs: []string{"list"}}}},
+	}
+	gvrV1 := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
+	gvrV2 := schema.GroupVersionResource{Group: "example.com", Version: "v2", Resource: "widgets"}
+	widget := func(gvr schema.GroupVersionResource) *unstructured.Unstructured {
+		object := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": gvr.GroupVersion().String(), "kind": "Widget",
+			"metadata": map[string]any{"name": "shared-widget", "namespace": "default", "uid": "shared-widget-uid"},
+		}}
+		return object
+	}
+	dynamic := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{gvrV1: "WidgetList", gvrV2: "WidgetList"}, widget(gvrV1), widget(gvrV2))
+	client := &kube.Client{Core: core, Dynamic: dynamic}
+	defer client.Close()
+
+	value, err := search(context.Background(), client, Request{Query: "shared-widget", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 || result.Items[0]["version"] != "v1" {
+		t.Fatalf("realtime duplicate results = %#v, want one deterministic version", result.Items)
+	}
+}
+
 func TestSearchFindsCoreDeploymentWithoutDiscoveryCatalog(t *testing.T) {
 	deployment := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
@@ -267,6 +402,31 @@ func TestSearchKeepsMatchesWhenLaterListPageFails(t *testing.T) {
 	}
 }
 
+func TestSearchSeparatesResultPaginationFromCompleteness(t *testing.T) {
+	client := searchClient(
+		pod("web-one", "default", nil),
+		pod("web-two", "default", nil),
+	)
+	defer client.Close()
+
+	value, err := searchCatalogWithTimeout(
+		context.Background(),
+		client,
+		Request{Query: "web", Limit: 1},
+		&Discovery{Resources: []Resource{{Group: "", Version: "v1", Resource: "pods", Kind: "Pod", Namespaced: true, Verbs: metav1.Verbs{"list"}}}},
+		false,
+		time.Now(),
+		time.Second,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 || !result.Truncated || !result.Complete {
+		t.Fatalf("result pagination state = %#v, want one complete paginated result", result)
+	}
+}
+
 func TestSearchKeepsMatchesWhenLaterListPageTimesOut(t *testing.T) {
 	target := unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
@@ -343,6 +503,64 @@ func TestSearchKeepsMatchesWhenLaterListPageTimesOut(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(result.Warnings, "\n"), "search timed out") {
 		t.Fatalf("missing timeout warning: %v", result.Warnings)
+	}
+}
+
+func TestSearchParentDeadlineReturnsPartialResult(t *testing.T) {
+	target := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":      "coze-backend",
+			"namespace": "default",
+		},
+	}}
+	client := searchClient()
+	dynamic := client.Dynamic.(*fake.FakeDynamicClient)
+	page := 0
+	release := make(chan struct{})
+	dynamic.PrependReactor("list", "deployments", func(ktesting.Action) (bool, runtime.Object, error) {
+		page++
+		if page == 1 {
+			return true, &unstructured.UnstructuredList{Object: map[string]any{
+				"apiVersion": "apps/v1",
+				"kind":       "DeploymentList",
+				"metadata":   map[string]any{"continue": "page-2"},
+			}, Items: []unstructured.Unstructured{target}}, nil
+		}
+		<-release
+		return true, nil, context.DeadlineExceeded
+	})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	value, err := searchCatalogWithTimeout(
+		ctx,
+		client,
+		Request{Query: "coze-backend", Namespace: "default", Limit: 10},
+		&Discovery{Resources: []Resource{{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"list"}}}},
+		false,
+		time.Now(),
+		time.Second,
+	)
+	close(release)
+	if err != nil {
+		t.Fatalf("parent deadline returned an RPC error: %v", err)
+	}
+	result := value.(SearchResult)
+	if len(result.Items) != 1 || result.Items[0]["name"] != "coze-backend" {
+		t.Fatalf("got %#v, want the first-page deployment", result.Items)
+	}
+	if result.Complete || !result.Truncated || !strings.Contains(strings.Join(result.Warnings, "\n"), "search timed out") {
+		t.Fatalf("partial deadline result = %#v, want incomplete timeout warning", result)
 	}
 }
 
@@ -512,8 +730,8 @@ func TestSearchKeepsCoreMatchesWhenResourceCatalogIsLarge(t *testing.T) {
 				t.Fatal(err)
 			}
 			result := value.(SearchResult)
-			if len(result.Items) != 2 || result.Items[0]["resource"] != "pods" || result.Items[1]["resource"] != "deployments" {
-				t.Fatalf("got %#v, want Pod then Deployment without duplicates", result.Items)
+			if len(result.Items) != 2 || result.Items[0]["resource"] != "deployments" || result.Items[1]["resource"] != "pods" {
+				t.Fatalf("got %#v, want Deployment then Pod without duplicates", result.Items)
 			}
 			if result.Truncated != tc.expectTruncated {
 				t.Fatalf("truncated = %t, want %t (warnings: %v)", result.Truncated, tc.expectTruncated, result.Warnings)

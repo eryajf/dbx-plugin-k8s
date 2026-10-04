@@ -3,11 +3,18 @@ package kube
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 
@@ -33,12 +40,16 @@ type Client struct {
 	discoveryMu         sync.Mutex
 	discoveryAt         time.Time
 	discoveryLists      []*metav1.APIResourceList
+	discoveryPreferred  map[string]string
 	discoveryErr        error
 	discoveryFlight     *discoveryFlight
 	discoveryGeneration uint64
 	Discovery           discovery.DiscoveryInterface
 	searchCacheMu       sync.Mutex
 	searchCache         *searchSnapshotCache
+	searchIndexMu       sync.Mutex
+	searchIndex         *SearchIndex
+	searchIndexKey      string
 }
 
 // discoveryFlight contains the result owned by one in-flight discovery call.
@@ -47,11 +58,15 @@ type Client struct {
 type discoveryFlight struct {
 	done       chan struct{}
 	lists      []*metav1.APIResourceList
+	preferred  map[string]string
 	err        error
 	generation uint64
 }
 
-const discoveryCacheTTL = 30 * time.Second
+const (
+	discoveryCacheTTL       = 30 * time.Second
+	discoveryRequestTimeout = 2 * time.Second
+)
 
 // CachedAPIResourceLists avoids repeating the expensive discovery handshake for
 // every keystroke in global search. The cache is scoped to this client, so
@@ -90,15 +105,17 @@ func (c *Client) CachedAPIResourceListsContext(ctx context.Context) (lists []*me
 	c.discoveryFlight = flight
 	c.discoveryMu.Unlock()
 
-	lists, err = c.discoverResourceLists(ctx)
+	var preferred map[string]string
+	lists, preferred, err = c.discoverResourceLists(ctx)
 	c.discoveryMu.Lock()
-	flight.lists, flight.err = lists, err
+	flight.lists, flight.preferred, flight.err = lists, preferred, err
 	if c.discoveryFlight == flight {
 		// An invalidation increments the generation and detaches the old flight.
 		// Such a result is still delivered to its original waiters, but must not
 		// repopulate the cache used by later searches.
 		if c.discoveryGeneration == flight.generation {
 			c.discoveryLists = lists
+			c.discoveryPreferred = preferred
 			c.discoveryErr = err
 			// Do not pin a transient discovery failure for the full success TTL. A
 			// stalled or temporarily unavailable aggregated API should be retried by the
@@ -116,55 +133,128 @@ func (c *Client) CachedAPIResourceListsContext(ctx context.Context) (lists []*me
 	return lists, err, false
 }
 
-func (c *Client) discoverResourceLists(ctx context.Context) ([]*metav1.APIResourceList, error) {
+// PreferredVersions returns the preferred served version for each API group
+// from the most recent discovery response. The map is copied so callers can
+// retain it while discovery is invalidated or refreshed.
+func (c *Client) PreferredVersions() map[string]string {
+	c.discoveryMu.Lock()
+	defer c.discoveryMu.Unlock()
+	result := make(map[string]string, len(c.discoveryPreferred))
+	for group, version := range c.discoveryPreferred {
+		result[group] = version
+	}
+	return result
+}
+
+func (c *Client) discoverResourceLists(ctx context.Context) ([]*metav1.APIResourceList, map[string]string, error) {
+	preferred := make(map[string]string)
+	if err := ctx.Err(); err != nil {
+		return nil, preferred, err
+	}
 	if c.Discovery == nil {
 		// Fake clients and older callers do not have a REST discovery client. Keep
 		// this compatibility path; live clients are initialized with Discovery.
 		// The legacy interface has no context parameter, so isolate it behind a
 		// buffered result channel and still honor the caller's deadline.
 		type result struct {
-			lists []*metav1.APIResourceList
-			err   error
+			groups []*metav1.APIGroup
+			lists  []*metav1.APIResourceList
+			err    error
+		}
+		if c.Core == nil {
+			return nil, preferred, fmt.Errorf("Kubernetes discovery client is unavailable")
 		}
 		results := make(chan result, 1)
 		go func() {
-			_, lists, err := c.Core.Discovery().ServerGroupsAndResources()
-			results <- result{lists: lists, err: err}
+			groups, lists, err := c.Core.Discovery().ServerGroupsAndResources()
+			results <- result{groups: groups, lists: lists, err: err}
 		}()
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, preferred, ctx.Err()
 		case value := <-results:
-			return value.lists, value.err
+			for _, group := range value.groups {
+				if group != nil && group.PreferredVersion.Version != "" {
+					preferred[group.Name] = group.PreferredVersion.Version
+				}
+			}
+			return value.lists, preferred, value.err
 		}
 	}
 	legacy := c.Discovery.WithLegacy().RESTClient()
-	var versions metav1.APIVersions
-	if err := legacy.Get().AbsPath("/api").Do(ctx).Into(&versions); err != nil {
-		return nil, err
-	}
-	lists := make([]*metav1.APIResourceList, 0, len(versions.Versions))
-	for _, version := range versions.Versions {
-		var list metav1.APIResourceList
-		if err := legacy.Get().AbsPath("/api", version).Do(ctx).Into(&list); err != nil {
-			return lists, err
+	// Every endpoint gets its own deadline. A failed aggregated API must not
+	// consume an unbounded connection context or hide later healthy API groups.
+	fetch := func(path string, into runtime.Object) error {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		lists = append(lists, &list)
+		requestCtx, cancel := context.WithTimeout(ctx, discoveryRequestTimeout)
+		defer cancel()
+		if err := legacy.Get().AbsPath(path).Do(requestCtx).Into(into); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		return nil
+	}
+	var discoveryErrors []error
+	var paths []string
+	var versions metav1.APIVersions
+	if err := fetch("/api", &versions); err != nil {
+		discoveryErrors = append(discoveryErrors, err)
+	} else {
+		for _, version := range versions.Versions {
+			paths = append(paths, "/api/"+version)
+		}
+		if len(versions.Versions) > 0 {
+			preferred[""] = versions.Versions[0]
+		}
 	}
 	var groups metav1.APIGroupList
-	if err := legacy.Get().AbsPath("/apis").Do(ctx).Into(&groups); err != nil {
-		return lists, err
+	if err := fetch("/apis", &groups); err != nil {
+		discoveryErrors = append(discoveryErrors, err)
 	}
 	for _, group := range groups.Groups {
+		if group.PreferredVersion.Version != "" {
+			preferred[group.Name] = group.PreferredVersion.Version
+		}
 		for _, version := range group.Versions {
-			var list metav1.APIResourceList
-			if err := legacy.Get().AbsPath("/apis", group.Name, version.Version).Do(ctx).Into(&list); err != nil {
-				return lists, err
-			}
-			lists = append(lists, &list)
+			paths = append(paths, "/apis/"+group.Name+"/"+version.Version)
 		}
 	}
-	return lists, nil
+	// Bounded workers avoid serial aggregation timeouts on clusters with many
+	// CRDs, while result slots retain stable server discovery order.
+	listsByPath := make([]*metav1.APIResourceList, len(paths))
+	errorsByPath := make([]error, len(paths))
+	jobs := make(chan int)
+	var workers sync.WaitGroup
+	for worker := 0; worker < 8; worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for index := range jobs {
+				var list metav1.APIResourceList
+				if err := fetch(paths[index], &list); err != nil {
+					errorsByPath[index] = err
+				} else {
+					listsByPath[index] = &list
+				}
+			}
+		}()
+	}
+	for index := range paths {
+		jobs <- index
+	}
+	close(jobs)
+	workers.Wait()
+	lists := make([]*metav1.APIResourceList, 0, len(paths))
+	for index, list := range listsByPath {
+		if list != nil {
+			lists = append(lists, list)
+		}
+		if errorsByPath[index] != nil {
+			discoveryErrors = append(discoveryErrors, errorsByPath[index])
+		}
+	}
+	return lists, preferred, errors.Join(discoveryErrors...)
 }
 
 // New leaves HTTP request timeouts to callers so exec/log/watch streams aren't
@@ -200,6 +290,7 @@ func New(config *rest.Config, namespace, contextName string) (*Client, error) {
 func (c *Client) Close() {
 	c.once.Do(func() {
 		c.ClearSearchResourceCache()
+		c.SearchIndex().Close()
 		c.InvalidateDiscoveryCache()
 		if c.cancel != nil {
 			c.cancel()
@@ -213,12 +304,62 @@ func (c *Client) Close() {
 	})
 }
 
+// SearchIndex returns the metadata index owned by this connection. It is
+// lazily allocated so tests and callers that construct Client literals retain
+// the same behaviour as clients returned by New.
+func (c *Client) SearchIndex() *SearchIndex {
+	c.searchIndexMu.Lock()
+	defer c.searchIndexMu.Unlock()
+	if c.searchIndex == nil {
+		c.searchIndex = newSearchIndex(c)
+	}
+	return c.searchIndex
+}
+
+// SetSearchIndexPersistenceKey scopes the on-disk metadata snapshot to the
+// DBX connection and the Kubernetes endpoint. It must be set before the
+// connection is published so the asynchronous index startup can restore it.
+func (c *Client) SetSearchIndexPersistenceKey(connectionID string) {
+	c.searchIndexMu.Lock()
+	c.searchIndexKey = connectionID
+	if c.searchIndex != nil {
+		c.searchIndex.setPersistenceStore(newSearchIndexStore(c.searchIndexPersistenceKey()))
+	}
+	c.searchIndexMu.Unlock()
+}
+
+func (c *Client) searchIndexPersistenceKey() string {
+	host := ""
+	credentialFingerprint := ""
+	if c.Config != nil {
+		host = c.Config.Host
+		hash := sha256.New()
+		_, _ = hash.Write([]byte(c.Config.BearerToken))
+		_, _ = hash.Write(c.Config.TLSClientConfig.CertData)
+		_, _ = hash.Write(c.Config.TLSClientConfig.KeyData)
+		credentialFingerprint = hex.EncodeToString(hash.Sum(nil))
+	}
+	return strings.Join([]string{c.searchIndexKey, host, c.ContextName, c.Namespace, credentialFingerprint}, "\x00")
+}
+
+// StartSearchIndex begins asynchronous discovery/listing after a connection
+// is published. Tests and compatibility callers that construct a Client
+// literal can continue using the real-time fallback without starting it.
+func (c *Client) StartSearchIndex() { c.SearchIndex().Start() }
+
+// InvalidateSearchIndex refreshes the indexed resource metadata after a
+// mutation. The optional GVR and namespace allow future shard-level refreshes.
+func (c *Client) InvalidateSearchIndex(gvr schema.GroupVersionResource, namespace string) {
+	c.SearchIndex().Invalidate(gvr, namespace)
+}
+
 func (c *Client) InvalidateDiscoveryCache() {
 	c.discoveryMu.Lock()
 	defer c.discoveryMu.Unlock()
 	c.discoveryGeneration++
 	c.discoveryAt = time.Time{}
 	c.discoveryLists = nil
+	c.discoveryPreferred = nil
 	c.discoveryErr = nil
 	// Detach an in-flight lookup so a new caller can start fresh immediately.
 	// The old owner will still close its flight channel when it completes.

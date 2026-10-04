@@ -20,6 +20,7 @@ type Resource struct {
 	Kind       string       `json:"kind"`
 	Namespaced bool         `json:"namespaced"`
 	Verbs      metav1.Verbs `json:"verbs"`
+	Preferred  bool         `json:"-"`
 }
 type Discovery struct {
 	Resources []Resource `json:"resources"`
@@ -38,6 +39,7 @@ func discoverWithCache(c *kube.Client) (*Discovery, bool, error) {
 func discoverWithCacheContext(ctx context.Context, c *kube.Client) (*Discovery, bool, error) {
 	lists, err, hit := c.CachedAPIResourceListsContext(ctx)
 	result := &Discovery{Resources: []Resource{}, Warnings: []string{}}
+	preferredVersions := c.PreferredVersions()
 	if err != nil {
 		if len(lists) == 0 {
 			return nil, hit, err
@@ -53,7 +55,7 @@ func discoverWithCacheContext(ctx context.Context, c *kube.Client) (*Discovery, 
 			if strings.Contains(r.Name, "/") {
 				continue
 			}
-			result.Resources = append(result.Resources, Resource{gv.Group, gv.Version, r.Name, r.Kind, r.Namespaced, r.Verbs})
+			result.Resources = append(result.Resources, Resource{Group: gv.Group, Version: gv.Version, Resource: r.Name, Kind: r.Kind, Namespaced: r.Namespaced, Verbs: r.Verbs, Preferred: preferredVersions[gv.Group] == gv.Version})
 		}
 	}
 	sort.Slice(result.Resources, func(i, j int) bool {
@@ -78,7 +80,7 @@ func resolve(c *kube.Client, req Request) (Resource, error) {
 	}
 	for _, r := range list.APIResources {
 		if r.Name == req.Resource {
-			return Resource{req.Group, req.Version, r.Name, r.Kind, r.Namespaced, r.Verbs}, nil
+			return Resource{Group: req.Group, Version: req.Version, Resource: r.Name, Kind: r.Kind, Namespaced: r.Namespaced, Verbs: r.Verbs, Preferred: true}, nil
 		}
 	}
 	return Resource{}, fmt.Errorf("resource %s is not served by %s", req.Resource, gv.String())

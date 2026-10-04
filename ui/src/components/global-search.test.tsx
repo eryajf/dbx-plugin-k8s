@@ -80,8 +80,16 @@ vi.mock('@/components/ui/dialog', () => ({
 }))
 
 vi.mock('@/components/ui/command', () => ({
-  Command: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
+  Command: ({
+    children,
+    value,
+  }: {
+    children: React.ReactNode
+    value?: string
+  }) => (
+    <div data-testid="global-search-command" data-command-value={value}>
+      {children}
+    </div>
   ),
   CommandEmpty: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
@@ -117,12 +125,19 @@ vi.mock('@/components/ui/command', () => ({
     children,
     onSelect,
     disabled,
+    value,
   }: {
     children: React.ReactNode
     onSelect?: () => void
     disabled?: boolean
+    value?: string
   }) => (
-    <button type="button" disabled={disabled} onClick={onSelect}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      data-command-item-value={value}
+    >
       {children}
     </button>
   ),
@@ -212,7 +227,8 @@ vi.mock('react-i18next', async (importOriginal) => {
 describe('GlobalSearch', () => {
   beforeEach(() => {
     openSearchMock.mockClear()
-    globalSearchMock.mockClear()
+    globalSearchMock.mockReset()
+    globalSearchMock.mockResolvedValue({ results: [] })
     trackDesktopEvent.mockClear()
     setCurrentClusterMock.mockClear()
     toastErrorMock.mockReset()
@@ -313,6 +329,7 @@ describe('GlobalSearch', () => {
       expect(globalSearchMock).toHaveBeenCalledWith('ng', {
         limit: 10,
         namespace: undefined,
+        signal: expect.any(AbortSignal),
       })
     })
 
@@ -344,6 +361,56 @@ describe('GlobalSearch', () => {
         namespace: 'default',
       }),
     ])
+  })
+
+  it('selects the first resource result by default', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        {
+          id: 'pod-1',
+          name: 'first-pod',
+          namespace: 'default',
+          resourceType: 'pods',
+          createdAt: '',
+        },
+        {
+          id: 'pod-2',
+          name: 'second-pod',
+          namespace: 'default',
+          resourceType: 'pods',
+          createdAt: '',
+        },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'pod' },
+    })
+
+    await screen.findByText('first-pod')
+
+    await waitFor(() => {
+      const command = screen.getByTestId('global-search-command')
+      const selectedValue = command.getAttribute('data-command-value')
+      expect(selectedValue).toBe('first-pod default pods nav.pods')
+
+      const firstItem = screen
+        .getAllByRole('button')
+        .find((button) =>
+          button
+            .getAttribute('data-command-item-value')
+            ?.startsWith('first-pod ')
+        )
+      expect(firstItem?.getAttribute('data-command-item-value')).toBe(
+        selectedValue
+      )
+    })
   })
 
   it('routes custom resource results through the CRD detail route', async () => {
@@ -382,7 +449,7 @@ describe('GlobalSearch', () => {
     )
   })
 
-  it('passes the active namespace and ignores stale search responses', async () => {
+  it('searches all namespaces and ignores stale search responses', async () => {
     let resolveFirst: ((value: { results: unknown[] }) => void) | undefined
     const firstResponse = new Promise<{ results: unknown[] }>((resolve) => {
       resolveFirst = resolve
@@ -412,18 +479,22 @@ describe('GlobalSearch', () => {
     await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(1))
     expect(globalSearchMock).toHaveBeenCalledWith('ng', {
       limit: 10,
-      namespace: 'default',
+      signal: expect.any(AbortSignal),
     })
 
     fireEvent.change(input, { target: { value: 'nginx' } })
     await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(2))
-    resolveFirst?.({ results: [{ id: 'old', name: 'old', resourceType: 'pods' }] })
+    resolveFirst?.({
+      results: [{ id: 'old', name: 'old', resourceType: 'pods' }],
+    })
 
-    await waitFor(() => expect(screen.getByText('nginx-new')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('nginx-new')).toBeInTheDocument()
+    )
     expect(screen.queryByText('old')).not.toBeInTheDocument()
   })
 
-  it('extracts the namespace from custom resource detail routes', async () => {
+  it('does not inherit namespace from custom resource detail routes', async () => {
     globalSearchMock.mockResolvedValueOnce({
       results: [
         {
@@ -452,7 +523,7 @@ describe('GlobalSearch', () => {
     await waitFor(() => {
       expect(globalSearchMock).toHaveBeenCalledWith('widget', {
         limit: 10,
-        namespace: 'default',
+        signal: expect.any(AbortSignal),
       })
     })
   })
@@ -464,6 +535,17 @@ describe('GlobalSearch', () => {
           {
             id: 'old-pod',
             name: 'old-pod',
+            namespace: 'default',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'api-pod-2',
+            name: 'api-pod',
             namespace: 'default',
             resourceType: 'pods',
             createdAt: '',
@@ -493,27 +575,32 @@ describe('GlobalSearch', () => {
     await waitFor(() => expect(screen.getByText('old-pod')).toBeInTheDocument())
 
     fireEvent.change(input, { target: { value: 'o' } })
+    await waitFor(() => expect(screen.getByText('api-pod')).toBeInTheDocument())
     expect(screen.queryByText('old-pod')).not.toBeInTheDocument()
 
     fireEvent.change(input, { target: { value: '  ' } })
     expect(screen.queryByText('old-pod')).not.toBeInTheDocument()
-    expect(globalSearchMock).toHaveBeenCalledTimes(1)
+    expect(globalSearchMock).toHaveBeenCalledTimes(2)
 
     fireEvent.change(input, { target: { value: '  api  ' } })
     await waitFor(() => {
       expect(globalSearchMock).toHaveBeenCalledWith('api', {
         limit: 10,
-        namespace: undefined,
+        signal: expect.any(AbortSignal),
       })
     })
     await waitFor(() => expect(screen.getByText('api-pod')).toBeInTheDocument())
   })
 
-  it('shows a status when the backend reports incomplete search results', async () => {
+  it.each([
+    { complete: false, syncing: false, warnings: [] },
+    { complete: true, syncing: true, warnings: [] },
+    { warnings: ['pods: timed out'] },
+  ])('shows a status for a genuinely partial response: %o', async (state) => {
     globalSearchMock.mockResolvedValueOnce({
       results: [],
-      warnings: ['pods: timed out'],
       truncated: false,
+      ...state,
     })
 
     render(
@@ -529,6 +616,217 @@ describe('GlobalSearch', () => {
     await waitFor(() => {
       expect(screen.getByRole('status')).toBeInTheDocument()
     })
+  })
+
+  it('explains an empty result while the resource index is syncing', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [],
+      complete: false,
+      syncing: true,
+      status: 'syncing',
+      warnings: [],
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'manager' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('global-search-status')).toHaveTextContent(
+        'globalSearch.indexSyncingNoResults'
+      )
+    })
+    expect(screen.queryByText('globalSearch.noResults')).not.toBeInTheDocument()
+  })
+
+  it('does not mark complete paginated responses incomplete, including cache hits', async () => {
+    globalSearchMock.mockResolvedValueOnce({
+      results: [
+        { id: 'pod', name: 'web-page', resourceType: 'pods', createdAt: '' },
+      ],
+      total: 30,
+      complete: true,
+      syncing: false,
+      truncated: true,
+      nextCursor: 'page-2',
+      generation: 42,
+      warnings: [],
+    })
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText('globalSearch.placeholder')
+    fireEvent.change(input, { target: { value: 'web' } })
+    await screen.findByText('web-page')
+    expect(
+      screen.queryByText('globalSearch.incompleteResults')
+    ).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.change(input, { target: { value: 'web' } })
+    await screen.findByText('web-page')
+    expect(globalSearchMock).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByText('globalSearch.incompleteResults')
+    ).not.toBeInTheDocument()
+  })
+
+  it('preserves previous results on failure and during retry', async () => {
+    let finishRetry!: (response: { results: unknown[] }) => void
+    globalSearchMock
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'old',
+            name: 'previous-pod',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRetry = resolve
+          })
+      )
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText('globalSearch.placeholder')
+    fireEvent.change(input, { target: { value: 'previous' } })
+    await screen.findByText('previous-pod')
+    fireEvent.change(input, { target: { value: 'next' } })
+    expect(screen.getByText('previous-pod')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('offline')
+    expect(screen.getByText('previous-pod')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('common.retry'))
+    expect(screen.getByText('previous-pod')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByTestId('global-search-status')).toHaveTextContent(
+      'globalSearch.searching'
+    )
+    await act(async () =>
+      finishRetry({
+        results: [
+          { id: 'new', name: 'next-pod', resourceType: 'pods', createdAt: '' },
+        ],
+      })
+    )
+    expect(screen.getByText('next-pod')).toBeInTheDocument()
+    expect(screen.queryByText('previous-pod')).not.toBeInTheDocument()
+  })
+
+  it('cancels requests on query change, clear, and dialog close', async () => {
+    globalSearchMock.mockImplementation(() => new Promise(() => {}))
+    const { rerender } = render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText('globalSearch.placeholder')
+    fireEvent.change(input, { target: { value: 'first' } })
+    await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(1))
+    const firstSignal = globalSearchMock.mock.calls[0][1].signal as AbortSignal
+    fireEvent.change(input, { target: { value: 'next' } })
+    expect(firstSignal.aborted).toBe(true)
+    await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(2))
+    const nextSignal = globalSearchMock.mock.calls[1][1].signal as AbortSignal
+    fireEvent.change(input, { target: { value: '' } })
+    expect(nextSignal.aborted).toBe(true)
+    fireEvent.change(input, { target: { value: 'third' } })
+    await waitFor(() => expect(globalSearchMock).toHaveBeenCalledTimes(3))
+    const thirdSignal = globalSearchMock.mock.calls[2][1].signal as AbortSignal
+    rerender(
+      <MemoryRouter>
+        <GlobalSearch open={false} mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+    expect(thirdSignal.aborted).toBe(true)
+  })
+
+  it('clears results from the previous namespace scope', async () => {
+    globalSearchMock
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'pod',
+            name: 'first-scope-pod',
+            namespace: 'first',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+      .mockImplementationOnce(() => new Promise(() => {}))
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'pod' },
+    })
+    await screen.findByText('first-scope-pod')
+    fireEvent.change(screen.getByLabelText('detail.fields.namespace'), {
+      target: { value: 'second' },
+    })
+    expect(screen.queryByText('first-scope-pod')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(globalSearchMock).toHaveBeenLastCalledWith('pod', {
+        limit: 10,
+        namespace: 'second',
+        signal: expect.any(AbortSignal),
+      })
+    )
+  })
+
+  it('keeps backend errors separate from an empty result state', async () => {
+    globalSearchMock
+      .mockRejectedValueOnce(new Error('search unavailable'))
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'retry-pod',
+            name: 'retry-pod',
+            namespace: 'default',
+            resourceType: 'pods',
+            createdAt: '',
+          },
+        ],
+      })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open mode="all" onOpenChange={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('globalSearch.placeholder'), {
+      target: { value: 'x' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('search unavailable')
+    })
+    expect(screen.queryByText('globalSearch.noResults')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('common.retry'))
+    await waitFor(() =>
+      expect(screen.getByText('retry-pod')).toBeInTheDocument()
+    )
   })
 
   it.each([

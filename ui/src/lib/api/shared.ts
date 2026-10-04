@@ -10,9 +10,12 @@ export interface PaginatedResult<T> {
 }
 
 // Generic fetch function with error handling
-export async function fetchAPI<T>(endpoint: string): Promise<T> {
+export async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
   try {
-    return await apiClient.get<T>(`${endpoint}`)
+    return await apiClient.get<T>(`${endpoint}`, options)
   } catch (error: unknown) {
     console.error('API request failed:', error)
     throw error

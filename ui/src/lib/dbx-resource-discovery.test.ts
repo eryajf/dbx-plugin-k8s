@@ -52,5 +52,12 @@ describe('DBX resource discovery', () => {
       namespace: 'default',
       name: 'widget/one',
     })).toBe('/crds/widgets.example.com/default/widget%2Fone')
+    expect(getDBXResourcePath({
+      resourceType: 'deployments',
+      namespace: 'default',
+      name: 'web',
+      group: 'apps',
+      version: 'v1',
+    })).toBe('/deployments/default/web?group=apps&version=v1')
   })
 })

@@ -1,6 +1,7 @@
 import { getDBXTransport } from '../dbx-transport'
 import { downloadDBXFile } from '../dbx-files'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
@@ -20,6 +21,8 @@ import { downloadNativeFile, openURL } from '../desktop'
 import { withSubPath } from '../subpath'
 import { startDBXWatch } from '../dbx-watch'
 import { fetchAPI } from './shared'
+import { getSearchTokens, normalizeSearchQuery } from '../search-query'
+import { validateSearchResponse } from '../search-response'
 
 type ResourcesItems<T extends ResourceType> = ResourcesTypeMap[T]['items']
 
@@ -91,14 +94,24 @@ export interface SearchResult {
   customResource?: boolean
   group?: string
   version?: string
+  kind?: string
+  labels?: Record<string, string>
   createdAt: string
 }
 
 export interface SearchResponse {
   results: SearchResult[]
+  /** Raw RPC name retained for callers which consume the DBX response. */
+  items?: SearchResult[]
   total: number
   warnings?: string[]
   truncated?: boolean
+  complete?: boolean
+  syncing?: boolean
+  status?: 'cold' | 'syncing' | 'ready' | 'degraded' | string
+  indexAge?: string
+  generation?: number
+  nextCursor?: string
 }
 
 export interface FavoriteResource {
@@ -138,17 +151,47 @@ export const removeFavoriteResource = async (
   await apiClient.post<void>('/preferences/favorites/remove', data)
 }
 
-// Global search API
+// Search navigation carries the selected served GVR in the route query. Keep
+// that hint on resource reads and mutations so a multi-version resource is
+// resolved consistently after the page loads.
+function appendRouteGVR(endpoint: string, routeSearch?: string): string {
+  if (typeof window === 'undefined' && routeSearch === undefined) return endpoint
+  const route = new URLSearchParams(routeSearch ?? window.location.search)
+  const group = route.get('group')
+  const version = route.get('version')
+  if (group === null && version === null) return endpoint
+  const separator = endpoint.indexOf('?')
+  const path = separator >= 0 ? endpoint.slice(0, separator) : endpoint
+  const query = new URLSearchParams(
+    separator >= 0 ? endpoint.slice(separator + 1) : ''
+  )
+  if (group !== null && !query.has('group')) query.set('group', group)
+  if (version !== null && !query.has('version')) query.set('version', version)
+  return `${path}?${query.toString()}`
+}
+
+function routeGVRKey(routeSearch?: string): string {
+  if (typeof window === 'undefined' && routeSearch === undefined) return ''
+  const route = new URLSearchParams(routeSearch ?? window.location.search)
+  return `${route.get('group') ?? ''}/${route.get('version') ?? ''}`
+}
+
+// Global search API. Cancellation belongs to each consumer's request lifecycle.
 export const globalSearch = async (
   query: string,
   options?: {
     limit?: number
     namespace?: string
+    group?: string
+    version?: string
+    resource?: string
+    cursor?: string
+    signal?: AbortSignal
   }
 ): Promise<SearchResponse> => {
-  const normalizedQuery = query.trim()
-  if (normalizedQuery.length < 2) {
-    return { results: [], total: 0 }
+  const normalizedQuery = normalizeSearchQuery(query)
+  if (getSearchTokens(normalizedQuery).length === 0) {
+    return { results: [], total: 0, complete: true, syncing: false }
   }
 
   const params = new URLSearchParams({
@@ -159,9 +202,33 @@ export const globalSearch = async (
   if (options?.namespace) {
     params.append('namespace', options.namespace)
   }
+  if (options?.group) {
+    params.append('group', options.group)
+  }
+  if (options?.version) {
+    params.append('version', options.version)
+  }
+  if (options?.resource) {
+    params.append('resource', options.resource)
+  }
+  if (options?.cursor) {
+    params.append('cursor', options.cursor)
+  }
 
   const endpoint = `/search?${params.toString()}`
-  return fetchAPI<SearchResponse>(endpoint)
+  const response = await fetchAPI<
+    Partial<SearchResponse> & { items?: SearchResult[] }
+  >(endpoint, {
+    signal: options?.signal,
+  })
+  validateSearchResponse(response, 'resourceType')
+  const results = response.results ?? response.items!
+  return {
+    ...response,
+    results,
+    items: response.items || results,
+    total: typeof response.total === 'number' ? response.total : results.length,
+  }
 }
 // Scale deployment API
 export const scaleDeployment = async (
@@ -266,7 +333,7 @@ export const updateResource = async <T extends ResourceType>(
   body: ResourceTypeMap[T]
 ): Promise<void> => {
   const endpoint = `/${resource}/${namespace || '_all'}/${name}`
-  await apiClient.put(`${endpoint}`, body)
+  await apiClient.put(appendRouteGVR(endpoint), body)
 }
 
 export const resizePod = async (
@@ -290,7 +357,7 @@ export const patchResource = async <T extends ResourceType>(
   body: DeepPartial<ResourceTypeMap[T]>
 ): Promise<void> => {
   const endpoint = `/${resource}/${namespace || '_all'}/${name}`
-  await apiClient.patch(`${endpoint}`, body)
+  await apiClient.patch(appendRouteGVR(endpoint), body)
 }
 
 export const createResource = async <T extends ResourceType>(
@@ -319,7 +386,7 @@ export const deleteResource = async <T extends ResourceType>(
     params.append('wait', 'false')
   }
   const endpoint = `/${resource}/${namespace || '_all'}/${name}?${params.toString()}`
-  await apiClient.delete(endpoint)
+  await apiClient.delete(appendRouteGVR(endpoint))
 }
 
 // Apply resource from YAML
@@ -569,12 +636,13 @@ export function useResourcesWatch<T extends ResourceType>(
 export const fetchResource = <T>(
   resource: string,
   name: string,
-  namespace?: string
+  namespace?: string,
+  routeSearch?: string
 ): Promise<T> => {
   const endpoint = namespace
     ? `/${resource}/${namespace}/${name}`
     : `/${resource}/${name}`
-  return fetchAPI<T>(endpoint)
+  return fetchAPI<T>(appendRouteGVR(endpoint, routeSearch))
 }
 export const useResource = <T extends keyof ResourceTypeMap>(
   resource: T,
@@ -583,10 +651,12 @@ export const useResource = <T extends keyof ResourceTypeMap>(
   options?: { staleTime?: number; refreshInterval?: number }
 ) => {
   const ns = namespace || '_all'
+  const location = useLocation()
+  const gvr = routeGVRKey(location.search)
   return useQuery({
-    queryKey: [resource.slice(0, -1), ns, name], // Remove 's' from resource name for singular
+    queryKey: [resource.slice(0, -1), ns, name, gvr], // Remove 's' from resource name for singular
     queryFn: () => {
-      return fetchResource<ResourceTypeMap[T]>(resource, name, ns)
+      return fetchResource<ResourceTypeMap[T]>(resource, name, ns, location.search)
     },
     refetchOnWindowFocus: 'always',
     refetchInterval: options?.refreshInterval || 0, // Default to no auto-refresh
@@ -598,10 +668,11 @@ export const useResource = <T extends keyof ResourceTypeMap>(
 export const fetchDescribe = async (
   resourceType: ResourceType,
   name: string,
-  namespace?: string
+  namespace?: string,
+  routeSearch?: string
 ): Promise<{ result: string }> => {
   const endpoint = `/${resourceType}/${namespace ?? '_all'}/${name}/describe`
-  return fetchAPI<{ result: string }>(endpoint)
+  return fetchAPI<{ result: string }>(appendRouteGVR(endpoint, routeSearch))
 }
 
 export const useDescribe = (
@@ -610,9 +681,11 @@ export const useDescribe = (
   namespace?: string,
   options?: { staleTime?: number; enabled?: boolean }
 ) => {
+  const location = useLocation()
+  const gvr = routeGVRKey(location.search)
   return useQuery({
-    queryKey: [resourceType, name, namespace, 'describe'],
-    queryFn: () => fetchDescribe(resourceType, name, namespace),
+    queryKey: [resourceType, name, namespace, gvr, 'describe'],
+    queryFn: () => fetchDescribe(resourceType, name, namespace, location.search),
     enabled: (options?.enabled ?? true) && !!name,
     staleTime: options?.staleTime || 0,
     retry: 0,
@@ -840,10 +913,11 @@ export function useImageTags(image: string, options?: { enabled?: boolean }) {
 export async function getRelatedResources(
   resource: ResourceType,
   name: string,
-  namespace?: string
+  namespace?: string,
+  routeSearch?: string
 ) {
   const resp = await apiClient.get<RelatedResources[]>(
-    `/${resource}/${namespace ? namespace : '_all'}/${name}/related`
+    appendRouteGVR(`/${resource}/${namespace ? namespace : '_all'}/${name}/related`, routeSearch)
   )
   return resp
 }
@@ -853,9 +927,11 @@ export function useRelatedResources(
   name: string,
   namespace?: string
 ) {
+  const location = useLocation()
+  const gvr = routeGVRKey(location.search)
   return useQuery({
-    queryKey: ['related-resources', resource, name, namespace],
-    queryFn: () => getRelatedResources(resource, name, namespace),
+    queryKey: ['related-resources', resource, name, namespace, gvr],
+    queryFn: () => getRelatedResources(resource, name, namespace, location.search),
     staleTime: 60 * 1000, // 1 min
     placeholderData: (prev) => prev,
   })
@@ -866,10 +942,11 @@ export const fetchResourceHistory = (
   namespace: string,
   name: string,
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  routeSearch?: string
 ): Promise<ResourceHistoryResponse> => {
   const endpoint = `/${resourceType}/${namespace}/${name}/history?page=${page}&pageSize=${pageSize}`
-  return fetchAPI<ResourceHistoryResponse>(endpoint)
+  return fetchAPI<ResourceHistoryResponse>(appendRouteGVR(endpoint, routeSearch))
 }
 
 export const useResourceHistory = (
@@ -880,6 +957,8 @@ export const useResourceHistory = (
   pageSize: number = 10,
   options?: { enabled?: boolean; staleTime?: number }
 ) => {
+  const location = useLocation()
+  const gvr = routeGVRKey(location.search)
   return useQuery({
     queryKey: [
       'resource-history',
@@ -888,9 +967,10 @@ export const useResourceHistory = (
       name,
       page,
       pageSize,
+      gvr,
     ],
     queryFn: () =>
-      fetchResourceHistory(resourceType, namespace, name, page, pageSize),
+      fetchResourceHistory(resourceType, namespace, name, page, pageSize, location.search),
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime || 30000, // 30 seconds cache
   })

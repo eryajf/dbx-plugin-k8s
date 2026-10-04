@@ -28,6 +28,7 @@ type Request struct {
 	FieldSelector   string          `json:"fieldSelector"`
 	Limit           int64           `json:"limit"`
 	Continue        string          `json:"continue"`
+	Cursor          string          `json:"cursor"`
 	DryRun          bool            `json:"dryRun"`
 	UID             string          `json:"uid"`
 	ResourceVersion string          `json:"resourceVersion"`

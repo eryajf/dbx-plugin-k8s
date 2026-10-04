@@ -17,6 +17,7 @@ import (
 	"github.com/eryajf/dbx-plugin-k8s/internal/sessions"
 	dbx "github.com/t8y2/dbx/plugins/sdk/go/dbx-plugin-sdk"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type plugin struct {
@@ -173,6 +174,11 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 	if e == nil && isSearchMutation(method) {
 		c.InvalidateSearchResourceCache()
 		c.InvalidateDiscoveryCache()
+		group, _ := v["group"].(string)
+		version, _ := v["version"].(string)
+		resource, _ := v["resource"].(string)
+		namespace, _ := v["namespace"].(string)
+		c.InvalidateSearchIndex(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}, namespace)
 	}
 	pe := classify(e)
 	if pe != nil {

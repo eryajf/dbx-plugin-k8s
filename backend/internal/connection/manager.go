@@ -108,6 +108,10 @@ func (m *Manager) Put(id string, c *kube.Client) {
 	if old != nil {
 		old.Close()
 	}
+	if c != nil {
+		c.SetSearchIndexPersistenceKey(id)
+		c.StartSearchIndex()
+	}
 }
 func (m *Manager) Remove(id string) {
 	m.mu.Lock()

@@ -2,14 +2,17 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/eryajf/dbx-plugin-k8s/internal/kube"
+	"golang.org/x/text/unicode/norm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -34,59 +37,131 @@ func describe(ctx context.Context, c *kube.Client, r Resource, req Request) (any
 }
 
 type SearchResult struct {
-	Items     []map[string]any `json:"items"`
-	Warnings  []string         `json:"warnings"`
-	Truncated bool             `json:"truncated"`
+	Items      []map[string]any `json:"items"`
+	Warnings   []string         `json:"warnings"`
+	Truncated  bool             `json:"truncated"`
+	Total      int              `json:"total"`
+	NextCursor string           `json:"nextCursor,omitempty"`
+	Complete   bool             `json:"complete"`
+	Syncing    bool             `json:"syncing"`
+	Status     string           `json:"status,omitempty"`
+	Generation uint64           `json:"generation,omitempty"`
+	IndexAge   string           `json:"indexAge,omitempty"`
 }
 
 type scoredSearchResult struct {
-	item  map[string]any
-	score int
-	group string
-	res   string
-	name  string
-	ns    string
+	item      map[string]any
+	score     int
+	group     string
+	res       string
+	version   string
+	preferred bool
+	name      string
+	ns        string
 }
 
 const (
 	searchTimeout       = 2 * time.Second
 	exactSearchTimeout  = 1200 * time.Millisecond
-	searchMinQueryChars = 2
+	searchMinQueryChars = 1
 	searchPageSize      = 500
 )
 
 var searchResourcePriority = map[string]int{
-	"pods": 1, "deployments": 2, "statefulsets": 3, "daemonsets": 4,
-	"services": 5, "configmaps": 6, "secrets": 7, "jobs": 8,
-	"ingresses": 9, "persistentvolumeclaims": 10, "persistentvolumes": 11,
-	"horizontalpodautoscalers": 12, "namespaces": 13, "nodes": 14,
+	// Workload and traffic entry points are the resources users most often
+	// intend to open from a global search. Keep this ordering explicit so the
+	// realtime fallback and the warm index present the same useful sequence.
+	"deployments":              1,
+	"pods":                     2,
+	"services":                 3,
+	"endpointslices":           4,
+	"endpoints":                5,
+	"statefulsets":             6,
+	"daemonsets":               7,
+	"configmaps":               8,
+	"secrets":                  9,
+	"jobs":                     10,
+	"ingresses":                11,
+	"persistentvolumeclaims":   12,
+	"persistentvolumes":        13,
+	"horizontalpodautoscalers": 14,
+	"namespaces":               15,
+	"nodes":                    16,
 }
 
 func searchMatch(object *unstructured.Unstructured, query string) (int, bool) {
-	if query == "" {
-		return 7, true
-	}
-	name := strings.ToLower(object.GetName())
-	namespace := strings.ToLower(object.GetNamespace())
-	switch {
-	case name == query:
-		return 0, true
-	case strings.HasPrefix(name, query):
-		return 1, true
-	case strings.Contains(name, query):
-		return 2, true
-	case namespace == query:
-		return 3, true
-	case strings.HasPrefix(namespace, query):
-		return 4, true
-	case strings.Contains(namespace, query):
-		return 5, true
-	case strings.Contains(strings.ToLower(labels.Set(object.GetLabels()).String()), query):
-		return 6, true
-	default:
-		return 0, false
-	}
+	return searchMatchResource(object, "", "", "", query)
 }
+
+// searchMatchResource applies the same token AND semantics used by the
+// connection-scoped index. Every token must occur in at least one searchable
+// metadata field, allowing queries such as "api server" to match api-server.
+func searchMatchResource(object *unstructured.Unstructured, resource, group, kind, query string) (int, bool) {
+	tokens := searchTokens(query)
+	if len(tokens) == 0 {
+		return 100, true
+	}
+	fields := []string{normalizeSearch(object.GetName()), normalizeSearch(object.GetNamespace()), normalizeSearch(resource), normalizeSearch(kind), normalizeSearch(group)}
+	if group != "" {
+		fields = append(fields, normalizeSearch(resource+"."+group), normalizeSearch(group+"/"+resource))
+	}
+	for key, value := range object.GetLabels() {
+		fields = append(fields, normalizeSearch(key), normalizeSearch(value))
+	}
+	score := 0
+	for _, token := range tokens {
+		best := 1000
+		for i, field := range fields {
+			if field == "" {
+				continue
+			}
+			rank := -1
+			switch i {
+			case 0:
+				switch {
+				case field == token:
+					rank = 0
+				case strings.HasPrefix(field, token):
+					rank = 1
+				case strings.Contains(field, token):
+					rank = 2
+				}
+			case 1:
+				switch {
+				case field == token:
+					rank = 3
+				case strings.HasPrefix(field, token):
+					rank = 4
+				case strings.Contains(field, token):
+					rank = 5
+				}
+			case 2, 3, 4, 5, 6:
+				if strings.Contains(field, token) {
+					rank = 6
+				}
+			default:
+				if strings.Contains(field, token) {
+					rank = 7
+				}
+			}
+			if rank >= 0 && rank < best {
+				best = rank
+			}
+		}
+		if best == 1000 {
+			return 0, false
+		}
+		score += best
+	}
+	return score, true
+}
+
+func searchTokens(value string) []string {
+	value = normalizeSearch(strings.TrimSpace(value))
+	return strings.Fields(value)
+}
+
+func normalizeSearch(value string) string { return norm.NFKC.String(strings.ToLower(value)) }
 
 func resourcePriority(resource string) int {
 	if priority, ok := searchResourcePriority[resource]; ok {
@@ -145,6 +220,19 @@ func search(ctx context.Context, c *kube.Client, req Request) (any, error) {
 	searchCtx, cancelSearch := context.WithTimeout(ctx, searchTimeout)
 	defer cancelSearch()
 	global := req.Group == "" && req.Version == "" && req.Resource == ""
+	// Normalize the optional resource alias before consulting the in-memory
+	// index. A ready index makes Cmd+K a bounded memory operation; while it is
+	// cold/syncing we retain the real-time path below as a correctness fallback.
+	indexReq := req
+	if indexReq.Resource == "" {
+		resource, query := splitSearchQuery(req.Query)
+		indexReq.Query = query
+		indexReq.Resource = resource
+	}
+	indexed := c.SearchIndex().Query(kube.SearchQuery{Query: indexReq.Query, Namespace: indexReq.Namespace, Group: indexReq.Group, Version: indexReq.Version, Resource: indexReq.Resource, Limit: int(req.Limit), Cursor: req.Cursor})
+	if indexed.Usable || (indexed.Status == kube.SearchIndexReady && indexed.Complete) {
+		return searchResultFromIndex(indexed), nil
+	}
 	var staticResult SearchResult
 	haveStaticResult := false
 	if global {
@@ -161,7 +249,7 @@ func search(ctx context.Context, c *kube.Client, req Request) (any, error) {
 				return nil, err
 			}
 			if result, ok := fast.(SearchResult); ok && len(result.Items) > 0 {
-				return result, nil
+				return markSearchFallback(result, indexed), nil
 			}
 		}
 		fast, err := searchCatalogWithTimeout(searchCtx, c, req, &Discovery{Resources: builtInSearchResources}, false, started, searchTimeout)
@@ -171,16 +259,17 @@ func search(ctx context.Context, c *kube.Client, req Request) (any, error) {
 		if result, ok := fast.(SearchResult); ok {
 			staticResult = result
 			haveStaticResult = true
-			// An explicit built-in resource scope is complete after the static
-			// catalog scan. Do not pay the discovery cost for a missing name.
+			// The static catalog is enough for the built-in alias fallback.
+			// Keep the index synchronization state visible to the caller.
 			if resource != "" {
-				return result, nil
+				return markSearchFallback(result, indexed), nil
 			}
 			// An empty query is intentionally limited to the stable core catalog.
 			// For a real query we must still scan discovery resources: a full core
 			// result window must not hide an equally good CRD match.
 			if strings.TrimSpace(req.Query) == "" {
-				return result, nil
+
+				return markSearchFallback(result, indexed), nil
 			}
 		}
 	}
@@ -189,6 +278,22 @@ func search(ctx context.Context, c *kube.Client, req Request) (any, error) {
 	// Cmd+K waiting for tens of seconds before the CRD fallback is attempted.
 	catalog, discoveryHit, err := discoverWithCacheContext(searchCtx, c)
 	if err != nil {
+		// The interactive search budget is deliberately finite. A discovery
+		// timeout is a partial-search condition, not an RPC failure: callers must
+		// still receive the core results (or an explicit empty partial response)
+		// so Cmd+K does not turn a slow aggregated API into a red error screen.
+		if errors.Is(err, context.DeadlineExceeded) {
+			if haveStaticResult {
+				warnings := append([]string{}, staticResult.Warnings...)
+				warnings = append(warnings, fmt.Sprintf("resource discovery timed out after %s; core results may be incomplete", searchTimeout))
+				sort.Strings(warnings)
+				staticResult.Warnings = warnings
+				staticResult.Complete = false
+				staticResult.Status = string(kube.SearchIndexDegraded)
+				return markSearchFallback(staticResult, indexed), nil
+			}
+			return markSearchFallback(SearchResult{Items: []map[string]any{}, Warnings: []string{fmt.Sprintf("resource discovery timed out after %s; results may be incomplete", searchTimeout)}}, indexed), nil
+		}
 		// Core resources were already queried above. Discovery includes optional
 		// API groups and should not erase useful Deployment/Pod results when an
 		// aggregated endpoint is unavailable. Preserve cancellation from the
@@ -196,22 +301,71 @@ func search(ctx context.Context, c *kube.Client, req Request) (any, error) {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if haveStaticResult && len(staticResult.Items) > 0 {
+		if haveStaticResult {
 			warnings := append([]string{}, staticResult.Warnings...)
 			warnings = append(warnings, fmt.Sprintf("resource discovery unavailable: %v; core results may be incomplete", err))
 			sort.Strings(warnings)
 			staticResult.Warnings = warnings
-			staticResult.Truncated = true
-			return staticResult, nil
+			staticResult.Complete = false
+			staticResult.Status = string(kube.SearchIndexDegraded)
+			return markSearchFallback(staticResult, indexed), nil
 		}
 		return nil, err
 	}
 	if len(catalog.Resources) == 0 && haveStaticResult {
 		// Compatibility clients may not expose discovery data even though their
 		// dynamic client can list the stable built-in resources.
-		return staticResult, nil
+		return markSearchFallback(staticResult, indexed), nil
 	}
-	return searchCatalogWithTimeout(searchCtx, c, req, catalog, discoveryHit, started, searchTimeout)
+	fallback, err := searchCatalogWithTimeout(searchCtx, c, req, catalog, discoveryHit, started, searchTimeout)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := fallback.(SearchResult)
+	if !ok {
+		return nil, fmt.Errorf("resource search returned an invalid result")
+	}
+	return markSearchFallback(result, indexed), nil
+}
+
+// Real-time fallback never certifies global index coverage. Preserve its useful
+// matches while exposing the index state on every return path, including aliases.
+func markSearchFallback(result SearchResult, indexed kube.SearchIndexResult) SearchResult {
+	result.Complete = false
+	result.Syncing = indexed.Syncing
+	indexDegraded := indexed.Status == kube.SearchIndexDegraded || (indexed.Status == kube.SearchIndexReady && !indexed.Complete)
+	if result.Status != string(kube.SearchIndexDegraded) && !indexDegraded {
+		result.Status = string(indexed.Status)
+	} else {
+		result.Status = string(kube.SearchIndexDegraded)
+	}
+	result.Generation = indexed.Generation
+	if indexed.IndexAge > 0 {
+		result.IndexAge = indexed.IndexAge.Round(time.Millisecond).String()
+	}
+	result.Warnings = append(result.Warnings, indexed.Warnings...)
+	result.Warnings = append(result.Warnings, "resource index is not ready; results may be incomplete")
+	sort.Strings(result.Warnings)
+	return result
+}
+
+func searchResultFromIndex(indexed kube.SearchIndexResult) SearchResult {
+	status := indexed.Status
+	if status == kube.SearchIndexReady && !indexed.Complete {
+		status = kube.SearchIndexDegraded
+	}
+	result := SearchResult{Items: make([]map[string]any, 0, len(indexed.Items)), Total: indexed.Total, NextCursor: indexed.NextCursor, Truncated: indexed.Truncated, Complete: indexed.Complete, Syncing: indexed.Syncing, Status: string(status), Generation: indexed.Generation, Warnings: append([]string{}, indexed.Warnings...)}
+	if indexed.IndexAge > 0 {
+		result.IndexAge = indexed.IndexAge.Round(time.Millisecond).String()
+	}
+	for _, item := range indexed.Items {
+		mapped := map[string]any{"id": item.ID, "group": item.Group, "version": item.Version, "resource": item.Resource, "kind": item.Kind, "name": item.Name, "namespace": item.Namespace, "uid": item.UID, "createdAt": item.CreatedAt}
+		if len(item.Labels) > 0 {
+			mapped["labels"] = item.Labels
+		}
+		result.Items = append(result.Items, mapped)
+	}
+	return result
 }
 
 func searchNameFieldSelector(existing, name string) string {
@@ -323,11 +477,14 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 		if req.Version != "" && req.Version != r.Version {
 			continue
 		}
-		key := r.Group + "/" + r.Resource
+		key := r.Group + "/" + r.Version + "/" + r.Resource
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
+		if !r.Preferred && isBuiltInSearchResource(r) {
+			r.Preferred = true
+		}
 		candidates = append(candidates, r)
 	}
 	// Select the bounded catalog only after prioritizing built-in GVRs. Both
@@ -397,20 +554,27 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 	scored := make([]scoredSearchResult, 0)
 	timeoutWarning := false
 	for listed := range results {
-		key := listed.resource.Group + "/" + listed.resource.Resource
+		key := listed.resource.Group + "/" + listed.resource.Version + "/" + listed.resource.Resource
 		if listed.err != nil {
-			if ctx.Err() != nil {
+			// Deadline exhaustion is expected for the bounded fallback scan. Keep
+			// the pages collected before it and report a partial result. Only an
+			// explicit cancellation should abort the RPC without a response.
+			if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				return nil, ctx.Err()
 			}
-			if searchCtx.Err() != nil {
-				result.Truncated = true
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(searchCtx.Err(), context.DeadlineExceeded) || errors.Is(listed.err, context.DeadlineExceeded) {
 				if !timeoutWarning {
 					result.Warnings = append(result.Warnings, fmt.Sprintf("search timed out after %s; results may be incomplete", timeout.Round(time.Millisecond)))
 					timeoutWarning = true
 				}
 			} else {
-				result.Truncated = true
 				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: %v", key, listed.err))
+			}
+			// A failed continuation means the paginated list itself was
+			// truncated. A resource type that failed before its first page is
+			// represented by complete=false and a warning only.
+			if listed.list != nil {
+				result.Truncated = true
 			}
 			if listed.list == nil {
 				continue
@@ -420,7 +584,7 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 			continue
 		}
 		for _, object := range listed.list.Items {
-			score, matched := searchMatch(&object, query)
+			score, matched := searchMatchResource(&object, listed.resource.Resource, listed.resource.Group, listed.resource.Kind, query)
 			if !matched {
 				continue
 			}
@@ -429,11 +593,35 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 				createdAt = timestamp.UTC().Format(time.RFC3339)
 			}
 			stableID := strings.Join([]string{listed.resource.Group, listed.resource.Version, listed.resource.Resource, object.GetNamespace(), object.GetName()}, "/")
+			mapped := map[string]any{"id": stableID, "group": listed.resource.Group, "version": listed.resource.Version, "resource": listed.resource.Resource, "kind": listed.resource.Kind, "name": object.GetName(), "namespace": object.GetNamespace(), "uid": string(object.GetUID()), "createdAt": createdAt}
+			if labels := object.GetLabels(); len(labels) > 0 {
+				mapped["labels"] = labels
+			}
 			scored = append(scored, scoredSearchResult{
-				item:  map[string]any{"id": stableID, "group": listed.resource.Group, "version": listed.resource.Version, "resource": listed.resource.Resource, "kind": listed.resource.Kind, "name": object.GetName(), "namespace": object.GetNamespace(), "uid": object.GetUID(), "labels": object.GetLabels(), "createdAt": createdAt},
-				score: score, group: listed.resource.Group, res: listed.resource.Resource, name: object.GetName(), ns: object.GetNamespace(),
+				item:  mapped,
+				score: score, group: listed.resource.Group, res: listed.resource.Resource, version: listed.resource.Version, preferred: listed.resource.Preferred, name: object.GetName(), ns: object.GetNamespace(),
 			})
 		}
+	}
+	// A UID is stable across served versions. Collapse duplicate list results
+	// before calculating totals while retaining version-specific entries that do
+	// not expose a UID (some aggregated APIs omit it).
+	byUID := make(map[string]scoredSearchResult)
+	withoutUID := make([]scoredSearchResult, 0, len(scored))
+	for _, item := range scored {
+		uid, _ := item.item["uid"].(string)
+		if uid == "" {
+			withoutUID = append(withoutUID, item)
+			continue
+		}
+		previous, exists := byUID[uid]
+		if !exists || (item.preferred && !previous.preferred) || (item.preferred == previous.preferred && (item.score < previous.score || (item.score == previous.score && item.version < previous.version))) {
+			byUID[uid] = item
+		}
+	}
+	scored = withoutUID
+	for _, item := range byUID {
+		scored = append(scored, item)
 	}
 	sort.SliceStable(scored, func(i, j int) bool {
 		if scored[i].score != scored[j].score {
@@ -449,20 +637,59 @@ func searchCatalogWithTimeout(ctx context.Context, c *kube.Client, req Request, 
 		if scored[i].ns != scored[j].ns {
 			return scored[i].ns < scored[j].ns
 		}
-		return scored[i].group+"/"+scored[i].res < scored[j].group+"/"+scored[j].res
+		left := scored[i].group + "/" + scored[i].res + "/" + scored[i].version
+		right := scored[j].group + "/" + scored[j].res + "/" + scored[j].version
+		return left < right
 	})
+	totalMatches := len(scored)
+	offset := 0
+	if req.Cursor != "" {
+		parsed, err := strconv.Atoi(req.Cursor)
+		if err != nil || parsed < 0 {
+			result.Warnings = append(result.Warnings, "invalid search cursor")
+		} else {
+			offset = parsed
+		}
+	}
+	if offset > len(scored) {
+		offset = len(scored)
+	}
+	if offset > 0 {
+		scored = scored[offset:]
+	}
 	if int64(len(scored)) > max {
 		result.Truncated = true
 		scored = scored[:max]
+		result.NextCursor = strconv.Itoa(offset + int(max))
 	}
 	for _, item := range scored {
 		result.Items = append(result.Items, item.item)
+	}
+	result.Total = totalMatches
+	// Truncation is reserved for an explicit result/resource limit. Discovery
+	// warnings and individual GVR failures make the result partial even when
+	// every collected match fits in the response window.
+	result.Complete = len(result.Warnings) == 0
+	result.Syncing = false
+	if result.Complete {
+		result.Status = string(kube.SearchIndexReady)
+	} else {
+		result.Status = string(kube.SearchIndexDegraded)
 	}
 	sort.Strings(result.Warnings)
 	if elapsed := time.Since(started); elapsed >= time.Second {
 		log.Printf("resource search slow query_length=%d resources=%d results=%d truncated=%t discovery_cache_hit=%t duration_ms=%d", len(query), len(candidates), len(result.Items), result.Truncated, discoveryHit, elapsed.Milliseconds())
 	}
 	return result, nil
+}
+
+func isBuiltInSearchResource(resource Resource) bool {
+	for _, builtin := range builtInSearchResources {
+		if builtin.Group == resource.Group && builtin.Version == resource.Version && builtin.Resource == resource.Resource {
+			return true
+		}
+	}
+	return false
 }
 
 type Link struct {

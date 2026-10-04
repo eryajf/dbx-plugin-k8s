@@ -1,6 +1,7 @@
 import { load, dump } from 'js-yaml'
 import { dispatchDBXFiles } from './dbx-files'
 import { getDBXResourceIdentity, resolveDBXResource } from './dbx-resource-discovery'
+import { validateSearchResponse } from './search-response'
 export type DBXInvoke = (method: string, params: Record<string, unknown>) => Promise<unknown>
 type ObjectData = { apiVersion?: string; kind?: string; metadata?: { name?: string; namespace?: string; uid?: string; resourceVersion?: string }; [key: string]: unknown }
 type Favorite = { resource: { resource: string; group: string; version: string }; object: ObjectData }
@@ -56,10 +57,58 @@ export class DBXTransport {
       return asFavorite(item as Favorite, 0)
     }
     if (parts[0] === 'search') {
-      const result = await this.rpc<{items: Array<{id?: string; uid?: string; name: string; namespace: string; group: string; version: string; resource: string; createdAt?: string}>; warnings: string[]; truncated: boolean}>('resource/search', {query: query.q || query.query, namespace: query.namespace, limit: Number(query.limit || 50)})
+      const result = await this.rpc<{
+        items?: Array<{
+          id?: string
+          uid?: string
+          name: string
+          namespace?: string
+          group?: string
+          version?: string
+          resource: string
+          kind?: string
+          labels?: Record<string, string>
+          createdAt?: string
+        }>
+        results?: Array<{
+          id?: string
+          uid?: string
+          name: string
+          namespace?: string
+          group?: string
+          version?: string
+          resource: string
+          kind?: string
+          labels?: Record<string, string>
+          createdAt?: string
+        }>
+        total?: number
+        warnings?: string[]
+        truncated?: boolean
+        complete?: boolean
+        syncing?: boolean
+        status?: string
+        indexAge?: string
+        generation?: number
+        nextCursor?: string
+      }>('resource/search', {
+        query: query.q || query.query,
+        namespace: query.namespace || undefined,
+        group: query.group || undefined,
+        version: query.version || undefined,
+        resource: query.resource || undefined,
+        cursor: query.cursor || undefined,
+        limit: Number(query.limit || 50),
+      })
+      validateSearchResponse(result, 'resource')
+      const items = result.items ?? result.results!
       return {
-        results: result.items.map(item => {
-          const identity = getDBXResourceIdentity(item)
+        results: items.map(item => {
+          const identity = getDBXResourceIdentity({
+            group: item.group || '',
+            version: item.version || '',
+            resource: item.resource,
+          })
           const isCRD = item.group === 'apiextensions.k8s.io' && item.resource === 'customresourcedefinitions'
           return {
             id: item.uid || item.id || [isCRD ? 'crds' : identity.resourceType, item.namespace, item.name].filter(Boolean).join('/'),
@@ -69,12 +118,23 @@ export class DBXTransport {
             customResource: isCRD ? false : identity.customResource,
             group: item.group,
             version: item.version,
+            kind: item.kind,
+            labels: item.labels,
             createdAt: item.createdAt || '',
           }
         }),
-        total: result.items.length,
-        warnings: result.warnings,
-        truncated: result.truncated,
+        total: typeof result.total === 'number' ? result.total : items.length,
+        warnings: result.warnings || [],
+        truncated: Boolean(result.truncated),
+        complete:
+          typeof result.complete === 'boolean'
+            ? result.complete
+            : !result.warnings?.length,
+        syncing: Boolean(result.syncing),
+        status: result.status,
+        indexAge: result.indexAge,
+        generation: result.generation,
+        nextCursor: result.nextCursor,
       }
     }
     if (parts[0] === 'resources' && parts[1] === 'apply') {
@@ -94,7 +154,10 @@ export class DBXTransport {
       if (parts[1] === 'pods' && parts[2] && parts[3] && parts[4] === 'metrics') return this.rpc('prometheus/pods-metrics', {namespace: parts[2], name: parts[3], duration: query.duration || '1h', container: query.container, podNames: query.pods ? query.pods.split(',').filter(Boolean) : undefined, labelSelector: query.labelSelector})
     }
     if (['settings', 'version', 'admin', 'templates', 'auth', 'license'].includes(parts[0])) throw new Error(`DBX 尚未提供此能力：${url.pathname}`)
-    const resource = await resolveDBXResource(this.connectionId, parts[0], this.invoke)
+    const resource = await resolveDBXResource(this.connectionId, parts[0], this.invoke, parts[0] === 'crds' ? undefined : {
+      group: query.group,
+      version: query.version,
+    })
     const namespace = resource.namespaced && parts[1] !== '_all' ? parts[1] : undefined
     const name = parts[2] || (!resource.namespaced && parts[1] !== '_all' ? parts[1] : undefined)
     const params: Record<string, unknown> = { ...resource, namespace, name, ...query, limit: query.limit ? Number(query.limit) : undefined }

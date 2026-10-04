@@ -50,14 +50,18 @@ export function getDBXResourceIdentityForCRD(resource: {
 }
 
 export function getDBXResourcePath(
-  resource: { resourceType: string; namespace?: string; name: string; customResource?: boolean }
+  resource: { resourceType: string; namespace?: string; name: string; customResource?: boolean; group?: string; version?: string }
 ): string {
   const customResource = resource.customResource ?? resource.resourceType.includes('.')
   const prefix = customResource ? `/crds/${resource.resourceType}` : `/${resource.resourceType}`
-  return [prefix, resource.namespace, resource.name]
+  const path = [prefix, resource.namespace, resource.name]
     .filter((segment): segment is string => Boolean(segment))
     .map((segment, index) => (index === 0 ? segment : encodeURIComponent(segment)))
     .join('/')
+  const query = new URLSearchParams()
+  if (resource.group !== undefined) query.set('group', resource.group)
+  if (resource.version !== undefined) query.set('version', resource.version)
+  return query.toString() ? `${path}?${query.toString()}` : path
 }
 
 export async function resolveDBXResource(

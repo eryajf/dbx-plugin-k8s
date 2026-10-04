@@ -1,4 +1,11 @@
-import { ComponentType, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ComponentType,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useRuntime } from '@/contexts/runtime-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
 import {
@@ -28,7 +35,7 @@ import {
   IconTopologyBus,
 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Cluster } from '@/types/api'
@@ -44,6 +51,7 @@ import {
 import { useCluster } from '@/hooks/use-cluster'
 import { useFavorites } from '@/hooks/use-favorites'
 import { translateError } from '@/lib/utils'
+import { hasSearchQuery, normalizeSearchQuery } from '@/lib/search-query'
 import { Badge } from '@/components/ui/badge'
 import {
   Command,
@@ -121,6 +129,12 @@ interface ActionSearchItem {
   shortcut?: string
 }
 
+function getResourceCommandValue(result: SearchResult): string {
+  return `${result.name} ${result.namespace || ''} ${result.resourceType} ${
+    RESOURCE_CONFIG[result.resourceType]?.label || result.resourceType
+  }`
+}
+
 interface ClusterSearchItem {
   id: string
   cluster: Cluster
@@ -153,31 +167,15 @@ function isClusterIntent(query: string) {
   )
 }
 
-/**
- * Resolve the namespace represented by the current resource route.
- *
- * Custom-resource detail routes have an extra `crds` and resource segment
- * (`/crds/:resource/:namespace/:name`), so the namespace is at index 2.
- * Built-in resource routes only have the resource segment
- * (`/:resource/:namespace/:name`), so the namespace is at index 1.
- */
-function getSearchNamespace(pathname: string, search: string): string | undefined {
-  const queryNamespace = new URLSearchParams(search).get('namespace')?.trim()
-  if (queryNamespace) {
-    return queryNamespace
-  }
-
-  const pathParts = pathname.split('/').filter(Boolean)
-  const pathNamespace =
-    pathParts[0] === 'crds'
-      ? pathParts.length === 4
-        ? pathParts[2]?.trim()
-        : undefined
-      : pathParts.length === 3
-        ? pathParts[1]?.trim()
-        : undefined
-
-  return pathNamespace || undefined
+function isSearchIndexSyncing(response: {
+  syncing?: boolean
+  status?: string
+}) {
+  return Boolean(
+    response.syncing ||
+    response.status === 'cold' ||
+    response.status === 'syncing'
+  )
 }
 
 export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
@@ -185,17 +183,27 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>([])
   const [searchIncomplete, setSearchIncomplete] = useState(false)
+  const [searchIndexSyncing, setSearchIndexSyncing] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isFavoriteTogglePending, setIsFavoriteTogglePending] = useState(false)
   const [recentClusters, setRecentClusters] = useState<string[]>([])
   const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([])
+  const [selectedCommandValue, setSelectedCommandValue] = useState('')
   const searchRequest = useRef(0)
+  const searchAbort = useRef<AbortController | null>(null)
+  const lastFailedQuery = useRef<string | null>(null)
+  const searchGeneration = useRef<number | undefined>(undefined)
+  const [namespaceScope, setNamespaceScope] = useState('')
+  const resultScope = useRef('')
   const favoriteTogglePendingRef = useRef(false)
   const searchCache = useRef(
-    new Map<string, { response: Awaited<ReturnType<typeof globalSearch>>; expiresAt: number }>()
+    new Map<
+      string,
+      { response: Awaited<ReturnType<typeof globalSearch>>; expiresAt: number }
+    >()
   )
   const navigate = useNavigate()
-  const location = useLocation()
   const { isDesktop } = useRuntime()
   const { config, getIconComponent } = useSidebarConfig()
   const { setTheme, actualTheme } = useAppearance()
@@ -207,11 +215,6 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
     isSwitching,
     isLoading: isClusterLoading,
   } = useCluster()
-  const currentNamespace = useMemo(
-    () => getSearchNamespace(location.pathname, location.search),
-    [location.pathname, location.search]
-  )
-
   // Simple theme toggle function
   const toggleTheme = useCallback(() => {
     if (actualTheme === 'dark') {
@@ -335,7 +338,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
       return []
     }
 
-    const trimmedQuery = query.trim().toLowerCase()
+    const trimmedQuery = normalizeSearchQuery(query)
     if (!trimmedQuery) {
       return []
     }
@@ -385,7 +388,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
       return []
     }
 
-    const trimmedQuery = query.trim().toLowerCase()
+    const trimmedQuery = normalizeSearchQuery(query)
     if (!trimmedQuery) {
       return actionItems.filter((item) => item.defaultVisible)
     }
@@ -394,7 +397,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   }, [actionItems, mode, query])
 
   const historyResults = useMemo(() => {
-    if (mode === 'cluster' || query.trim().length > 0) {
+    if (mode === 'cluster' || hasSearchQuery(query)) {
       return []
     }
 
@@ -431,7 +434,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
       return left.name.localeCompare(right.name)
     })
 
-    const normalizedQuery = query.trim().toLowerCase()
+    const normalizedQuery = normalizeSearchQuery(query)
     const items = sortedClusters.map((cluster) => ({
       id: `cluster-${cluster.name}`,
       cluster,
@@ -539,34 +542,71 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   // Debounced search function
   const performSearch = useCallback(
     async (searchQuery: string, requestId: number) => {
+      const normalizedQuery = normalizeSearchQuery(searchQuery)
+      searchAbort.current?.abort()
+      const controller = new AbortController()
+      searchAbort.current = controller
       try {
         setIsLoading(true)
-        const cacheKey = `${currentCluster}\u0000${currentNamespace || ''}\u0000${searchQuery.trim().toLowerCase()}`
+        setSearchError(null)
+        lastFailedQuery.current = null
+        const cacheKey = `${currentCluster}\u0000${namespaceScope}\u0000${searchGeneration.current ?? ''}\u0000${normalizedQuery}`
         const cached = searchCache.current.get(cacheKey)
         if (cached && cached.expiresAt > Date.now()) {
           if (requestId === searchRequest.current) {
             setResults(cached.response.results)
-            setSearchIncomplete(
-              Boolean(cached.response.truncated || cached.response.warnings?.length)
+            setSelectedCommandValue(
+              cached.response.results.length > 0
+                ? getResourceCommandValue(cached.response.results[0])
+                : ''
             )
+            setSearchIncomplete(
+              Boolean(
+                cached.response.complete === false ||
+                cached.response.syncing ||
+                cached.response.status === 'cold' ||
+                cached.response.status === 'syncing' ||
+                cached.response.status === 'degraded' ||
+                cached.response.warnings?.length
+              )
+            )
+            setSearchIndexSyncing(isSearchIndexSyncing(cached.response))
           }
           return
         }
         if (cached) {
           searchCache.current.delete(cacheKey)
         }
-        const response = await globalSearch(searchQuery, {
+        const response = await globalSearch(normalizedQuery, {
           limit: 10,
-          namespace: currentNamespace,
+          ...(namespaceScope ? { namespace: namespaceScope } : {}),
+          signal: controller.signal,
         })
         if (requestId !== searchRequest.current) {
           return
         }
         setResults(response.results)
-        setSearchIncomplete(
-          Boolean(response.truncated || response.warnings?.length)
+        setSelectedCommandValue(
+          response.results.length > 0
+            ? getResourceCommandValue(response.results[0])
+            : ''
         )
-        searchCache.current.set(cacheKey, {
+        if (response.generation !== undefined) {
+          searchGeneration.current = response.generation
+        }
+        setSearchIncomplete(
+          Boolean(
+            response.complete === false ||
+            response.syncing ||
+            response.status === 'cold' ||
+            response.status === 'syncing' ||
+            response.status === 'degraded' ||
+            response.warnings?.length
+          )
+        )
+        setSearchIndexSyncing(isSearchIndexSyncing(response))
+        const responseCacheKey = `${currentCluster}\u0000${namespaceScope}\u0000${searchGeneration.current ?? ''}\u0000${normalizedQuery}`
+        searchCache.current.set(responseCacheKey, {
           response,
           expiresAt: Date.now() + 3000,
         })
@@ -577,29 +617,34 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
         }
         trackDesktopEvent('global_search_query', {
           mode,
-          query_length: searchQuery.trim().length,
+          query_length: normalizedQuery.length,
           result_count: response.results.length,
         })
       } catch (error) {
-        if (requestId !== searchRequest.current) {
+        if (requestId !== searchRequest.current || controller.signal.aborted) {
           return
         }
         console.error('Search failed:', error)
-        setResults([])
         setSearchIncomplete(false)
+        setSearchIndexSyncing(false)
+        lastFailedQuery.current = normalizedQuery
+        setSearchError(error instanceof Error ? error.message : String(error))
         trackDesktopEvent('global_search_query', {
           mode,
-          query_length: searchQuery.trim().length,
+          query_length: normalizeSearchQuery(searchQuery).length,
           result_count: 0,
           result: 'error',
         })
       } finally {
+        if (searchAbort.current === controller) {
+          searchAbort.current = null
+        }
         if (requestId === searchRequest.current) {
           setIsLoading(false)
         }
       }
     },
-    [currentCluster, currentNamespace, mode]
+    [currentCluster, mode, namespaceScope]
   )
 
   const saveHistoryEntry = useCallback(
@@ -613,33 +658,62 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
   // Debounce search calls
   useEffect(() => {
     const requestId = ++searchRequest.current
+    searchAbort.current?.abort()
+    searchAbort.current = null
+    const scope = `${currentCluster}\u0000${namespaceScope}`
+    if (scope !== resultScope.current) {
+      resultScope.current = scope
+      setResults([])
+      searchGeneration.current = undefined
+    }
 
-    if (mode === 'cluster') {
+    if (!open || mode === 'cluster') {
       setIsLoading(false)
       setResults([])
+      setSelectedCommandValue('')
       setSearchIncomplete(false)
+      setSearchIndexSyncing(false)
+      setSearchError(null)
       return
     }
 
-    const normalizedQuery = query.trim()
-    if (normalizedQuery.length < 2) {
+    const normalizedQuery = normalizeSearchQuery(query)
+    if (!hasSearchQuery(normalizedQuery)) {
       setIsLoading(false)
       setResults(normalizedQuery.length === 0 ? favorites : [])
+      setSelectedCommandValue('')
       setSearchIncomplete(false)
+      setSearchIndexSyncing(false)
+      setSearchError(null)
       return
     }
     setIsLoading(true)
-    // Do not leave results from the previous query visible while the new
-    // request is pending. This also makes clearing and immediately searching
-    // again deterministic when requests resolve out of order.
-    setResults([])
+    setSelectedCommandValue('')
+    // Keep the previous result set visible while a new query is loading. If
+    // the request fails, the user can still inspect it and retry explicitly.
     setSearchIncomplete(false)
+    setSearchIndexSyncing(false)
+    setSearchError(null)
+    lastFailedQuery.current = null
     const timeoutId = setTimeout(() => {
       void performSearch(normalizedQuery, requestId)
     }, 220)
 
-    return () => clearTimeout(timeoutId)
-  }, [currentNamespace, favorites, mode, performSearch, query])
+    return () => {
+      clearTimeout(timeoutId)
+      searchRequest.current += 1
+      searchAbort.current?.abort()
+      searchAbort.current = null
+    }
+  }, [
+    currentCluster,
+    favorites,
+    mode,
+    namespaceScope,
+    open,
+    performSearch,
+    query,
+  ])
 
   // Handle item selection
   const handleSelect = useCallback(
@@ -670,8 +744,13 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
       searchRequest.current += 1
       setQuery('')
       setResults([])
+      setSelectedCommandValue('')
       setSearchIncomplete(false)
+      setSearchIndexSyncing(false)
       setIsLoading(false)
+      setSearchError(null)
+      setNamespaceScope('')
+      searchGeneration.current = undefined
     }
   }, [open])
 
@@ -686,6 +765,8 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
     if (open && query === '' && mode === 'all') {
       setResults(favorites) // Show favorites when dialog opens
       setSearchIncomplete(false)
+      setSearchIndexSyncing(false)
+      setSearchError(null)
     }
   }, [favorites, mode, open, query])
 
@@ -733,36 +814,103 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
-      <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0 sm:p-0">
-        <Command shouldFilter={false} className="rounded-none">
+      <DialogContent className="h-[min(88dvh,56rem)] w-[calc(100vw-2rem)] max-w-6xl gap-0 overflow-hidden p-0 sm:p-0">
+        <Command
+          shouldFilter={false}
+          value={selectedCommandValue}
+          onValueChange={setSelectedCommandValue}
+          className="rounded-none"
+        >
           <CommandInput
             placeholder={placeholder}
             value={query}
             onValueChange={setQuery}
           />
-          <CommandList>
-            {searchIncomplete && (
+          {mode !== 'cluster' && (
+            <div className="flex items-center gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground">
+              <label htmlFor="global-search-namespace">
+                {t('detail.fields.namespace')}
+              </label>
+              <input
+                id="global-search-namespace"
+                aria-label={t('detail.fields.namespace')}
+                value={namespaceScope}
+                onChange={(event) =>
+                  setNamespaceScope(event.target.value.trim())
+                }
+                placeholder="*"
+                className="h-7 min-w-0 flex-1 rounded border bg-transparent px-2 text-foreground outline-hidden"
+              />
+            </div>
+          )}
+          <CommandList className="min-h-0 max-h-[min(72dvh,48rem)] flex-1">
+            {(isLoading || searchIndexSyncing || searchIncomplete) && (
               <div
                 role="status"
-                className="px-3 py-2 text-xs text-muted-foreground"
+                aria-live="polite"
+                data-testid="global-search-status"
+                className="flex items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground"
               >
-                {t('globalSearch.incompleteResults')}
+                {isLoading && (
+                  <>
+                    <IconLoader
+                      className="h-3.5 w-3.5 animate-spin"
+                      aria-hidden="true"
+                    />
+                    <span>{t('globalSearch.searching')}</span>
+                  </>
+                )}
+                {searchIndexSyncing && (
+                  <>
+                    <IconLoader
+                      className="h-3.5 w-3.5 animate-spin"
+                      aria-hidden="true"
+                    />
+                    <span>
+                      {results && results.length > 0
+                        ? t('globalSearch.indexSyncing')
+                        : t('globalSearch.indexSyncingNoResults')}
+                    </span>
+                  </>
+                )}
+                {!isLoading && !searchIndexSyncing && searchIncomplete && (
+                  <span>{t('globalSearch.incompleteResults')}</span>
+                )}
               </div>
             )}
-            <CommandEmpty>
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-6">
-                  <IconLoader className="h-4 w-4 animate-spin" />
-                  <span>{t('globalSearch.searching')}</span>
+            {searchError ? (
+              <div
+                role="alert"
+                className="px-3 py-6 text-center text-sm text-destructive"
+              >
+                <div>
+                  {t('common.error')}: {searchError}
                 </div>
-              ) : mode === 'cluster' ? (
-                t('globalSearch.noClusterResults')
-              ) : query.trim().length < 2 ? (
-                t('globalSearch.emptyHint')
-              ) : (
-                t('globalSearch.noResults')
-              )}
-            </CommandEmpty>
+                <button
+                  type="button"
+                  className="mt-2 underline"
+                  onClick={() => {
+                    const failedQuery = lastFailedQuery.current
+                    if (!failedQuery) return
+                    const requestId = ++searchRequest.current
+                    setSearchError(null)
+                    void performSearch(failedQuery, requestId)
+                  }}
+                >
+                  {t('common.retry')}
+                </button>
+              </div>
+            ) : (
+              <CommandEmpty>
+                {isLoading || searchIndexSyncing
+                  ? null
+                  : mode === 'cluster'
+                    ? t('globalSearch.noClusterResults')
+                    : !hasSearchQuery(query)
+                      ? t('globalSearch.emptyHint')
+                      : t('globalSearch.noResults')}
+              </CommandEmpty>
+            )}
 
             {mode !== 'cluster' && sidebarResults.length > 0 && (
               <CommandGroup heading={t('globalSearch.navigation')}>
@@ -789,7 +937,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                           }
                         )
                       }
-                      className="flex items-center gap-3 py-3"
+                      className="flex items-center gap-3 py-2.5"
                     >
                       <Icon className="h-4 w-4 text-sidebar-primary" />
                       <div className="flex-1 min-w-0">
@@ -861,7 +1009,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                           }
                         )
                       }
-                      className="flex items-center gap-3 py-3"
+                      className="flex items-center gap-3 py-2.5"
                     >
                       <Icon className="h-4 w-4 text-sidebar-primary" />
                       <div className="flex-1 min-w-0">
@@ -903,7 +1051,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                         setQuery('')
                       }
                     }}
-                    className="flex items-center gap-3 py-3"
+                    className="flex items-center gap-3 py-2.5"
                   >
                     <actionOption.icon className="h-4 w-4 text-sidebar-primary" />
                     <div className="flex-1 min-w-0">
@@ -936,7 +1084,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                     value={item.clusterNameText}
                     disabled={item.disabled}
                     onSelect={() => handleClusterSelect(item.cluster.name)}
-                    className="flex items-center gap-3 py-3"
+                    className="flex items-center gap-3 py-2.5"
                   >
                     <IconServer className="h-4 w-4 text-sidebar-primary" />
                     <div className="flex-1 min-w-0">
@@ -973,7 +1121,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
             {mode !== 'cluster' && results && results.length > 0 && (
               <CommandGroup
                 heading={
-                  query.trim().length < 2
+                  !hasSearchQuery(query)
                     ? t('globalSearch.favorites')
                     : t('globalSearch.resources')
                 }
@@ -992,10 +1140,7 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                         result.id ||
                         `${result.resourceType}:${result.namespace || ''}:${result.name}`
                       }
-                      value={`${result.name} ${result.namespace || ''} ${result.resourceType} ${
-                        RESOURCE_CONFIG[result.resourceType]?.label ||
-                        result.resourceType
-                      }`}
+                      value={getResourceCommandValue(result)}
                       onSelect={() =>
                         handleSelect(
                           path,
@@ -1008,13 +1153,13 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                             type: 'resource',
                             label: result.name,
                             path,
-                            query: query.trim(),
+                            query: normalizeSearchQuery(query),
                             resourceType: result.resourceType,
                             namespace: result.namespace,
                           }
                         )
                       }
-                      className="flex items-center gap-3 py-3"
+                      className="flex items-center gap-3 py-2.5"
                     >
                       <Icon className="h-4 w-4 text-sidebar-primary" />
                       <div className="flex-1 min-w-0">
@@ -1032,6 +1177,13 @@ export function GlobalSearch({ open, mode, onOpenChange }: GlobalSearchProps) {
                         {result.namespace && (
                           <div className="text-xs text-muted-foreground mt-1">
                             {t('detail.fields.namespace')}: {result.namespace}
+                          </div>
+                        )}
+                        {(result.kind || result.group) && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {[result.kind, result.group]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </div>
                         )}
                       </div>
