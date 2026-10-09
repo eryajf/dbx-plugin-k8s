@@ -26,6 +26,8 @@ import (
 type Client struct {
 	Core                kubernetes.Interface
 	Dynamic             dynamic.Interface
+	BackgroundDynamic   dynamic.Interface
+	groupResources      map[string]*groupResourceFlight
 	Config              *rest.Config
 	Context             context.Context
 	Namespace           string
@@ -282,8 +284,16 @@ func New(config *rest.Config, namespace, contextName string) (*Client, error) {
 		transport.CloseIdleConnections()
 		return nil, err
 	}
+	backgroundConfig := rest.CopyConfig(cfg)
+	backgroundConfig.QPS, backgroundConfig.Burst = rest.DefaultQPS, rest.DefaultBurst
+	backgroundConfig.RateLimiter = nil
+	background, err := dynamic.NewForConfigAndClient(backgroundConfig, transport)
+	if err != nil {
+		transport.CloseIdleConnections()
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Client{Core: core, Dynamic: dyn, Config: cfg, Context: ctx,
+	return &Client{Core: core, Dynamic: dyn, BackgroundDynamic: background, Config: cfg, Context: ctx,
 		Namespace: namespace, ContextName: contextName, cancel: cancel, httpClient: transport, Discovery: discoveryClient}, nil
 }
 
@@ -362,6 +372,7 @@ func (c *Client) InvalidateDiscoveryCache() {
 	c.discoveryMu.Lock()
 	defer c.discoveryMu.Unlock()
 	c.discoveryGeneration++
+	c.groupResources = nil
 	c.discoveryAt = time.Time{}
 	c.discoveryLists = nil
 	c.discoveryPreferred = nil

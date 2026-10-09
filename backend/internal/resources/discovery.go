@@ -64,7 +64,7 @@ func discoverWithCacheContext(ctx context.Context, c *kube.Client) (*Discovery, 
 	})
 	return result, hit, nil
 }
-func resolve(c *kube.Client, req Request) (Resource, error) {
+func resolve(ctx context.Context, c *kube.Client, req Request) (Resource, error) {
 	if req.Version == "" || req.Resource == "" {
 		return Resource{}, fmt.Errorf("version and resource are required")
 	}
@@ -74,7 +74,7 @@ func resolve(c *kube.Client, req Request) (Resource, error) {
 		}
 	}
 	gv := schema.GroupVersion{Group: req.Group, Version: req.Version}
-	list, err := c.Core.Discovery().ServerResourcesForGroupVersion(gv.String())
+	list, err := c.APIResourcesForGroupVersion(ctx, gv.String())
 	if err != nil {
 		return Resource{}, err
 	}
@@ -89,7 +89,7 @@ func resolve(c *kube.Client, req Request) (Resource, error) {
 // ResolveResource resolves a served Kubernetes resource for adapters that need
 // to build a request outside the regular RPC handler (for example AI tools).
 func ResolveResource(c *kube.Client, req Request) (Resource, error) {
-	return resolve(c, req)
+	return resolve(context.Background(), c, req)
 }
 func endpoint(c *kube.Client, r Resource, namespace string) dynamic.ResourceInterface {
 	resource := c.Dynamic.Resource(schema.GroupVersionResource{Group: r.Group, Version: r.Version, Resource: r.Resource})

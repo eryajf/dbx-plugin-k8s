@@ -173,7 +173,9 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 	}
 	if e == nil && isSearchMutation(method) {
 		c.InvalidateSearchResourceCache()
-		c.InvalidateDiscoveryCache()
+		if v["resource"] == "customresourcedefinitions" || v["resource"] == "apiservices" {
+			c.InvalidateDiscoveryCache()
+		}
 		group, _ := v["group"].(string)
 		version, _ := v["version"].(string)
 		resource, _ := v["resource"].(string)

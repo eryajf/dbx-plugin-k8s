@@ -13,8 +13,46 @@ describe('DBX resource discovery', () => {
     await resolveDBXResource('c1','deployments',invoke); expect(invoke).toHaveBeenCalledTimes(1)
   })
   it('rejects unknown resources and supports clearing', async () => {
-    const invoke = vi.fn().mockResolvedValue({resources:[]}); await expect(resolveDBXResource('c','pods',invoke)).rejects.toThrow('not discovered')
+    const invoke = vi.fn().mockResolvedValue({resources:[]}); await expect(resolveDBXResource('c','widgets.example.com',invoke)).rejects.toThrow('not discovered')
     clearDBXResourceDiscovery('c'); expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads stable resources without waiting for unrelated discovery', async () => {
+    const invoke = vi.fn(() => new Promise<never>(() => {}))
+    expect(await resolveDBXResource('fast', 'pods', invoke)).toMatchObject({ group: '', version: 'v1', namespaced: true })
+    expect(await resolveDBXResource('fast', 'nodes', invoke)).toMatchObject({ group: '', version: 'v1', namespaced: false })
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['cronjobs', 'CronJob', 'batch', 'v1beta1'],
+    ['deployments', 'Deployment', 'apps', 'v1beta1'],
+    ['statefulsets', 'StatefulSet', 'apps', 'v1beta1'],
+    ['daemonsets', 'DaemonSet', 'extensions', 'v1beta1'],
+    ['replicasets', 'ReplicaSet', 'extensions', 'v1beta1'],
+    ['jobs', 'Job', 'batch', 'v1'],
+  ])('resolves %s using the version served by the cluster', async (resource, kind, group, version) => {
+    const descriptor = { resource, kind, group, version, namespaced: true }
+    const invoke = vi.fn().mockResolvedValue({ resources: [descriptor] })
+    const connection = `served-${resource}`
+    clearDBXResourceDiscovery(connection)
+    expect(await resolveDBXResource(connection, resource, invoke)).toMatchObject(descriptor)
+    expect(await resolveDBXResource(connection, kind, invoke)).toMatchObject(descriptor)
+    expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('honors explicit CronJob versions and rejects an unserved version', async () => {
+    const connection = 'cronjob-versions'
+    clearDBXResourceDiscovery(connection)
+    const invoke = vi.fn().mockResolvedValue({ resources: ['v1beta1', 'v1'].map(version => ({
+      group: 'batch', version, resource: 'cronjobs', kind: 'CronJob', namespaced: true,
+    })) })
+    for (const version of ['v1', 'v1beta1']) {
+      expect(await resolveDBXResource(connection, 'cronjobs', invoke, { group: 'batch', version }))
+        .toMatchObject({ group: 'batch', version, resource: 'cronjobs' })
+    }
+    await expect(resolveDBXResource(connection, 'cronjobs', invoke, { group: 'batch', version: 'v2' }))
+      .rejects.toThrow('not discovered')
   })
 
   it('keeps built-in resource routes plain and qualifies custom resources', () => {

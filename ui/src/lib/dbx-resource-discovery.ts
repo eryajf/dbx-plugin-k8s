@@ -1,7 +1,22 @@
 export interface DBXResourceDescriptor { group: string; version: string; resource: string; namespaced: boolean; kind?: string; verbs?: string[]; aliases?: string[] }
 type Invoke = (method: string, params: Record<string, unknown>) => Promise<unknown>
-type Discovery = { resources?: Array<DBXResourceDescriptor & { aliases?: string[] }> }
-const cache = new Map<string, Promise<DBXResourceDescriptor[]>>()
+type Discovery = { warnings?: string[]; resources?: Array<DBXResourceDescriptor & { aliases?: string[] }> }
+const cache = new Map<string, { promise: Promise<DBXResourceDescriptor[]>; expires: number }>()
+
+// Only core/v1 resources bypass discovery. Workloads and other API groups
+// have served different versions across clusters and must use discovery.
+// The backend always validates the requested resource scope.
+const stableResources: DBXResourceDescriptor[] = [
+  ...[
+    ['pods', 'Pod'], ['services', 'Service'], ['configmaps', 'ConfigMap'],
+    ['secrets', 'Secret'], ['persistentvolumeclaims', 'PersistentVolumeClaim'],
+    ['serviceaccounts', 'ServiceAccount'], ['events', 'Event'],
+    ['endpoints', 'Endpoints'],
+  ].map(([resource, kind]) => ({ group: '', version: 'v1', resource, kind, namespaced: true })),
+  ...[['nodes', 'Node'], ['namespaces', 'Namespace'], ['persistentvolumes', 'PersistentVolume']]
+    .map(([resource, kind]) => ({ group: '', version: 'v1', resource, kind, namespaced: false })),
+
+]
 
 // Kubernetes may expose several served versions for one built-in resource.
 // Classify by the well-known API group so an unlisted built-in resource does
@@ -71,19 +86,33 @@ export async function resolveDBXResource(
   preferred?: { group?: string; version?: string }
 ): Promise<DBXResourceDescriptor> {
   if (!connectionId || !resource) throw new Error('connectionId and resource are required')
-  let pending = cache.get(connectionId)
-  if (!pending) {
-    pending = invoke('kube/discover', { connectionId }).then(raw => {
-      const list = (raw as Discovery)?.resources
-      if (!Array.isArray(list)) throw new Error('invalid Kubernetes discovery response')
-      return list
+  resource = ({crds: 'customresourcedefinitions', hpa: 'horizontalpodautoscalers', pvc: 'persistentvolumeclaims', pv: 'persistentvolumes'} as Record<string,string>)[resource] || resource
+  const stable = stableResources.find(r =>
+    (r.resource === resource || r.kind?.toLowerCase() === resource.toLowerCase()) &&
+    (preferred?.group === undefined || preferred.group === r.group) &&
+    (preferred?.version === undefined || preferred.version === r.version)
+  )
+  if (stable) return { ...stable }
+  let entry = cache.get(connectionId)
+  if (!entry || entry.expires <= Date.now()) {
+    const next = { promise: Promise.resolve([] as DBXResourceDescriptor[]), expires: Infinity }
+    next.promise = invoke('kube/discover', { connectionId }).then(raw => {
+      const response = raw as Discovery
+      if (!Array.isArray(response?.resources)) throw new Error('invalid Kubernetes discovery response')
+      next.expires = Date.now() + (response.warnings?.length ? 2000 : 30000)
+      return response.resources
     })
-    cache.set(connectionId, pending)
+    cache.set(connectionId, next)
+    entry = next
   }
   let resources: DBXResourceDescriptor[]
-  try { resources = await pending } catch (error) { cache.delete(connectionId); throw error }
-  resource = ({crds: 'customresourcedefinitions', hpa: 'horizontalpodautoscalers', pvc: 'persistentvolumeclaims', pv: 'persistentvolumes'} as Record<string,string>)[resource] || resource
+  try { resources = await entry.promise } catch (error) {
+    if (cache.get(connectionId) === entry) cache.delete(connectionId)
+    throw error
+  }
   const found = resources.find(r => {
+    if (preferred?.group !== undefined && r.group !== preferred.group) return false
+    if (preferred?.version !== undefined && r.version !== preferred.version) return false
     if (preferred?.group !== undefined && preferred?.version !== undefined) {
       return r.group === preferred.group && r.version === preferred.version &&
         (r.resource === resource || `${r.resource}.${r.group}` === resource)

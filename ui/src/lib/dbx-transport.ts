@@ -160,7 +160,7 @@ export class DBXTransport {
     })
     const namespace = resource.namespaced && parts[1] !== '_all' ? parts[1] : undefined
     const name = parts[2] || (!resource.namespaced && parts[1] !== '_all' ? parts[1] : undefined)
-    const params: Record<string, unknown> = { ...resource, namespace, name, ...query, limit: query.limit ? Number(query.limit) : undefined }
+    const params: Record<string, unknown> = { ...resource, namespace, name, ...query, reduce: query.reduce === 'true', limit: query.limit ? Number(query.limit) : undefined }
     const action = parts[3]
     if (action) {
       if (action === 'files' && resource.resource === 'pods') return dispatchDBXFiles((m,p)=>this.rpc(m,p),params,parts[4],method,body)

@@ -26,6 +26,7 @@ type Request struct {
 	LabelSelector   string          `json:"labelSelector"`
 	Selector        string          `json:"selector"`
 	FieldSelector   string          `json:"fieldSelector"`
+	Reduce          bool            `json:"reduce"`
 	Limit           int64           `json:"limit"`
 	Continue        string          `json:"continue"`
 	Cursor          string          `json:"cursor"`
@@ -47,7 +48,8 @@ func Handle(ctx context.Context, c *kube.Client, method string, raw json.RawMess
 		return nil, fmt.Errorf("Kubernetes connection is unavailable")
 	}
 	if method == "kube/discover" {
-		return discover(c)
+		result, _, err := discoverWithCacheContext(ctx, c)
+		return result, err
 	}
 	if method == "kube/namespaces" {
 		return Namespaces(ctx, c)
@@ -60,7 +62,7 @@ func Handle(ctx context.Context, c *kube.Client, method string, raw json.RawMess
 	default:
 		return nil, fmt.Errorf("unknown resource method: %s", method)
 	}
-	r, err := resolve(c, req)
+	r, err := resolve(ctx, c, req)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +86,13 @@ func Handle(ctx context.Context, c *kube.Client, method string, raw json.RawMess
 		if req.Limit < 0 || req.Limit > 10000 {
 			return nil, fmt.Errorf("limit must be between 0 and 10000")
 		}
-		return api.List(ctx, metav1.ListOptions{LabelSelector: req.labels(), FieldSelector: req.FieldSelector, Limit: req.Limit, Continue: req.Continue, ResourceVersion: req.ResourceVersion})
+		list, err := api.List(ctx, metav1.ListOptions{LabelSelector: req.labels(), FieldSelector: req.FieldSelector, Limit: req.Limit, Continue: req.Continue, ResourceVersion: req.ResourceVersion})
+		if err == nil && req.Reduce {
+			for i := range list.Items {
+				list.Items[i].SetManagedFields(nil)
+			}
+		}
+		return list, err
 	case "resource/get":
 		return api.Get(ctx, req.Name, metav1.GetOptions{})
 	case "resource/describe":

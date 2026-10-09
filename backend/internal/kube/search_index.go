@@ -550,7 +550,7 @@ func (s *SearchIndex) listMetadata(ctx context.Context, gvr schema.GroupVersionR
 			err = fmt.Errorf("list failed: %v", recovered)
 		}
 	}()
-	resource := s.client.Dynamic.Resource(gvr)
+	resource := s.client.SearchDynamic().Resource(gvr)
 	var listResource dynamic.ResourceInterface = resource
 	if namespaced {
 		listResource = resource.Namespace(namespace)
@@ -732,9 +732,9 @@ func (s *SearchIndex) watchResource(ctx context.Context, gvr schema.GroupVersion
 		if ctx.Err() != nil {
 			return
 		}
-		var api dynamic.ResourceInterface = s.client.Dynamic.Resource(gvr)
+		var api dynamic.ResourceInterface = s.client.SearchDynamic().Resource(gvr)
 		if resource.Namespaced {
-			api = s.client.Dynamic.Resource(gvr).Namespace("")
+			api = s.client.SearchDynamic().Resource(gvr).Namespace("")
 		}
 		stream, err := api.Watch(ctx, metav1.ListOptions{ResourceVersion: resourceVersion, AllowWatchBookmarks: true})
 		if err != nil {
