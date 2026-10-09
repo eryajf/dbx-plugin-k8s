@@ -79,6 +79,29 @@ export function getDBXResourcePath(
   return query.toString() ? `${path}?${query.toString()}` : path
 }
 
+/** Discovered resources for a connection, sharing the resolver's short-lived cache. */
+export async function listDBXResources(
+  connectionId: string,
+  invoke: Invoke
+): Promise<DBXResourceDescriptor[]> {
+  let entry = cache.get(connectionId)
+  if (!entry || entry.expires <= Date.now()) {
+    const next = { promise: Promise.resolve([] as DBXResourceDescriptor[]), expires: Infinity }
+    next.promise = invoke('kube/discover', { connectionId }).then(raw => {
+      const response = raw as Discovery
+      if (!Array.isArray(response?.resources)) throw new Error('invalid Kubernetes discovery response')
+      next.expires = Date.now() + (response.warnings?.length ? 2000 : 30000)
+      return response.resources
+    })
+    cache.set(connectionId, next)
+    entry = next
+  }
+  try { return await entry.promise } catch (error) {
+    if (cache.get(connectionId) === entry) cache.delete(connectionId)
+    throw error
+  }
+}
+
 export async function resolveDBXResource(
   connectionId: string,
   resource: string,
@@ -93,23 +116,7 @@ export async function resolveDBXResource(
     (preferred?.version === undefined || preferred.version === r.version)
   )
   if (stable) return { ...stable }
-  let entry = cache.get(connectionId)
-  if (!entry || entry.expires <= Date.now()) {
-    const next = { promise: Promise.resolve([] as DBXResourceDescriptor[]), expires: Infinity }
-    next.promise = invoke('kube/discover', { connectionId }).then(raw => {
-      const response = raw as Discovery
-      if (!Array.isArray(response?.resources)) throw new Error('invalid Kubernetes discovery response')
-      next.expires = Date.now() + (response.warnings?.length ? 2000 : 30000)
-      return response.resources
-    })
-    cache.set(connectionId, next)
-    entry = next
-  }
-  let resources: DBXResourceDescriptor[]
-  try { resources = await entry.promise } catch (error) {
-    if (cache.get(connectionId) === entry) cache.delete(connectionId)
-    throw error
-  }
+  const resources = await listDBXResources(connectionId, invoke)
   const found = resources.find(r => {
     if (preferred?.group !== undefined && r.group !== preferred.group) return false
     if (preferred?.version !== undefined && r.version !== preferred.version) return false

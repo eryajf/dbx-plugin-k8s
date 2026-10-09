@@ -1,12 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppSidebar } from './app-sidebar'
 import { SidebarProvider } from './ui/sidebar'
 
 const useSidebarConfigMock = vi.fn()
 const useDesktopUpdateMock = vi.fn()
+const useFluxNavigationMock = vi.fn()
 const useClusterMock = vi.fn(() => ({clusters:[{name:'K84'}], currentCluster:'id'}))
 
 vi.mock('react-i18next', async (importOriginal) => {
@@ -27,6 +28,9 @@ vi.mock('@/contexts/sidebar-config-context', () => ({
 }))
 
 vi.mock('@/hooks/use-desktop-update', () => ({ useDesktopUpdate: () => useDesktopUpdateMock() }))
+vi.mock('@/hooks/use-flux-navigation', () => ({
+  useFluxNavigation: () => useFluxNavigationMock(),
+}))
 vi.mock('@/hooks/use-cluster', () => ({ useCluster: () => useClusterMock() }))
 
 vi.mock('./cluster-selector', () => ({
@@ -63,7 +67,26 @@ function renderCollapsedSidebar() {
   )
 }
 
+const fluxItem = {
+  id: 'sidebar-groups-flux-gitrepositories',
+  titleKey: 'flux.kinds.GitRepository',
+  url: '/crds/gitrepositories.source.toolkit.fluxcd.io?group=source.toolkit.fluxcd.io&version=v1',
+  icon: 'IconGitBranch',
+  group: 'source.toolkit.fluxcd.io',
+  version: 'v1',
+  resource: 'gitrepositories',
+  kind: 'GitRepository',
+}
+
 describe('AppSidebar', () => {
+  beforeEach(() => {
+    useFluxNavigationMock.mockReturnValue({
+      items: [],
+      collapsed: false,
+      toggleCollapsed: vi.fn(),
+    })
+  })
+
   it('does not show an update badge', () => {
     useSidebarConfigMock.mockReturnValue({ isLoading:false, config:{groups:[],pinnedItems:[],hiddenItems:[]}, getIconComponent:()=> 'div' })
     renderSidebar()
@@ -154,5 +177,71 @@ describe('AppSidebar', () => {
     expect(
       screen.getByRole('link', { name: 'nav.serviceaccounts' })
     ).toBeInTheDocument()
+  })
+
+  describe('Flux group', () => {
+    const baseConfig = (extra: Record<string, unknown> = {}) => ({
+      isLoading: false,
+      config: { groups: [], pinnedItems: [], hiddenItems: [], ...extra },
+      getIconComponent: () => 'div',
+    })
+    const withFlux = (collapsed = false, toggleCollapsed = vi.fn()) =>
+      useFluxNavigationMock.mockReturnValue({
+        items: [fluxItem],
+        collapsed,
+        toggleCollapsed,
+      })
+
+    it('renders the Flux group linking to the generic CRD route', () => {
+      useSidebarConfigMock.mockReturnValue(baseConfig())
+      withFlux()
+      renderSidebar()
+      expect(screen.getByText('sidebar.groups.flux')).toBeInTheDocument()
+      expect(
+        screen.getByRole('link', { name: 'flux.kinds.GitRepository' })
+      ).toHaveAttribute('href', fluxItem.url)
+    })
+
+    it('does not render a Flux group when Flux is absent', () => {
+      useSidebarConfigMock.mockReturnValue(baseConfig())
+      renderSidebar()
+      expect(screen.queryByText('sidebar.groups.flux')).not.toBeInTheDocument()
+    })
+
+    it('honours a hidden Flux group and hidden items', () => {
+      withFlux()
+      useSidebarConfigMock.mockReturnValue(
+        baseConfig({
+          groups: [
+            { id: 'sidebar-groups-flux', visible: false, items: [], order: 9 },
+          ],
+        })
+      )
+      const { unmount } = renderSidebar()
+      expect(screen.queryByText('sidebar.groups.flux')).not.toBeInTheDocument()
+      unmount()
+      useSidebarConfigMock.mockReturnValue(
+        baseConfig({ hiddenItems: [fluxItem.id] })
+      )
+      renderSidebar()
+      expect(screen.queryByText('sidebar.groups.flux')).not.toBeInTheDocument()
+    })
+
+    it('uses the Flux collapse state and toggles it separately from config', () => {
+      const toggleGroupCollapse = vi.fn()
+      const toggleCollapsed = vi.fn()
+      useSidebarConfigMock.mockReturnValue({
+        ...baseConfig(),
+        toggleGroupCollapse,
+      })
+      withFlux(true, toggleCollapsed)
+      renderSidebar()
+      expect(
+        screen.queryByRole('link', { name: 'flux.kinds.GitRepository' })
+      ).not.toBeInTheDocument()
+      fireEvent.click(screen.getByText('sidebar.groups.flux'))
+      expect(toggleCollapsed).toHaveBeenCalledTimes(1)
+      expect(toggleGroupCollapse).not.toHaveBeenCalled()
+    })
   })
 })

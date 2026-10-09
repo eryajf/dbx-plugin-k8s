@@ -17,6 +17,7 @@ import {
   IconCode,
   IconDatabase,
   IconFileDatabase,
+  IconGitBranch,
   IconKey,
   IconLoadBalancer,
   IconLock,
@@ -71,6 +72,7 @@ const iconMap = {
   IconCode,
   IconArrowsHorizontal,
   IconStar,
+  IconGitBranch,
 }
 
 const getIconName = (iconComponent: React.ComponentType): string => {

@@ -103,6 +103,23 @@
     "next": "다음 경기",
     "noResults": "결과 없음"
   },
+  "flux": {
+    "kinds": {
+      "GitRepository": "GitRepository",
+      "OCIRepository": "OCIRepository",
+      "HelmRepository": "HelmRepository",
+      "Bucket": "Bucket",
+      "ExternalArtifact": "ExternalArtifact",
+      "Kustomization": "Kustomization",
+      "HelmRelease": "HelmRelease",
+      "ImageRepository": "ImageRepository",
+      "ImagePolicy": "ImagePolicy",
+      "ImageUpdateAutomation": "ImageUpdateAutomation",
+      "Alert": "Alert",
+      "Provider": "Provider",
+      "Receiver": "Receiver"
+    }
+  },
   "sidebar": {
     "groups": {
       "cluster": "무리",
@@ -111,7 +128,8 @@
       "config": "구성",
       "security": "보안",
       "workloads": "워크로드",
-      "extension": "확대"
+      "extension": "확대",
+      "flux": "Flux"
     },
     "short": {
       "pvcs": "PVCs",

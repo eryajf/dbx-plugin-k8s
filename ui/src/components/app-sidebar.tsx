@@ -2,6 +2,8 @@ import * as React from 'react'
 import { useMemo } from 'react'
 import Icon from '@/assets/icon.png'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import { useFluxNavigation } from '@/hooks/use-flux-navigation'
+import { FLUX_GROUP_ID, FLUX_GROUP_NAME_KEY } from '@/lib/flux-navigation'
 import { CollapsibleContent } from '@radix-ui/react-collapsible'
 import { IconLayoutDashboard } from '@tabler/icons-react'
 import { ChevronDown } from 'lucide-react'
@@ -31,6 +33,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { config, isLoading, getIconComponent, toggleGroupCollapse } =
     useSidebarConfig()
   const isIconCollapsed = !isMobile && state === 'collapsed'
+  const flux = useFluxNavigation()
 
   const pinnedItems = useMemo(() => {
     if (!config) return []
@@ -55,7 +58,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       .filter((group) => group.items.length > 0)
   }, [config])
 
+  // Flux is cluster-derived, so it is not persisted in the sidebar config. It
+  // honours the user's hidden items and an explicit group-hidden preference.
+  const fluxGroup = useMemo(() => {
+    if (!config) return null
+    const stored = config.groups.find((group) => group.id === FLUX_GROUP_ID)
+    if (stored && !stored.visible) return null
+    const items = flux.items
+      .filter((item) => !config.hiddenItems.includes(item.id))
+      .map((item, order) => ({ ...item, visible: true, pinned: false, order }))
+    if (items.length === 0) return null
+    return {
+      id: FLUX_GROUP_ID,
+      nameKey: FLUX_GROUP_NAME_KEY,
+      items,
+      visible: true,
+      collapsed: flux.collapsed,
+      order: Number.MAX_SAFE_INTEGER,
+    }
+  }, [config, flux.items, flux.collapsed])
+
   const isActive = (url: string) => {
+    url = url.split('?')[0]
     if (url === '/') {
       return location.pathname === '/'
     }
@@ -185,7 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         )}
 
-        {visibleGroups.map((group) => (
+        {[...visibleGroups, ...(fluxGroup ? [fluxGroup] : [])].map((group) => (
           <SidebarGroup key={group.id}>
             {isIconCollapsed ? (
               <SidebarGroupContent className="flex flex-col gap-2">
@@ -194,7 +218,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             ) : (
               <Collapsible
                 open={!group.collapsed}
-                onOpenChange={() => toggleGroupCollapse(group.id)}
+                onOpenChange={() =>
+                  group.id === FLUX_GROUP_ID
+                    ? flux.toggleCollapsed()
+                    : toggleGroupCollapse(group.id)
+                }
                 className="group/collapsible"
               >
                 <SidebarGroupLabel asChild>

@@ -103,6 +103,23 @@
     "next": "Next match",
     "noResults": "No results"
   },
+  "flux": {
+    "kinds": {
+      "GitRepository": "GitRepository",
+      "OCIRepository": "OCIRepository",
+      "HelmRepository": "HelmRepository",
+      "Bucket": "Bucket",
+      "ExternalArtifact": "ExternalArtifact",
+      "Kustomization": "Kustomization",
+      "HelmRelease": "HelmRelease",
+      "ImageRepository": "ImageRepository",
+      "ImagePolicy": "ImagePolicy",
+      "ImageUpdateAutomation": "ImageUpdateAutomation",
+      "Alert": "Alert",
+      "Provider": "Provider",
+      "Receiver": "Receiver"
+    }
+  },
   "sidebar": {
     "groups": {
       "cluster": "Cluster",
@@ -111,7 +128,8 @@
       "config": "Config",
       "security": "Security",
       "workloads": "Workloads",
-      "extension": "Extension"
+      "extension": "Extension",
+      "flux": "Flux"
     },
     "short": {
       "pvcs": "PVCs",

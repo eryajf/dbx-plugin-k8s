@@ -144,6 +144,21 @@ for (const value of [
   'P',
   'E',
   'https://prometheus.example.com',
+  // Flux product name and CRD Kind names are kept verbatim.
+  'Flux',
+  'GitRepository',
+  'OCIRepository',
+  'HelmRepository',
+  'Bucket',
+  'ExternalArtifact',
+  'Kustomization',
+  'HelmRelease',
+  'ImageRepository',
+  'ImagePolicy',
+  'ImageUpdateAutomation',
+  'Alert',
+  'Provider',
+  'Receiver',
 ])
   technicalConstants.add(value)
 

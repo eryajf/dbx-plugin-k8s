@@ -103,6 +103,23 @@
     "next": "下一个匹配",
     "noResults": "没有结果"
   },
+  "flux": {
+    "kinds": {
+      "GitRepository": "GitRepository",
+      "OCIRepository": "OCIRepository",
+      "HelmRepository": "HelmRepository",
+      "Bucket": "Bucket",
+      "ExternalArtifact": "ExternalArtifact",
+      "Kustomization": "Kustomization",
+      "HelmRelease": "HelmRelease",
+      "ImageRepository": "ImageRepository",
+      "ImagePolicy": "ImagePolicy",
+      "ImageUpdateAutomation": "ImageUpdateAutomation",
+      "Alert": "Alert",
+      "Provider": "Provider",
+      "Receiver": "Receiver"
+    }
+  },
   "sidebar": {
     "groups": {
       "cluster": "集群",
@@ -111,7 +128,8 @@
       "config": "配置",
       "security": "安全",
       "workloads": "工作负载",
-      "extension": "扩展"
+      "extension": "扩展",
+      "flux": "Flux"
     },
     "short": {
       "pvcs": "PVCs",
