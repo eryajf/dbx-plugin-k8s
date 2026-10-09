@@ -2382,5 +2382,10 @@
     "notebook": "Notebook",
     "clean-slate": "Clean slate",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "Terminal input was not fully written; reconnect before continuing",
+    "invalid": "Invalid terminal input",
+    "queueFull": "Terminal input queue is full; reconnect before continuing"
   }
 }

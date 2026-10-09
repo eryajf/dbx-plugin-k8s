@@ -2382,5 +2382,10 @@
     "notebook": "Defter",
     "clean-slate": "Temiz sayfa",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "Terminal girdisi tamamen yazılamadı; devam etmeden önce yeniden bağlanın",
+    "invalid": "Geçersiz terminal girdisi",
+    "queueFull": "Terminal girdi kuyruğu dolu; devam etmeden önce yeniden bağlanın"
   }
 }

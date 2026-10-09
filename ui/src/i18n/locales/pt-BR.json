@@ -2382,5 +2382,10 @@
     "notebook": "Caderno",
     "clean-slate": "Ficha limpa",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "A entrada do terminal não foi gravada por completo; reconecte-se antes de continuar",
+    "invalid": "Entrada de terminal inválida",
+    "queueFull": "A fila de entrada do terminal está cheia; reconecte-se antes de continuar"
   }
 }

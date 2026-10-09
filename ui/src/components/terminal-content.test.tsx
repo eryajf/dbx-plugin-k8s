@@ -5,12 +5,14 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Terminal } from './terminal-content'
 
 const websocketUrls: string[] = []
+const terminalWriteLine = vi.hoisted(() => vi.fn())
+const sockets: WebSocketMock[] = []
 
 vi.mock('@xterm/xterm', () => ({
   Terminal: class {
     loadAddon = vi.fn()
     open = vi.fn()
-    writeln = vi.fn()
+    writeln = terminalWriteLine
     write = vi.fn()
     dispose = vi.fn()
     onData = vi.fn()
@@ -85,6 +87,7 @@ class WebSocketMock {
   onclose: ((event: CloseEvent) => void) | null = null
 
   constructor(url: string) {
+    sockets.push(this)
     websocketUrls.push(url)
     setTimeout(() => this.onopen?.(), 0)
   }
@@ -111,6 +114,8 @@ const pods = [
 describe('Terminal', () => {
   beforeEach(() => {
     websocketUrls.length = 0
+    sockets.length = 0
+    terminalWriteLine.mockClear()
     localStorage.clear()
   })
 
@@ -160,5 +165,14 @@ describe('Terminal', () => {
       expect(websocketUrls[0]).toContain('x-cluster-name=cluster-a')
     })
     expect(websocketUrls[0]).not.toContain('cluster-b')
+  })
+
+  it('translates known terminal input errors and preserves remote error details', async () => {
+    render(<Terminal type="node" nodeName="node-a" />)
+    await waitFor(() => expect(sockets[0]?.onmessage).toBeTypeOf('function'))
+    sockets[0]?.onmessage?.({data: JSON.stringify({type: 'error', code: 'INPUT_QUEUE_FULL', data: 'English fallback'})} as MessageEvent)
+    expect(terminalWriteLine).toHaveBeenCalledWith(expect.stringContaining('terminalInputErrors.queueFull'))
+    sockets[0]?.onmessage?.({data: JSON.stringify({type: 'error', code: 'REMOTE_ERROR', data: 'server unavailable'})} as MessageEvent)
+    expect(terminalWriteLine).toHaveBeenCalledWith(expect.stringContaining('server unavailable'))
   })
 })

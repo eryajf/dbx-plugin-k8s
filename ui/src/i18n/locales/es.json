@@ -2382,5 +2382,10 @@
     "notebook": "Computadora portátil",
     "clean-slate": "borrón y cuenta nueva",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "La entrada del terminal no se escribió por completo; vuelve a conectarte antes de continuar",
+    "invalid": "Entrada de terminal no válida",
+    "queueFull": "La cola de entrada del terminal está llena; vuelve a conectarte antes de continuar"
   }
 }

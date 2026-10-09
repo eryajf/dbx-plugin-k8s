@@ -2382,5 +2382,10 @@
     "notebook": "ノート",
     "clean-slate": "白紙の状態",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "端末への入力が完全に書き込まれませんでした。再接続してから続行してください",
+    "invalid": "端末への入力が無効です",
+    "queueFull": "端末の入力キューがいっぱいです。再接続してから続行してください"
   }
 }

@@ -2382,5 +2382,10 @@
     "notebook": "공책",
     "clean-slate": "깨끗한 슬레이트",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "터미널 입력이 완전히 기록되지 않았습니다. 다시 연결한 후 계속하세요",
+    "invalid": "유효하지 않은 터미널 입력입니다",
+    "queueFull": "터미널 입력 대기열이 가득 찼습니다. 다시 연결한 후 계속하세요"
   }
 }

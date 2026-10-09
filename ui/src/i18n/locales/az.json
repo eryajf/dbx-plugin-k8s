@@ -2382,5 +2382,10 @@
     "notebook": "Qeyd dəftəri",
     "clean-slate": "Təmiz şifer",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "Terminal girişi tam yazılmadı; davam etməzdən əvvəl yenidən qoşulun",
+    "invalid": "Yanlış terminal girişi",
+    "queueFull": "Terminal giriş növbəsi doludur; davam etməzdən əvvəl yenidən qoşulun"
   }
 }

@@ -1,5 +1,6 @@
 import { getDBXTransport } from '@/lib/dbx-transport'
 import { createDBXTerminalSocket, type TerminalSocket } from '@/lib/dbx-session-stream'
+import { translateTerminalInputError } from '@/lib/dbx-terminal-errors'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconClearAll,
@@ -587,7 +588,7 @@ export function Terminal({
             break
           case 'error':
             terminal.writeln(
-              `\x1b[31mError: ${translateError(new Error(message.data), t)}\x1b[0m`
+              `\x1b[31mError: ${translateTerminalInputError(message.code, t) ?? translateError(new Error(message.data), t)}\x1b[0m`
             )
             setIsConnected(false)
             break

@@ -2382,5 +2382,10 @@
     "notebook": "笔记本",
     "clean-slate": "简洁",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "终端输入未完整写入，请重新连接后再继续",
+    "invalid": "终端输入无效",
+    "queueFull": "终端输入队列已满，请重新连接后再继续"
   }
 }

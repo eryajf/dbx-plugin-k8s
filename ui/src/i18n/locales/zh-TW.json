@@ -2382,5 +2382,10 @@
     "notebook": "筆記本",
     "clean-slate": "簡潔",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "終端輸入未完整寫入，請重新連線後再繼續",
+    "invalid": "終端輸入無效",
+    "queueFull": "終端輸入佇列已滿，請重新連線後再繼續"
   }
 }

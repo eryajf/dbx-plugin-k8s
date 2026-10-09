@@ -2382,5 +2382,10 @@
     "notebook": "Taccuino",
     "clean-slate": "Lavagna pulita",
     "claude": "Claude"
+  },
+  "terminalInputErrors": {
+    "incomplete": "L’input del terminale non è stato scritto completamente; riconnettiti prima di continuare",
+    "invalid": "Input del terminale non valido",
+    "queueFull": "La coda di input del terminale è piena; riconnettiti prima di continuare"
   }
 }
