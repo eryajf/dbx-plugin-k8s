@@ -262,7 +262,7 @@ func (c *Client) discoverResourceLists(ctx context.Context) ([]*metav1.APIResour
 func New(config *rest.Config, namespace, contextName string) (*Client, error) {
 	cfg := rest.CopyConfig(config)
 	cfg.Timeout = 0
-	cfg.UserAgent = "dbx-plugin-k8s/0.1.9"
+	cfg.UserAgent = "dbx-plugin-k8s/0.1.20"
 	transport, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, err

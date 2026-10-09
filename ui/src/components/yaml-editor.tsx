@@ -4,6 +4,10 @@ import * as yaml from 'js-yaml'
 import type { editor as monacoEditor } from 'monaco-editor'
 import { useTranslation } from 'react-i18next'
 
+import { toast } from 'sonner'
+
+import { copyTextToClipboard, saveTextFile } from '@/lib/desktop'
+import { neatResource } from '@/lib/yaml-neat'
 import { ResourceType, ResourceTypeMap } from '@/types/api'
 import { MonacoEditor } from '@/lib/monaco-loader'
 import {
@@ -15,10 +19,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { useAppearance } from './appearance-provider'
 import { YamlDiffDialog } from './yaml-diff-dialog'
+import { YamlNeatDialog } from './yaml-neat-dialog'
 
 interface YamlEditorProps<T extends ResourceType> {
   /** The YAML content to edit */
   value: string
+  /** Canonical resource snapshot, independent of display transformations. */
+  neatSource?: unknown
   /** Whether the editor is in read-only mode by default */
   readOnly?: boolean
   /** Whether to show the edit controls */
@@ -43,6 +50,7 @@ interface YamlEditorProps<T extends ResourceType> {
 
 export function YamlEditor<T extends ResourceType>({
   value,
+  neatSource,
   readOnly = false,
   showControls = true,
   title,
@@ -52,6 +60,8 @@ export function YamlEditor<T extends ResourceType>({
   isSaving = false,
   className,
 }: YamlEditorProps<T>) {
+  const [neatSnapshot, setNeatSnapshot] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editorValue, setEditorValue] = useState(value)
   const [isValidYaml, setIsValidYaml] = useState(true)
@@ -70,6 +80,60 @@ export function YamlEditor<T extends ResourceType>({
     themeMode,
     colorTheme
   )
+
+  const openNeatTool = () => {
+    try {
+      const source = neatSource === undefined ? yaml.load(value) : neatSource
+      neatResource(source) // Validate before opening; errors must not expose Secret values.
+      setNeatSnapshot(yaml.dump(source, { indent: 2, noRefs: true }))
+    } catch {
+      toast.error(t('yamlEditor.neat.invalid'))
+    }
+  }
+  const exportYaml = async (download: boolean) => {
+    setExporting(true)
+    try {
+      if (download) {
+        let fileName = 'resource'
+        try {
+          const resource = yaml.load(editorValue) as Record<
+            string,
+            unknown
+          > | null
+          const metadata = resource?.metadata as
+            Record<string, unknown> | undefined
+          if (resource?.kind && metadata?.name) {
+            fileName =
+              `${String(resource.kind)}-${String(metadata.name)}`.replace(
+                /[^a-zA-Z0-9._-]/g,
+                '_'
+              )
+          }
+        } catch {
+          // An unfinished draft can still be downloaded with a generic filename.
+        }
+        const result = await saveTextFile({
+          content: editorValue,
+          suggestedName: `${fileName}.yaml`,
+        })
+        if (!result.canceled) toast.success(t('yamlEditor.neat.downloaded'))
+      } else {
+        await copyTextToClipboard(editorValue)
+        toast.success(t('yamlEditor.neat.copied'))
+      }
+    } catch {
+      // Never expose parser, clipboard or host errors containing Secret values.
+      toast.error(
+        t(
+          download
+            ? 'yamlEditor.neat.downloadFailed'
+            : 'yamlEditor.neat.copyFailed'
+        )
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Update editor value when value prop changes
   useEffect(() => {
@@ -191,11 +255,40 @@ export function YamlEditor<T extends ResourceType>({
   return (
     <>
       <Card className={className}>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <CardTitle>{resolvedTitle}</CardTitle>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={exporting}
+              onClick={() => void exportYaml(false)}
+            >
+              {t('yamlEditor.neat.copy')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={exporting}
+              onClick={() => void exportYaml(true)}
+            >
+              {t('yamlEditor.neat.download')}
+            </Button>
+            <span className="mx-1 h-5 border-l" aria-hidden="true" />
+            <span
+              title={isEditing ? t('yamlEditor.neat.finishEditing') : undefined}
+            >
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isEditing || isSaveInProgress}
+                onClick={openNeatTool}
+              >
+                {t('yamlEditor.neat.export')}
+              </Button>
+            </span>
             {showControls && (
               <div className="flex gap-2">
                 {isEditing ? (
@@ -306,6 +399,12 @@ export function YamlEditor<T extends ResourceType>({
           </div>
         </CardContent>
       </Card>
+      {neatSnapshot !== null && (
+        <YamlNeatDialog
+          snapshot={neatSnapshot}
+          onClose={() => setNeatSnapshot(null)}
+        />
+      )}
       <YamlDiffDialog
         open={isDiffOpen}
         original={editStartValueRef.current}

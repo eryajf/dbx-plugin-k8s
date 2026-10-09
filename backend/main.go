@@ -302,7 +302,7 @@ func main() {
 	p := &plugin{connections: connection.New(), sessions: sessions.New()}
 	defer p.connections.Close()
 	defer p.sessions.Close()
-	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.9", Capabilities: []string{"connections", "events", "mcp"}}, p)
+	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.20", Capabilities: []string{"connections", "events", "mcp"}}, p)
 	if e := s.Serve(); e != nil {
 		log.Fatal(e)
 	}

@@ -78,9 +78,9 @@ test('reports cached packages as up-to-date and rejects any version drift', () =
     assert.equal(cached.version, '0.1.1')
 
     for (const [relative, content, expected] of [
-      ['manifest.json', JSON.stringify({ id: 'io.dbx.k8s', version: '0.1.9' }, null, 2) + '\n', /manifest\.json/],
-      ['backend/main.go', 'dbx.Metadata{Version: "0.1.9"}\n', /backend\/main\.go reports 0\.1\.9/],
-      ['backend/internal/kube/client.go', 'cfg.UserAgent = "dbx-plugin-k8s/0.1.9"\n', /client\.go reports 0\.1\.9/],
+      ['manifest.json', JSON.stringify({ id: 'io.dbx.k8s', version: '0.1.10' }, null, 2) + '\n', /manifest\.json/],
+      ['backend/main.go', 'dbx.Metadata{Version: "0.1.10"}\n', /backend\/main\.go reports 0\.1\.10/],
+      ['backend/internal/kube/client.go', 'cfg.UserAgent = "dbx-plugin-k8s/0.1.10"\n', /client\.go reports 0\.1\.10/],
     ]) {
       const driftRoot = fixture()
       try {

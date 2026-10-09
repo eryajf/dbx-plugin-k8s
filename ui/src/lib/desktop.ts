@@ -423,9 +423,14 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   textarea.style.position = 'absolute'
   textarea.style.left = '-9999px'
   document.body.appendChild(textarea)
-  textarea.select()
-  document.execCommand('copy')
-  document.body.removeChild(textarea)
+  try {
+    textarea.select()
+    if (!document.execCommand('copy')) {
+      throw new Error('Clipboard copy failed')
+    }
+  } finally {
+    textarea.remove()
+  }
   if (desktopMode) {
     trackDesktopAction('clipboard_copy', {
       transport: 'exec_command',

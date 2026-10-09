@@ -92,7 +92,18 @@ vi.mock('@/components/refresh-button', () => ({
 }))
 
 vi.mock('@/components/yaml-editor', () => ({
-  YamlEditor: () => <div>yaml-editor</div>,
+  YamlEditor: ({
+    value,
+    neatSource,
+  }: {
+    value: string
+    neatSource: unknown
+  }) => (
+    <div>
+      <pre data-testid="yaml-display">{value}</pre>
+      <pre data-testid="neat-source">{JSON.stringify(neatSource)}</pre>
+    </div>
+  ),
 }))
 
 vi.mock('@/components/related-resource-table', () => ({
@@ -187,5 +198,47 @@ describe('SecretDetail', () => {
         stringData: undefined,
       })
     )
+  })
+})
+
+describe('SecretDetail simplified YAML integration', () => {
+  it('passes canonical Base64 data while keeping decode controls independent', () => {
+    mockUseResource.mockReturnValue({
+      data: secret,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+    mockUpdateResource.mockClear()
+    renderSecretDetail()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'detail.buttons.decodeValues' })
+    )
+    expect(screen.getByTestId('yaml-display').textContent).toContain(
+      'old-password'
+    )
+    expect(JSON.parse(screen.getByTestId('neat-source').textContent!)).toEqual(
+      secret
+    )
+    expect(screen.getByTestId('neat-source').textContent).not.toContain(
+      'old-password'
+    )
+    expect(
+      screen.getByRole('button', { name: 'detail.buttons.showBase64' })
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'detail.buttons.showBase64' })
+    )
+    expect(
+      screen.getByRole('button', { name: 'detail.buttons.decodeValues' })
+    ).toBeInTheDocument()
+    expect(JSON.parse(screen.getByTestId('neat-source').textContent!)).toEqual(
+      secret
+    )
+    expect(screen.getByTestId('yaml-display').textContent).not.toContain(
+      'old-password'
+    )
+    expect(mockUpdateResource).not.toHaveBeenCalled()
   })
 })

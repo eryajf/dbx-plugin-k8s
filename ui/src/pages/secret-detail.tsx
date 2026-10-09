@@ -743,6 +743,7 @@ export function SecretDetail(props: { namespace: string; name: string }) {
                 <YamlEditor<'secrets'>
                   key={`${refreshKey}-${showDecodedYaml}`}
                   value={getDecodedYamlContent()}
+                  neatSource={data}
                   title={t('yamlEditor.title')}
                   onChange={handleYamlChange}
                   onSave={handleSaveYaml}
