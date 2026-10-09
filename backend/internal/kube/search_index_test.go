@@ -20,6 +20,26 @@ import (
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 )
 
+func TestSearchIndexPersistenceRequiresConnectionIdentity(t *testing.T) {
+	client := &Client{}
+	if key := client.searchIndexPersistenceKey(); key != "" {
+		t.Fatalf("anonymous client persistence key = %q; want no shared disk cache", key)
+	}
+	index := client.SearchIndex()
+	if index.store != nil {
+		t.Fatal("anonymous client must not restore or persist another client's snapshot")
+	}
+	client.SetSearchIndexPersistenceKey("connection-a")
+	if index.store == nil {
+		t.Fatal("identified connection must retain persistence support")
+	}
+	first := index.store.key
+	client.SetSearchIndexPersistenceKey("connection-b")
+	if index.store == nil || index.store.key == first {
+		t.Fatal("different connections must have separate snapshots")
+	}
+}
+
 func TestSearchIndexMatchesAllTokensAndMetadataOnly(t *testing.T) {
 	core := kubernetesfake.NewSimpleClientset()
 	core.Discovery().(*discoveryfake.FakeDiscovery).Resources = []*metav1.APIResourceList{

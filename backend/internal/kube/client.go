@@ -329,6 +329,11 @@ func (c *Client) SetSearchIndexPersistenceKey(connectionID string) {
 }
 
 func (c *Client) searchIndexPersistenceKey() string {
+	// Persistence is opt-in through the connection manager. Anonymous clients
+	// (including test fakes) must not share a snapshot under an all-empty key.
+	if c.searchIndexKey == "" {
+		return ""
+	}
 	host := ""
 	credentialFingerprint := ""
 	if c.Config != nil {
