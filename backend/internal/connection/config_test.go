@@ -3,6 +3,7 @@ package connection
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -126,5 +127,29 @@ func TestResolvePrometheusHeadersFromSecrets(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid Prometheus header value to be rejected")
+	}
+}
+
+func TestResolvePrometheusHeadersRejectsCaseInsensitiveDuplicates(t *testing.T) {
+	for _, raw := range []string{
+		`{"Authorization":"Basic old-secret","authorization":"Basic new-secret"}`,
+		`{"instanceId":"old-secret","InstanceId":"new-secret"}`,
+		`{"AUTHORIZATION":"","authorization":"Basic new-secret"}`,
+	} {
+		_, err := Resolve(map[string]any{
+			"connection": map[string]any{
+				"server": "https://example.com",
+				"connection_secrets": map[string]any{
+					"token":              "token",
+					"prometheus_headers": raw,
+				},
+			},
+		})
+		if err == nil || !strings.Contains(err.Error(), "duplicate header name") {
+			t.Fatalf("expected duplicate header error, got %v", err)
+		}
+		if strings.Contains(err.Error(), "old-secret") || strings.Contains(err.Error(), "new-secret") {
+			t.Fatal("duplicate header error exposed a header value")
+		}
 	}
 }

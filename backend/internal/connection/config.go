@@ -262,6 +262,9 @@ func parsePrometheusHeaders(raw string) (http.Header, error) {
 		if canonical == "" {
 			return nil, fmt.Errorf("prometheus_headers contains an invalid header name: %s", name)
 		}
+		if _, exists := headers[canonical]; exists {
+			return nil, fmt.Errorf("prometheus_headers contains a duplicate header name (case-insensitive): %s", canonical)
+		}
 		headers.Set(canonical, text)
 	}
 	return headers, nil

@@ -10,6 +10,8 @@ DBX Kubernetes 插件从连接配置中的 Prometheus 地址查询历史监控�
 
 Header 会附加到健康检查、即时查询和范围查询。字段通过 DBX Secret Store 保存；`instanceId` Header 与查询参数中的 `instance` 标签筛选不是同一个概念。
 
+Header 名称不区分大小写，请勿同时填写 `Authorization` 和 `authorization` 等同名字段；重复配置会被拒绝。
+
 如果监控页面提示“Prometheus 连接不可用”，请先确认地址已保存，并从运行插件的环境访问该地址。如果提示“Prometheus 指标缺失”，说明 Prometheus 可以访问，但查询没有返回所需的时间序列，请检查采集目标、指标保留策略和标签。
 
 ## 页面与指标
