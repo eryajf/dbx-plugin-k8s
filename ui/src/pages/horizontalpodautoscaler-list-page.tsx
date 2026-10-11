@@ -71,15 +71,15 @@ export function HorizontalPodAutoscalerListPage() {
         header: 'Target',
         cell: ({ getValue }) => getValue(),
       }),
-      columnHelper.accessor((row) => row.spec?.minReplicas, {
+      columnHelper.accessor((row) => row.spec?.minReplicas ?? '-', {
         id: 'minReplicas',
         header: 'Min Pods',
-        cell: ({ getValue }) => getValue() || '-',
+        cell: ({ getValue }) => getValue(),
       }),
-      columnHelper.accessor((row) => row.spec?.maxReplicas, {
+      columnHelper.accessor((row) => row.spec?.maxReplicas ?? '-', {
         id: 'maxReplicas',
         header: 'Max Pods',
-        cell: ({ getValue }) => getValue() || '-',
+        cell: ({ getValue }) => getValue(),
       }),
       columnHelper.accessor((row) => getCurrentReplicas(row), {
         id: 'currentReplicas',
@@ -95,6 +95,7 @@ export function HorizontalPodAutoscalerListPage() {
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: 'Created',
+        meta: { filterLabel: (value) => formatDate(value || '') },
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

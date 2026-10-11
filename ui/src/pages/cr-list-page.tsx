@@ -76,6 +76,14 @@ export function CRListPage() {
             {
               id: jsonPath || printerColumn.name,
               header: printerColumn.name,
+              meta: {
+                filterLabel: (value) =>
+                  !value
+                    ? '-'
+                    : printerColumn.type === 'date'
+                      ? formatDate(value)
+                      : String(value),
+              },
               cell: ({ getValue }) => {
                 const type = printerColumn.type
                 const value = getValue()

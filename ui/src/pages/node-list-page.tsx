@@ -16,6 +16,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { NodeWithMetrics } from '@/types/api'
+import {
+  formatCompactMemoryValue,
+  formatCpuCoreValue,
+} from '@/lib/metric-format'
 import { trackResourceAction } from '@/lib/analytics'
 import { cordonNode, drainNode, uncordonNode } from '@/lib/api'
 import { copyTextToClipboard } from '@/lib/desktop'
@@ -249,6 +253,7 @@ export function NodeListPage() {
         header: t('common.status'),
         meta: {
           align: 'left',
+          filterLabel: (value) => getNodeStatusLabel(t, value),
         },
         cell: ({ getValue }) => {
           const status = getValue()
@@ -296,6 +301,8 @@ export function NodeListPage() {
         header: 'CPU',
         meta: {
           align: 'center',
+          filterLabel: (value) =>
+            formatCpuCoreValue(value, t('metric.coreUnit', 'cores')),
         },
         cell: ({ row }) => (
           <MetricCell
@@ -313,6 +320,7 @@ export function NodeListPage() {
         header: 'Memory',
         meta: {
           align: 'center',
+          filterLabel: (value) => formatCompactMemoryValue(value),
         },
         cell: ({ row }) => (
           <MetricCell
@@ -327,6 +335,7 @@ export function NodeListPage() {
       }),
       columnHelper.accessor((row) => getNodeIP(row), {
         id: 'ip',
+        meta: { filterLabel: (value) => value || t('common.na') },
         header: t('nodes.ipAddress'),
         cell: ({ getValue }) => {
           const ip = getValue()
@@ -337,29 +346,41 @@ export function NodeListPage() {
           )
         },
       }),
-      columnHelper.accessor('status.nodeInfo.kubeletVersion', {
-        header: t('nodes.version'),
-        cell: ({ getValue }) => {
-          const version = getValue()
-          return version ? (
-            <span className="text-sm">{version}</span>
-          ) : (
-            <span className="text-muted-foreground">{t('common.na')}</span>
-          )
-        },
-      }),
-      columnHelper.accessor('status.nodeInfo.kernelVersion', {
-        header: t('nodes.kernelVersion'),
-        cell: ({ getValue }) => {
-          const kernelVersion = getValue()
-          return kernelVersion ? (
-            <span className="text-sm">{kernelVersion}</span>
-          ) : (
-            <span className="text-muted-foreground">{t('common.na')}</span>
-          )
-        },
-      }),
-      columnHelper.accessor('status.nodeInfo.osImage', {
+      columnHelper.accessor(
+        (row) => row?.status?.nodeInfo?.kubeletVersion || '',
+        {
+          id: 'status_nodeInfo_kubeletVersion',
+          meta: { filterLabel: (value) => value || t('common.na') },
+          header: t('nodes.version'),
+          cell: ({ getValue }) => {
+            const version = getValue()
+            return version ? (
+              <span className="text-sm">{version}</span>
+            ) : (
+              <span className="text-muted-foreground">{t('common.na')}</span>
+            )
+          },
+        }
+      ),
+      columnHelper.accessor(
+        (row) => row?.status?.nodeInfo?.kernelVersion || '',
+        {
+          id: 'status_nodeInfo_kernelVersion',
+          meta: { filterLabel: (value) => value || t('common.na') },
+          header: t('nodes.kernelVersion'),
+          cell: ({ getValue }) => {
+            const kernelVersion = getValue()
+            return kernelVersion ? (
+              <span className="text-sm">{kernelVersion}</span>
+            ) : (
+              <span className="text-muted-foreground">{t('common.na')}</span>
+            )
+          },
+        }
+      ),
+      columnHelper.accessor((row) => row?.status?.nodeInfo?.osImage || '', {
+        id: 'status_nodeInfo_osImage',
+        meta: { filterLabel: (value) => value || t('common.na') },
         header: t('nodes.os'),
         cell: ({ getValue }) => {
           const osImage = getValue()
@@ -372,6 +393,7 @@ export function NodeListPage() {
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatDate(value || '') },
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
           return (

@@ -182,7 +182,11 @@ describe('NamespaceListPage', () => {
       'memory-limit',
     ])
     expect(resourceTableProps.columns[1].meta).toEqual({ align: 'left' })
-    expect(resourceTableProps.columns[2].meta).toEqual({ align: 'left' })
+    expect(resourceTableProps.columns[2].meta).toMatchObject({ align: 'left' })
+    const timestamp = '2026-05-04T16:00:00Z'
+    expect(resourceTableProps.columns[2].meta?.filterLabel(timestamp)).toBe(
+      `${formatDate(timestamp)} (${formatRelativeTimeStrict(timestamp)})`
+    )
 
     const namespace = {
       metadata: {

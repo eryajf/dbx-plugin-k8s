@@ -91,53 +91,77 @@ export function StatefulSetListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor((row) => row.status?.readyReplicas ?? 0, {
-        id: 'ready',
-        header: t('deployments.ready'),
-        cell: ({ row }) => {
-          const status = row.original.status
-          const ready = status?.readyReplicas || 0
-          const desired = status?.replicas || 0
-          return (
-            <div>
-              {ready} / {desired}
-            </div>
-          )
-        },
-      }),
-      columnHelper.accessor('status.conditions', {
-        header: t('common.status'),
-        cell: ({ row }) => {
-          const readyReplicas = row.original.status?.readyReplicas || 0
-          const replicas = row.original.status?.replicas || 0
-          const isAvailable = readyReplicas === replicas
-          const status = isAvailable
-            ? t('deployments.available')
-            : t('common.loading')
-          if (replicas === 0) {
+      columnHelper.accessor(
+        (row) =>
+          `${row.status?.readyReplicas || 0} / ${row.status?.replicas || 0}`,
+        {
+          id: 'ready',
+          sortingFn: (a, b) =>
+            (a.original.status?.readyReplicas || 0) -
+            (b.original.status?.readyReplicas || 0),
+          header: t('deployments.ready'),
+          cell: ({ row }) => {
+            const status = row.original.status
+            const ready = status?.readyReplicas || 0
+            const desired = status?.replicas || 0
             return (
-              <Badge
-                variant="secondary"
-                className="text-muted-foreground px-1.5"
-              >
-                -
+              <div>
+                {ready} / {desired}
+              </div>
+            )
+          },
+        }
+      ),
+      columnHelper.accessor(
+        (row) =>
+          !(row.status?.replicas || 0)
+            ? '-'
+            : (row.status?.readyReplicas || 0) === (row.status?.replicas || 0)
+              ? 'Available'
+              : 'Loading',
+        {
+          id: 'status_conditions',
+          meta: {
+            filterLabel: (value) =>
+              value === 'Available'
+                ? t('deployments.available')
+                : value === 'Loading'
+                  ? t('common.loading')
+                  : value,
+          },
+          header: t('common.status'),
+          cell: ({ getValue }) => {
+            const value = getValue()
+            const isAvailable = value === 'Available'
+            const status = isAvailable
+              ? t('deployments.available')
+              : t('common.loading')
+            if (value === '-') {
+              return (
+                <Badge
+                  variant="secondary"
+                  className="text-muted-foreground px-1.5"
+                >
+                  -
+                </Badge>
+              )
+            }
+
+            return (
+              <Badge variant="outline" className="text-muted-foreground px-1.5">
+                {isAvailable ? (
+                  <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
+                ) : (
+                  <IconLoader className="animate-spin" />
+                )}
+                {status}
               </Badge>
             )
-          }
-
-          return (
-            <Badge variant="outline" className="text-muted-foreground px-1.5">
-              {isAvailable ? (
-                <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
-              ) : (
-                <IconLoader className="animate-spin" />
-              )}
-              {status}
-            </Badge>
-          )
-        },
-      }),
-      columnHelper.accessor('spec.serviceName', {
+          },
+        }
+      ),
+      columnHelper.accessor((row) => row?.spec?.serviceName || '-', {
+        id: 'spec_serviceName',
         header: t('detail.fields.serviceName'),
         cell: ({ getValue }) => getValue() || '-',
       }),
@@ -194,6 +218,7 @@ export function StatefulSetListPage() {
       columnHelper.accessor('metadata.creationTimestamp', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

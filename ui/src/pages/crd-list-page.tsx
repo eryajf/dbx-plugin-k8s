@@ -70,27 +70,34 @@ export function CRDListPage() {
           </Badge>
         ),
       }),
-      columnHelper.accessor('status.conditions', {
-        header: t('common.status'),
-        cell: ({ getValue }) => {
-          const conditions = getValue() || []
-          const establishedCondition = conditions.find(
-            (c: { type: string; status: string }) => c.type === 'Established'
-          )
-          const isEstablished = establishedCondition?.status === 'True'
+      columnHelper.accessor(
+        (row) =>
+          row.status?.conditions?.find((c) => c.type === 'Established')
+            ?.status === 'True',
+        {
+          id: 'status_conditions',
+          meta: {
+            filterLabel: (value) =>
+              value ? t('crds.established') : t('crds.notReady'),
+          },
+          header: t('common.status'),
+          cell: ({ getValue }) => {
+            const isEstablished = getValue()
 
-          return (
-            <Badge
-              variant={isEstablished ? 'default' : 'destructive'}
-              className="text-xs"
-            >
-              {isEstablished ? t('crds.established') : t('crds.notReady')}
-            </Badge>
-          )
-        },
-      }),
+            return (
+              <Badge
+                variant={isEstablished ? 'default' : 'destructive'}
+                className="text-xs"
+              >
+                {isEstablished ? t('crds.established') : t('crds.notReady')}
+              </Badge>
+            )
+          },
+        }
+      ),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('crds.age'),
+        meta: { filterLabel: (value) => getAge(value as string) },
         cell: ({ getValue }) => {
           return getAge(getValue() as string)
         },

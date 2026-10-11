@@ -107,6 +107,11 @@ describe('IngressListPage', () => {
       columns: ReturnType<typeof createColumnHelper<Ingress>>[]
     }
 
+    const classColumn = resourceTableProps.columns[1]
+    expect(
+      classColumn.meta?.filterLabel(classColumn.accessorFn({ spec: {} }, 0))
+    ).toBe('common.na')
+
     const ingress = {
       metadata: {
         name: 'gateway',

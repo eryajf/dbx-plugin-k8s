@@ -26,13 +26,18 @@ export function GatewayListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('spec.gatewayClassName', {
+      columnHelper.accessor((row) => row?.spec?.gatewayClassName || '-', {
+        id: 'spec_gatewayClassName',
+        meta: {
+          filterLabel: (value) => (value === '-' ? t('common.na') : value),
+        },
         header: t('gateways.gatewayClass'),
         cell: ({ row }) =>
           row.original.spec?.gatewayClassName || t('common.na'),
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatDate(value || '') },
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

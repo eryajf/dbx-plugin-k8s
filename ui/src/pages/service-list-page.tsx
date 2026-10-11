@@ -158,7 +158,8 @@ export function ServiceListPage() {
           </div>
         ),
       }),
-      serviceColumnHelper.accessor('spec.type', {
+      serviceColumnHelper.accessor((row) => row.spec?.type || 'ClusterIP', {
+        id: 'spec_type',
         header: t('services.type'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
@@ -166,7 +167,8 @@ export function ServiceListPage() {
           return <Badge variant="outline">{type}</Badge>
         },
       }),
-      serviceColumnHelper.accessor('spec.clusterIP', {
+      serviceColumnHelper.accessor((row) => row?.spec?.clusterIP || '-', {
+        id: 'spec_clusterIP',
         header: t('services.clusterIP'),
         cell: ({ getValue }) => {
           const val = getValue() || '-'
@@ -242,6 +244,7 @@ export function ServiceListPage() {
       serviceColumnHelper.accessor('metadata.creationTimestamp', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

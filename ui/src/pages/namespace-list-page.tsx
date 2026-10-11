@@ -71,14 +71,19 @@ export function NamespaceListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('status.phase', {
+      columnHelper.accessor((row) => row.status?.phase || 'Unknown', {
+        id: 'status_phase',
         header: t('common.status'),
         meta: { align: 'left' },
-        cell: ({ row }) => row.original.status!.phase || 'Unknown',
+        cell: ({ getValue }) => getValue(),
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
-        meta: { align: 'left' },
+        meta: {
+          align: 'left',
+          filterLabel: (timestamp) =>
+            `${formatDate(timestamp as string)} (${formatRelativeTimeStrict(timestamp as string)})`,
+        },
         cell: ({ getValue }) => {
           const timestamp = getValue() as string
           return `${formatDate(timestamp)} (${formatRelativeTimeStrict(timestamp)})`

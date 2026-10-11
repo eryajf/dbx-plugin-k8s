@@ -120,7 +120,7 @@ describe('NodeListPage', () => {
     expect(resourceTableProps.columns[1].id).toBe('status')
     expect(resourceTableProps.columns[2].id).toBe('roles')
     expect(resourceTableProps.columns[2].header).toBe('nodes.roles')
-    expect(resourceTableProps.columns[1].meta).toEqual({ align: 'left' })
+    expect(resourceTableProps.columns[1].meta).toMatchObject({ align: 'left' })
     expect(resourceTableProps.columns[2].meta).toEqual({ align: 'left' })
 
     const sampleNode = {

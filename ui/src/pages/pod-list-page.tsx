@@ -15,7 +15,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { PodWithMetrics } from '@/types/api'
 import { getPodStatus } from '@/lib/k8s'
-import { formatDate, formatRelativeTimeStrict } from '@/lib/utils'
+import { formatDate, formatMemory, formatRelativeTimeStrict } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ContainerImagesSummary } from '@/components/container-images-summary'
 import { ResourceMetadataDialog } from '@/components/editors/resource-metadata-dialog'
@@ -64,45 +64,56 @@ export function PodListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor((row) => row.status?.containerStatuses, {
-        id: 'containers',
-        header: t('pods.ready'),
-        cell: ({ row }) => {
-          const status = getPodStatus(row.original)
-          return (
-            <div>
-              {status.readyContainers} / {status.totalContainers}
-            </div>
-          )
+      columnHelper.accessor(
+        (row) => {
+          const status = getPodStatus(row)
+          return `${status.readyContainers} / ${status.totalContainers}`
         },
-      }),
-      columnHelper.accessor((row) => row.status?.phase, {
+        {
+          id: 'containers',
+          header: t('pods.ready'),
+          cell: ({ row }) => {
+            const status = getPodStatus(row.original)
+            return (
+              <div>
+                {status.readyContainers} / {status.totalContainers}
+              </div>
+            )
+          },
+        }
+      ),
+      columnHelper.accessor((row) => getPodStatus(row).reason, {
+        id: 'status',
         header: t('common.status'),
         enableColumnFilter: true,
-        cell: ({ row }) => {
-          const status = getPodStatus(row.original)
+        cell: ({ getValue }) => {
+          const status = getValue()
           return (
             <Badge variant="outline" className="text-muted-foreground px-1.5">
-              <PodStatusIcon status={status.reason} />
-              {status.reason}
+              <PodStatusIcon status={status} />
+              {status}
             </Badge>
           )
         },
       }),
-      columnHelper.accessor((row) => row.status, {
-        id: 'restarts',
-        header: t('pods.restarts'),
-        cell: ({ row }) => {
-          const status = getPodStatus(row.original)
-          return (
-            <span className="text-muted-foreground text-sm">
-              {status.restartString}
-            </span>
-          )
-        },
-      }),
+      columnHelper.accessor(
+        (row) => Number.parseInt(getPodStatus(row).restartString, 10),
+        {
+          id: 'restarts',
+          header: t('pods.restarts'),
+          cell: ({ row }) => {
+            const status = getPodStatus(row.original)
+            return (
+              <span className="text-muted-foreground text-sm">
+                {status.restartString}
+              </span>
+            )
+          },
+        }
+      ),
       columnHelper.accessor((row) => row.metrics?.cpuUsage || 0, {
         id: 'cpu',
+        meta: { filterLabel: (value) => `${value}m` },
         header: 'CPU',
         cell: ({ row }) => (
           <MetricCell metrics={row.original.metrics} type="cpu" />
@@ -110,6 +121,7 @@ export function PodListPage() {
       }),
       columnHelper.accessor((row) => row.metrics?.memoryUsage || 0, {
         id: 'memory',
+        meta: { filterLabel: (value) => formatMemory(value) },
         header: 'Memory',
         cell: ({ row }) => (
           <MetricCell metrics={row.original.metrics} type="memory" />
@@ -127,7 +139,7 @@ export function PodListPage() {
           )
         },
       }),
-      columnHelper.accessor((row) => row.spec?.nodeName, {
+      columnHelper.accessor((row) => row.spec?.nodeName || '-', {
         id: 'nodeName',
         header: t('pods.node'),
         enableColumnFilter: true,
@@ -193,6 +205,7 @@ export function PodListPage() {
       columnHelper.accessor((row) => row.metadata?.creationTimestamp, {
         id: 'creationTimestamp',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

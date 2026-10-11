@@ -1,8 +1,11 @@
+import { matchesFilterOption } from '@/lib/column-filter-match'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Column } from '@tanstack/react-table'
 import { ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import '@/types/table'
+import { columnFilterOptions } from '@/lib/column-filter-options'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -104,17 +107,18 @@ function FacetedFilterContent<TData>({
       : new Set<string>()
   }, [column.getFilterValue()])
 
-  const sortedEntries = useMemo(() => {
-    return Array.from(facetedValues.entries())
-      .filter(([value]) => value != null && String(value) !== '')
-      .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
-  }, [facetedValues])
+  const formatLabel = column.columnDef.meta?.filterLabel
+  const sortedEntries = useMemo(
+    () => columnFilterOptions(facetedValues, formatLabel),
+    [facetedValues, formatLabel]
+  )
 
   const filteredEntries = useMemo(() => {
-    if (!search) return sortedEntries
     const lower = search.toLowerCase()
-    return sortedEntries.filter(([value]) =>
-      String(value).toLowerCase().includes(lower)
+    return sortedEntries.filter(
+      ({ label, values }) =>
+        label.toLowerCase().includes(lower) ||
+        values.some((value) => value.toLowerCase().includes(lower))
     )
   }, [sortedEntries, search])
 
@@ -123,33 +127,62 @@ function FacetedFilterContent<TData>({
 
   const allFilteredSelected = useMemo(() => {
     if (filteredEntries.length === 0) return false
-    return filteredEntries.every(([value]) => selectedValues.has(String(value)))
-  }, [filteredEntries, selectedValues])
+    return filteredEntries.every(({ values }) =>
+      values.every((value) =>
+        matchesFilterOption(value, [...selectedValues], formatLabel)
+      )
+    )
+  }, [filteredEntries, selectedValues, formatLabel])
 
   const handleToggle = useCallback(
-    (value: string) => {
+    (values: string[]) => {
       const next = new Set(selectedValues)
-      if (next.has(value)) {
-        next.delete(value)
+      const remove = values.every((value) =>
+        matchesFilterOption(value, [...next], formatLabel)
+      )
+      if (remove) {
+        for (const existing of next) {
+          if (
+            values.some((value) =>
+              matchesFilterOption(value, [existing], formatLabel)
+            )
+          )
+            next.delete(existing)
+        }
       } else {
-        next.add(value)
+        next.add(values[0])
       }
       column.setFilterValue(next.size > 0 ? Array.from(next) : undefined)
     },
-    [selectedValues, column]
+    [selectedValues, column, formatLabel]
   )
 
   const handleSelectAll = useCallback(() => {
     if (allFilteredSelected) {
       const next = new Set(selectedValues)
-      filteredEntries.forEach(([value]) => next.delete(String(value)))
+      filteredEntries.forEach(({ values }) =>
+        [...next].forEach((existing) => {
+          if (
+            values.some((value) =>
+              matchesFilterOption(value, [existing], formatLabel)
+            )
+          )
+            next.delete(existing)
+        })
+      )
       column.setFilterValue(next.size > 0 ? Array.from(next) : undefined)
     } else {
       const next = new Set(selectedValues)
-      filteredEntries.forEach(([value]) => next.add(String(value)))
+      filteredEntries.forEach(({ values }) => next.add(values[0]))
       column.setFilterValue(Array.from(next))
     }
-  }, [allFilteredSelected, selectedValues, filteredEntries, column])
+  }, [
+    allFilteredSelected,
+    selectedValues,
+    filteredEntries,
+    column,
+    formatLabel,
+  ])
 
   const scrollToIndex = useCallback((index: number) => {
     if (!listRef.current) return
@@ -178,7 +211,7 @@ function FacetedFilterContent<TData>({
           handleSelectAll()
         } else {
           const entry = filteredEntries[highlightIndex]
-          if (entry) handleToggle(String(entry[0]))
+          if (entry) handleToggle(entry.values)
         }
       }
     },
@@ -215,11 +248,16 @@ function FacetedFilterContent<TData>({
         className="flex h-7 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
       <div ref={listRef} className="max-h-40 overflow-auto space-y-px">
-        {filteredEntries.map(([value, count], idx) => {
-          const strVal = String(value)
+        {filteredEntries.map(({ label, values, count }, idx) => {
+          const allSelected = values.every((value) =>
+            matchesFilterOption(value, [...selectedValues], formatLabel)
+          )
+          const someSelected = values.some((value) =>
+            matchesFilterOption(value, [...selectedValues], formatLabel)
+          )
           return (
             <label
-              key={strVal}
+              key={label}
               data-filter-item
               className={cn(
                 'flex items-center gap-1.5 px-1 py-0.5 cursor-pointer text-xs rounded',
@@ -228,10 +266,12 @@ function FacetedFilterContent<TData>({
             >
               <Checkbox
                 className="h-3.5 w-3.5"
-                checked={selectedValues.has(strVal)}
-                onCheckedChange={() => handleToggle(strVal)}
+                checked={
+                  allSelected ? true : someSelected ? 'indeterminate' : false
+                }
+                onCheckedChange={() => handleToggle(values)}
               />
-              <span className="flex-1 truncate">{strVal}</span>
+              <span className="flex-1 truncate">{label}</span>
               <span className="text-muted-foreground text-[10px] shrink-0">
                 {count}
               </span>

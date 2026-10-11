@@ -98,24 +98,32 @@ export function DeploymentListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor((row) => row.status?.readyReplicas ?? 0, {
-        id: 'ready',
-        header: t('deployments.ready'),
-        cell: ({ row }) => {
-          const status = row.original.status
-          const ready = status?.readyReplicas || 0
-          const desired = status?.replicas || 0
-          return (
-            <div>
-              {ready} / {desired}
-            </div>
-          )
-        },
-      }),
-      columnHelper.accessor('status.conditions', {
+      columnHelper.accessor(
+        (row) =>
+          `${row.status?.readyReplicas || 0} / ${row.status?.replicas || 0}`,
+        {
+          id: 'ready',
+          sortingFn: (a, b) =>
+            (a.original.status?.readyReplicas || 0) -
+            (b.original.status?.readyReplicas || 0),
+          header: t('deployments.ready'),
+          cell: ({ row }) => {
+            const status = row.original.status
+            const ready = status?.readyReplicas || 0
+            const desired = status?.replicas || 0
+            return (
+              <div>
+                {ready} / {desired}
+              </div>
+            )
+          },
+        }
+      ),
+      columnHelper.accessor((row) => getDeploymentStatus(row), {
+        id: 'status_conditions',
         header: t('common.status'),
-        cell: ({ row }) => {
-          const status = getDeploymentStatus(row.original)
+        cell: ({ getValue }) => {
+          const status = getValue()
           return (
             <Badge variant="outline" className="text-muted-foreground px-1.5">
               <DeploymentStatusIcon status={status} />
@@ -177,6 +185,7 @@ export function DeploymentListPage() {
       columnHelper.accessor('metadata.creationTimestamp', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => formatTimestampWithRelative(getValue()),
       }),
     ],

@@ -1,3 +1,4 @@
+import { matchesColumnFilter } from '@/lib/column-filter-match'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ColumnDef,
@@ -30,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
+import { migrateResourceColumnVisibility, restoreColumnFilters } from '@/lib/column-filter-state'
 import {
   deleteResource,
   SearchResult,
@@ -120,7 +122,7 @@ export function ResourceTable<T>({
   enableFavorites = true,
   customResource = false,
 }: ResourceTableProps<T>) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { currentCluster } = useCluster()
   const {
     isFavorite,
@@ -131,11 +133,23 @@ export function ResourceTable<T>({
   } = useFavorites()
   const canUseBatchActions = useFeature('resource.batchActions')
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
+  const legacyPodStatusIds = [
+    'common.status',
+    ...Object.keys(i18n?.options?.resources || {}).map((lng) =>
+      t('common.status', { lng })
+    ),
+    t('common.status'),
+  ]
+  const legacyCapacityIds = ['pvs.capacity', 'pvcs.capacity',
+    ...Object.keys(i18n?.options?.resources || {}).flatMap((lng) => [
+      t('pvs.capacity', { lng }), t('pvcs.capacity', { lng }),
+    ]), t('pvs.capacity'), t('pvcs.capacity'),
+  ]
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const currentCluster = localStorage.getItem('current-cluster')
     const storageKey = `${currentCluster}-${resourceName}-columnFilters`
     const savedFilters = sessionStorage.getItem(storageKey)
-    return savedFilters ? JSON.parse(savedFilters) : []
+    return restoreColumnFilters(savedFilters, resourceName, legacyPodStatusIds, legacyCapacityIds)
   })
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -153,7 +167,7 @@ export function ResourceTable<T>({
     const storageKey = `${currentCluster}-${resourceName}-columnVisibility`
     const savedVisibility = localStorage.getItem(storageKey)
     if (savedVisibility) {
-      return JSON.parse(savedVisibility)
+      return migrateResourceColumnVisibility(JSON.parse(savedVisibility), resourceName, legacyPodStatusIds, legacyCapacityIds)
     }
     // Set default hidden columns if no saved state
     const initialVisibility: Record<string, boolean> = {}
@@ -309,7 +323,7 @@ export function ResourceTable<T>({
             resourceStorageKey
           ]
         if (remoteColumnVisibility) {
-          setColumnVisibility(remoteColumnVisibility)
+          setColumnVisibility(migrateResourceColumnVisibility(remoteColumnVisibility, resourceName, legacyPodStatusIds, legacyCapacityIds))
           lastPersistedColumnVisibilityRef.current = JSON.stringify(
             remoteColumnVisibility
           )
@@ -684,18 +698,17 @@ export function ResourceTable<T>({
     }
   }, [useSSE, error])
 
-  // Custom filter function for faceted (multi-select) columns
-  const arrIncludesSome: FilterFn<T> = (row, columnId, filterValue) => {
-    if (!Array.isArray(filterValue) || filterValue.length === 0) return true
-    const value = String(row.getValue(columnId) ?? '')
-    return filterValue.includes(value)
-  }
-
-  // Apply arrIncludesSome filterFn to all filterable columns (unified faceted filter)
+  // Match formatted groups consistently with the options in the filter menu.
   const columnsWithFilterFn = useMemo(() => {
     return enhancedColumns.map((col) => {
       if (col.id !== 'select' && col.id !== 'actions' && !('filterFn' in col)) {
-        return { ...col, filterFn: arrIncludesSome }
+        return {
+          ...col,
+          filterFn: ((row, id, values) =>
+            !Array.isArray(values) || values.length === 0 ||
+            matchesColumnFilter(row.getValue(id), values, col.meta?.filterLabel)
+          ) as FilterFn<T>,
+        }
       }
       return col
     })

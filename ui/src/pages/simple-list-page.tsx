@@ -55,6 +55,7 @@ export function SimpleListPage<T extends keyof ResourceTypeMap>({
       }),
       columnHelper.accessor((row) => row.metadata?.creationTimestamp, {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatDate(value || '') },
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 
