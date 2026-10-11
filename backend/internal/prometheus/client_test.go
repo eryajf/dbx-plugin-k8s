@@ -3,6 +3,9 @@ package prometheus
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +13,33 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 )
+
+type headerRecordingRoundTripper struct {
+	request *http.Request
+}
+
+func (t *headerRecordingRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	t.request = request
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Header: make(http.Header), Request: request}, nil
+}
+
+func TestHeaderRoundTripperInjectsConfiguredHeaders(t *testing.T) {
+	base := &headerRecordingRoundTripper{}
+	transport := &headerRoundTripper{origin: &url.URL{Scheme: "http", Host: "prometheus.example"}, base: base, headers: http.Header{"Authorization": []string{"Bearer secret"}, "Instanceid": []string{"tenant-123"}}}
+	request, err := http.NewRequest(http.MethodGet, "http://prometheus.example/api/v1/query", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transport.RoundTrip(request); err != nil {
+		t.Fatal(err)
+	}
+	if base.request.Header.Get("Authorization") != "Bearer secret" || base.request.Header.Get("Instanceid") != "tenant-123" {
+		t.Fatalf("request headers = %#v", base.request.Header)
+	}
+	if request.Header.Get("Authorization") != "" {
+		t.Fatal("RoundTripper mutated the original request")
+	}
+}
 
 type healthCheckAPI struct {
 	query     string
@@ -243,4 +273,48 @@ func (a *rangeAPIWithResult) QueryRange(_ context.Context, query string, r v1.Ra
 	a.ranges = append(a.ranges, r)
 	a.queries = append(a.queries, query)
 	return a.result, nil, nil
+}
+
+type redirectTransport func(*http.Request) (*http.Response, error)
+
+func (f redirectTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestPrometheusRedirectCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name, location string
+		allowed        bool
+	}{
+		{"same origin", "https://prom.example/next", true},
+		{"default port", "https://prom.example:443/next", true},
+		{"other host", "https://other.example/next", false},
+		{"other port", "https://prom.example:8443/next", false},
+		{"downgrade", "http://prom.example/next", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			rt := redirectTransport(func(r *http.Request) (*http.Response, error) {
+				calls++
+				if r.Header.Get("Authorization") != "Basic dXNlcjpwYXNz" || r.Header.Get("X-Api-Key") != "private" {
+					t.Fatal("expected configured headers")
+				}
+				if calls == 1 {
+					return &http.Response{StatusCode: 302, Header: http.Header{"Location": {tc.location}}, Body: io.NopCloser(strings.NewReader("")), Request: r}, nil
+				}
+				return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"status":"success","data":{"resultType":"vector","result":[]}}`)), Request: r}, nil
+			})
+			c, err := NewClientWithRoundTripperAndHeaders("https://prom.example", rt, http.Header{"Authorization": {"Basic dXNlcjpwYXNz"}, "X-Api-Key": {"private"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer c.Close()
+			err = c.HealthCheck(context.Background())
+			if tc.allowed {
+				if err != nil || calls != 2 {
+					t.Fatalf("calls=%d error=%v", calls, err)
+				}
+			} else if err == nil || calls != 1 {
+				t.Fatalf("unsafe redirect reached transport: calls=%d error=%v", calls, err)
+			}
+		})
+	}
 }

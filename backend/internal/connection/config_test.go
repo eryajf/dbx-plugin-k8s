@@ -102,3 +102,29 @@ func TestPrometheusURLNormalizationAndValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestResolvePrometheusHeadersFromSecrets(t *testing.T) {
+	r, err := Resolve(map[string]any{
+		"connection": map[string]any{
+			"server": "https://example.com",
+			"connection_secrets": map[string]any{
+				"token":              "token",
+				"prometheus_headers": `{"Authorization":"Bearer secret","instanceId":"tenant-123"}`,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.PrometheusHeaders.Get("Authorization") != "Bearer secret" || r.PrometheusHeaders.Get("instanceId") != "tenant-123" {
+		t.Fatalf("prometheus headers = %#v", r.PrometheusHeaders)
+	}
+	_, err = Resolve(map[string]any{
+		"server":             "https://example.com",
+		"token":              "token",
+		"prometheus_headers": `{"Authorization":"bad\nvalue"}`,
+	})
+	if err == nil {
+		t.Fatal("expected invalid Prometheus header value to be rejected")
+	}
+}

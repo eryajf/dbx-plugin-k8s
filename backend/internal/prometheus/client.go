@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -18,6 +19,52 @@ import (
 type Client struct {
 	client    promAPI
 	transport http.RoundTripper
+}
+
+type headerRoundTripper struct {
+	base    http.RoundTripper
+	headers http.Header
+	origin  *url.URL
+}
+
+func (t *headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if !sameOrigin(t.origin, req.URL) {
+		return nil, fmt.Errorf("prometheus request outside configured origin is not allowed")
+	}
+	clone := req.Clone(req.Context())
+	if clone.Header == nil {
+		clone.Header = make(http.Header)
+	}
+	for name, values := range t.headers {
+		clone.Header.Del(name)
+		for _, value := range values {
+			clone.Header.Add(name, value)
+		}
+	}
+	return t.base.RoundTrip(clone)
+}
+
+// Treat an omitted default port as equivalent to its explicit form.
+func sameOrigin(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	port := func(u *url.URL) string {
+		if p := u.Port(); p != "" {
+			return p
+		}
+		if u.Scheme == "https" {
+			return "443"
+		}
+		return "80"
+	}
+	return a.Scheme == b.Scheme && strings.EqualFold(a.Hostname(), b.Hostname()) && port(a) == port(b)
+}
+
+func (t *headerRoundTripper) CloseIdleConnections() {
+	if closer, ok := t.base.(interface{ CloseIdleConnections() }); ok && t.base != http.DefaultTransport {
+		closer.CloseIdleConnections()
+	}
 }
 
 type promAPI interface {
@@ -73,12 +120,35 @@ type PodCurrentMetrics struct {
 }
 
 func NewClientWithRoundTripper(prometheusURL string, rt http.RoundTripper) (*Client, error) {
+	return NewClientWithRoundTripperAndHeaders(prometheusURL, rt, nil)
+}
+
+func NewClientWithRoundTripperAndHeaders(prometheusURL string, rt http.RoundTripper, headers http.Header) (*Client, error) {
 	if prometheusURL == "" {
 		return nil, fmt.Errorf("prometheus URL cannot be empty")
 	}
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+	origin, err := url.Parse(prometheusURL)
+	if err != nil || origin.Hostname() == "" || (origin.Scheme != "http" && origin.Scheme != "https") || origin.User != nil {
+		return nil, fmt.Errorf("invalid prometheus URL")
+	}
+	transport := rt
+	if len(headers) > 0 {
+		transport = &headerRoundTripper{base: rt, headers: headers.Clone(), origin: origin}
+	}
 	client, err := api.NewClient(api.Config{
-		Address:      prometheusURL,
-		RoundTripper: rt,
+		Address: prometheusURL,
+		Client: &http.Client{Transport: transport, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if !sameOrigin(origin, req.URL) || req.URL.User != nil {
+				return fmt.Errorf("prometheus redirect outside configured origin is not allowed")
+			}
+			if len(via) >= 10 {
+				return fmt.Errorf("too many prometheus redirects")
+			}
+			return nil
+		}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating prometheus client: %w", err)
@@ -87,7 +157,7 @@ func NewClientWithRoundTripper(prometheusURL string, rt http.RoundTripper) (*Cli
 	v1api := v1.NewAPI(client)
 	return &Client{
 		client:    v1api,
-		transport: rt,
+		transport: transport,
 	}, nil
 }
 

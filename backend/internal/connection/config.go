@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -17,13 +18,14 @@ import (
 
 // Resolved is never serialized: it contains private keys and bearer tokens.
 type Resolved struct {
-	ID             string
-	Config         *rest.Config
-	ContextName    string
-	KubeconfigPath string
-	Namespace      string
-	Timeout        time.Duration
-	PrometheusURL  string
+	ID                string
+	Config            *rest.Config
+	ContextName       string
+	KubeconfigPath    string
+	Namespace         string
+	Timeout           time.Duration
+	PrometheusURL     string
+	PrometheusHeaders http.Header
 }
 
 func object(v any) map[string]any { m, _ := v.(map[string]any); return m }
@@ -120,7 +122,11 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		}
 		promURL = strings.TrimRight(u.String(), "/")
 	}
-	resolved := &Resolved{ID: ID(values), Namespace: get("namespace"), ContextName: get("context"), Timeout: 30 * time.Second, PrometheusURL: promURL}
+	prometheusHeaders, err := parsePrometheusHeaders(secret("prometheus_headers"))
+	if err != nil {
+		return nil, err
+	}
+	resolved := &Resolved{ID: ID(values), Namespace: get("namespace"), ContextName: get("context"), Timeout: 30 * time.Second, PrometheusURL: promURL, PrometheusHeaders: prometheusHeaders}
 	if seconds := get("timeout_s"); seconds != "" {
 		n, err := strconv.Atoi(seconds)
 		if err != nil || n < 1 || n > 300 {
@@ -232,4 +238,57 @@ func Resolve(values map[string]any) (*Resolved, error) {
 		return nil, err
 	}
 	return resolved, nil
+}
+
+func parsePrometheusHeaders(raw string) (http.Header, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	values := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		return nil, errors.New("prometheus_headers must be a JSON object")
+	}
+	headers := make(http.Header, len(values))
+	for name, value := range values {
+		if !validPrometheusHeaderName(name) {
+			return nil, errors.New("prometheus_headers contains an invalid header name")
+		}
+		text, ok := value.(string)
+		if !ok || !validPrometheusHeaderValue(text) {
+			return nil, fmt.Errorf("prometheus_headers.%s must be a string without line breaks", name)
+		}
+		canonical := http.CanonicalHeaderKey(name)
+		if canonical == "" {
+			return nil, fmt.Errorf("prometheus_headers contains an invalid header name: %s", name)
+		}
+		headers.Set(canonical, text)
+	}
+	return headers, nil
+}
+
+func validPrometheusHeaderName(name string) bool {
+	if name == "" || strings.TrimSpace(name) != name {
+		return false
+	}
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		switch r {
+		case '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validPrometheusHeaderValue(value string) bool {
+	for _, r := range value {
+		if (r < 0x20 && r != '\t') || r == 0x7f {
+			return false
+		}
+	}
+	return true
 }
