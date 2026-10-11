@@ -2,6 +2,16 @@
 
 DBX Kubernetes 插件从连接配置中的 Prometheus 地址查询历史监控数据。地址只需要填写 Prometheus 根地址，例如 `http://localhost:30090`，不要填写 `/query` 路径。
 
+如果 Prometheus 服务要求额外的鉴权或租户标识，可在连接的高级选项中填写 `Prometheus 请求 Header`。该字段是 JSON 对象，例如：
+
+```json
+{"Authorization":"Bearer <token>","instanceId":"tenant-123"}
+```
+
+Header 会附加到健康检查、即时查询和范围查询。字段通过 DBX Secret Store 保存；`instanceId` Header 与查询参数中的 `instance` 标签筛选不是同一个概念。
+
+Header 名称不区分大小写，请勿同时填写 `Authorization` 和 `authorization` 等同名字段；重复配置会被拒绝。
+
 如果监控页面提示“Prometheus 连接不可用”，请先确认地址已保存，并从运行插件的环境访问该地址。如果提示“Prometheus 指标缺失”，说明 Prometheus 可以访问，但查询没有返回所需的时间序列，请检查采集目标、指标保留策略和标签。
 
 ## 页面与指标
@@ -39,3 +49,11 @@ count(container_cpu_usage_seconds_total{namespace="default"})
 - **kubelet/cAdvisor**：容器 CPU、内存、网络和文件系统 I/O 使用量。
 - **Prometheus**：抓取并保存上述指标，插件通过 Prometheus HTTP API 查询。
 
+
+## 认证与重定向
+
+Basic Auth 可填写 `{"Authorization":"Basic <用户名:密码的Base64编码>"}`；建议使用 HTTPS。
+
+插件仅允许同协议、同主机、同端口的重定向，跨站和 HTTPS 降级请求会被拒绝。若网关重定向至另一地址，请直接填写最终可信地址。
+
+集群内 `.svc` / `.svc.cluster.local` 地址（包括自动发现的地址）通过 Kubernetes Service 代理访问。该路径的 Authorization 用于 Kubernetes 认证，不能配置独立的 Prometheus Authorization；这种组合会明确报错，请改用插件运行环境可直连的 Prometheus 或 Ingress 地址。其他自定义 Header 仍支持代理路径。

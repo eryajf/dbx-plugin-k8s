@@ -3,7 +3,7 @@
   "manifest_version": 1,
   "id": "io.dbx.k8s",
   "name": "Kubernetes Manager",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "publisher": "eryajf",
   "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
   "icon": "assets/plugin.png",
@@ -267,6 +267,20 @@
           "description": "Optional Prometheus endpoint used for resource and network monitoring metrics."
         },
         {
+          "key": "prometheus_headers",
+          "label": "Prometheus HTTP headers",
+          "type": "textarea",
+          "binding": "secret",
+          "visible_when": {
+            "field": "show_advanced",
+            "one_of": [
+              "true"
+            ]
+          },
+          "placeholder": "{\"Authorization\":\"Bearer ...\",\"instanceId\":\"tenant-123\"}",
+          "description": "Optional JSON object of HTTP headers sent with every Prometheus request."
+        },
+        {
           "key": "insecure_skip_tls_verify",
           "label": "Skip TLS verification",
           "type": "boolean",
@@ -397,6 +411,11 @@
               "label": "Prometheus",
               "placeholder": "http://prometheus.example.com:9090",
               "description": "可选。配置后，概览和资源详情中的监控指标将从该 Prometheus 获取。"
+            },
+            "prometheus_headers": {
+              "label": "Prometheus 请求 Header",
+              "placeholder": "{\"Authorization\":\"Bearer ...\",\"instanceId\":\"tenant-123\"}",
+              "description": "可选。填写 JSON 对象，Header 会附加到 Prometheus 的健康检查和查询请求；敏感值请勿写入普通配置。"
             }
           }
         },

@@ -3,6 +3,7 @@ package connection
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -99,6 +100,56 @@ func TestPrometheusURLNormalizationAndValidation(t *testing.T) {
 	for _, value := range []string{"ftp://prometheus:9090", "http://user:pass@prometheus:9090", "http://prometheus:9090/custom?tenant=demo", "http://prometheus:9090/custom#fragment"} {
 		if _, err := Resolve(map[string]any{"server": "https://example.com", "token": "token", "prometheus_url": value}); err == nil {
 			t.Fatalf("expected invalid Prometheus URL %q to be rejected", value)
+		}
+	}
+}
+
+func TestResolvePrometheusHeadersFromSecrets(t *testing.T) {
+	r, err := Resolve(map[string]any{
+		"connection": map[string]any{
+			"server": "https://example.com",
+			"connection_secrets": map[string]any{
+				"token":              "token",
+				"prometheus_headers": `{"Authorization":"Bearer secret","instanceId":"tenant-123"}`,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.PrometheusHeaders.Get("Authorization") != "Bearer secret" || r.PrometheusHeaders.Get("instanceId") != "tenant-123" {
+		t.Fatalf("prometheus headers = %#v", r.PrometheusHeaders)
+	}
+	_, err = Resolve(map[string]any{
+		"server":             "https://example.com",
+		"token":              "token",
+		"prometheus_headers": `{"Authorization":"bad\nvalue"}`,
+	})
+	if err == nil {
+		t.Fatal("expected invalid Prometheus header value to be rejected")
+	}
+}
+
+func TestResolvePrometheusHeadersRejectsCaseInsensitiveDuplicates(t *testing.T) {
+	for _, raw := range []string{
+		`{"Authorization":"Basic old-secret","authorization":"Basic new-secret"}`,
+		`{"instanceId":"old-secret","InstanceId":"new-secret"}`,
+		`{"AUTHORIZATION":"","authorization":"Basic new-secret"}`,
+	} {
+		_, err := Resolve(map[string]any{
+			"connection": map[string]any{
+				"server": "https://example.com",
+				"connection_secrets": map[string]any{
+					"token":              "token",
+					"prometheus_headers": raw,
+				},
+			},
+		})
+		if err == nil || !strings.Contains(err.Error(), "duplicate header name") {
+			t.Fatalf("expected duplicate header error, got %v", err)
+		}
+		if strings.Contains(err.Error(), "old-secret") || strings.Contains(err.Error(), "new-secret") {
+			t.Fatal("duplicate header error exposed a header value")
 		}
 	}
 }

@@ -76,15 +76,12 @@ func Prepare(values map[string]any) (*kube.Client, *Info, error) {
 	if promURL != "" {
 		c.PrometheusURL = promURL
 
-		rt := http.DefaultTransport
-		if strings.Contains(promURL, ".svc.cluster.local") || strings.Contains(promURL, ".svc:") {
-			if parsed, e := url.Parse(promURL); e == nil {
-				if tr, e2 := restTransport(r.Config, parsed); e2 == nil {
-					rt = tr
-				}
-			}
+		rt, err := prometheusTransport(r.Config, promURL, r.PrometheusHeaders)
+		if err != nil {
+			c.Close()
+			return nil, nil, err
 		}
-		if pc, e := prometheus.NewClientWithRoundTripper(promURL, rt); e == nil {
+		if pc, e := prometheus.NewClientWithRoundTripperAndHeaders(promURL, rt, r.PrometheusHeaders); e == nil {
 			c.Prometheus = pc
 			checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
 			c.PrometheusReachable = pc.HealthCheck(checkCtx) == nil
@@ -130,6 +127,22 @@ func (m *Manager) Close() {
 	for _, c := range old {
 		c.Close()
 	}
+}
+
+// Service proxy requests authenticate to Kubernetes, not to Prometheus.
+func prometheusTransport(cfg *rest.Config, address string, headers http.Header) (http.RoundTripper, error) {
+	parsed, err := url.Parse(address)
+	if err != nil {
+		return nil, errors.New("invalid Prometheus URL")
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if strings.HasSuffix(host, ".svc.cluster.local") || strings.HasSuffix(host, ".svc") {
+		if _, configured := headers["Authorization"]; configured {
+			return nil, errors.New("Prometheus Authorization cannot be used through the Kubernetes Service proxy; configure a directly reachable Prometheus or Ingress URL")
+		}
+		return restTransport(cfg, parsed)
+	}
+	return http.DefaultTransport, nil
 }
 
 // restTransport routes cluster-local Prometheus traffic through the Kubernetes API server.
