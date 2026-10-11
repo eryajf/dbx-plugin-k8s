@@ -1,8 +1,8 @@
+import { matchesColumnFilter } from '@/lib/column-filter-match'
 import { useMemo, useState } from 'react'
 import {
   ColumnDef,
   ColumnFiltersState,
-  FilterFn,
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
@@ -25,16 +25,6 @@ type NodeImageRow = {
   id: string
   primaryName: string
   sizeBytes: number
-}
-
-const arrIncludesSome: FilterFn<NodeImageRow> = (
-  row,
-  columnId,
-  filterValue
-) => {
-  if (!Array.isArray(filterValue) || filterValue.length === 0) return true
-  const value = String(row.getValue(columnId) ?? '')
-  return filterValue.includes(value)
 }
 
 function stripImageDigest(name: string) {
@@ -103,6 +93,7 @@ export function NodeImageTable({ images }: { images?: ContainerImage[] }) {
       {
         accessorKey: 'sizeBytes',
         id: 'sizeBytes',
+        meta: { filterLabel: (value) => formatBytes(Number(value) || 0) },
         header: t('nodes.imageSize'),
         cell: ({ getValue }) => (
           <span className="text-sm text-muted-foreground tabular-nums">
@@ -118,7 +109,16 @@ export function NodeImageTable({ images }: { images?: ContainerImage[] }) {
     () =>
       columns.map((column) => ({
         ...column,
-        filterFn: column.filterFn ?? arrIncludesSome,
+        filterFn:
+          column.filterFn ??
+          ((row, id, values) =>
+            !Array.isArray(values) ||
+            values.length === 0 ||
+            matchesColumnFilter(
+              row.getValue(id),
+              values,
+              column.meta?.filterLabel
+            )),
       })),
     [columns]
   )

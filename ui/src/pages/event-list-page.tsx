@@ -80,7 +80,7 @@ export function EventListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor((row) => row.count, {
+      columnHelper.accessor((row) => row.count || 1, {
         id: 'count',
         header: t('events.count'),
         cell: ({ getValue }) => {
@@ -94,6 +94,7 @@ export function EventListPage() {
         {
           id: 'lastSeen',
           header: t('events.lastSeen'),
+          meta: { filterLabel: (value) => formatDate(value || '') },
           cell: ({ getValue }) => {
             const dateStr = formatDate(getValue() || '')
             return (

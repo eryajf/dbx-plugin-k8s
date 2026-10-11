@@ -178,11 +178,18 @@ export function IngressListPage() {
           </div>
         ),
       }),
-      ingressColumnHelper.accessor('spec.ingressClassName', {
-        header: t('ingresses.ingressClass'),
-        cell: ({ row }) =>
-          row.original.spec?.ingressClassName || t('common.na'),
-      }),
+      ingressColumnHelper.accessor(
+        (row) => row?.spec?.ingressClassName || '-',
+        {
+          id: 'spec_ingressClassName',
+          meta: {
+            filterLabel: (value) => (value === '-' ? t('common.na') : value),
+          },
+          header: t('ingresses.ingressClass'),
+          cell: ({ row }) =>
+            row.original.spec?.ingressClassName || t('common.na'),
+        }
+      ),
       ingressColumnHelper.accessor('spec.rules', {
         header: t('ingresses.hosts'),
         cell: ({ row }) => {
@@ -213,6 +220,7 @@ export function IngressListPage() {
       }),
       ingressColumnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

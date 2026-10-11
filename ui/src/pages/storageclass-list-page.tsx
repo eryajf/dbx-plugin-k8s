@@ -98,27 +98,39 @@ export function StorageClassListPage() {
           </Badge>
         ),
       }),
-      storageClassColumnHelper.accessor('reclaimPolicy', {
-        id: 'reclaim-policy',
-        header: t('pvs.reclaimPolicy'),
-        enableColumnFilter: true,
-        cell: ({ getValue }) => getValue() || 'Delete',
-      }),
-      storageClassColumnHelper.accessor('volumeBindingMode', {
-        id: 'binding-mode',
-        header: t('storageClasses.volumeBindingMode'),
-        enableColumnFilter: true,
-        cell: ({ getValue }) => getValue() || 'Immediate',
-      }),
-      storageClassColumnHelper.accessor('allowVolumeExpansion', {
-        id: 'allow-expansion',
-        header: t('storageClasses.allowExpansion'),
-        cell: ({ getValue }) => (
-          <Badge variant={getValue() ? 'default' : 'outline'}>
-            {getValue() ? t('common.yes') : t('common.no')}
-          </Badge>
-        ),
-      }),
+      storageClassColumnHelper.accessor(
+        (row) => row.reclaimPolicy || 'Delete',
+        {
+          id: 'reclaim-policy',
+          header: t('pvs.reclaimPolicy'),
+          enableColumnFilter: true,
+          cell: ({ getValue }) => getValue() || 'Delete',
+        }
+      ),
+      storageClassColumnHelper.accessor(
+        (row) => row.volumeBindingMode || 'Immediate',
+        {
+          id: 'binding-mode',
+          header: t('storageClasses.volumeBindingMode'),
+          enableColumnFilter: true,
+          cell: ({ getValue }) => getValue() || 'Immediate',
+        }
+      ),
+      storageClassColumnHelper.accessor(
+        (row) => Boolean(row.allowVolumeExpansion),
+        {
+          id: 'allow-expansion',
+          meta: {
+            filterLabel: (value) => (value ? t('common.yes') : t('common.no')),
+          },
+          header: t('storageClasses.allowExpansion'),
+          cell: ({ getValue }) => (
+            <Badge variant={getValue() ? 'default' : 'outline'}>
+              {getValue() ? t('common.yes') : t('common.no')}
+            </Badge>
+          ),
+        }
+      ),
       storageClassColumnHelper.display({
         id: 'parameters',
         header: t('storageClasses.parameters'),
@@ -155,6 +167,7 @@ export function StorageClassListPage() {
       storageClassColumnHelper.accessor('metadata.creationTimestamp', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => (
           <span className="text-muted-foreground text-sm">
             {formatTimestampWithRelative(getValue())}

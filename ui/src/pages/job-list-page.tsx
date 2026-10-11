@@ -54,39 +54,60 @@ export function JobListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('status.conditions', {
-        header: t('common.status'),
-        cell: ({ row }) => {
-          const conditions = row.original.status?.conditions || []
-          const completedCondition = conditions.find(
-            (c) => c.type === 'Complete'
+      columnHelper.accessor(
+        (row) =>
+          row.status?.conditions?.some(
+            (c) => c.type === 'Complete' && c.status === 'True'
           )
-          const failedCondition = conditions.find((c) => c.type === 'Failed')
+            ? 'Complete'
+            : row.status?.conditions?.some(
+                  (c) => c.type === 'Failed' && c.status === 'True'
+                )
+              ? 'Failed'
+              : 'Running',
+        {
+          id: 'status_conditions',
+          meta: {
+            filterLabel: (value) =>
+              value === 'Complete'
+                ? t('jobs.complete')
+                : value === 'Failed'
+                  ? t('status.failed')
+                  : t('jobs.running'),
+          },
+          header: t('common.status'),
+          cell: ({ getValue }) => {
+            const value = getValue()
+            const status =
+              value === 'Complete'
+                ? t('jobs.complete')
+                : value === 'Failed'
+                  ? t('status.failed')
+                  : t('jobs.running')
+            const variant =
+              value === 'Complete'
+                ? 'default'
+                : value === 'Failed'
+                  ? 'destructive'
+                  : 'secondary'
 
-          let status = t('jobs.running')
-          let variant: 'default' | 'destructive' | 'secondary' = 'secondary'
-
-          if (completedCondition?.status === 'True') {
-            status = t('jobs.complete')
-            variant = 'default'
-          } else if (failedCondition?.status === 'True') {
-            status = t('status.failed')
-            variant = 'destructive'
-          }
-
-          return <Badge variant={variant}>{status}</Badge>
-        },
-      }),
-      columnHelper.accessor((row) => row.status, {
-        id: 'completions',
-        header: t('jobs.completions'),
-        cell: ({ row }) => {
-          const status = row.original.status
-          const succeeded = status?.succeeded || 0
-          const completions = row.original.spec?.completions || 1
-          return `${succeeded}/${completions}`
-        },
-      }),
+            return <Badge variant={variant}>{status}</Badge>
+          },
+        }
+      ),
+      columnHelper.accessor(
+        (row) => `${row.status?.succeeded || 0}/${row.spec?.completions || 1}`,
+        {
+          id: 'completions',
+          header: t('jobs.completions'),
+          cell: ({ row }) => {
+            const status = row.original.status
+            const succeeded = status?.succeeded || 0
+            const completions = row.original.spec?.completions || 1
+            return `${succeeded}/${completions}`
+          },
+        }
+      ),
       columnHelper.display({
         id: 'labels',
         header: t('detail.fields.labels'),
@@ -139,6 +160,7 @@ export function JobListPage() {
       }),
       columnHelper.accessor('status.startTime', {
         header: t('jobs.started'),
+        meta: { filterLabel: (value) => (value ? formatDate(value) : '-') },
         cell: ({ getValue }) => {
           const startTime = getValue()
           if (!startTime) return '-'
@@ -152,6 +174,7 @@ export function JobListPage() {
       }),
       columnHelper.accessor('status.completionTime', {
         header: t('jobs.completed'),
+        meta: { filterLabel: (value) => (value ? formatDate(value) : '-') },
         cell: ({ getValue }) => {
           const completionTime = getValue()
           if (!completionTime) return '-'
@@ -166,6 +189,7 @@ export function JobListPage() {
       columnHelper.accessor('metadata.creationTimestamp', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

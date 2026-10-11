@@ -1,10 +1,10 @@
+import { matchesColumnFilter } from '@/lib/column-filter-match'
 import { useMemo, useState, type ReactNode } from 'react'
 import { IconLoader, IconTrash } from '@tabler/icons-react'
 import {
   ColumnDef,
   ColumnFiltersState,
   createColumnHelper,
-  FilterFn,
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
@@ -37,16 +37,6 @@ import { ResourceTableView } from './resource-table-view'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-
-const arrIncludesSome: FilterFn<PodWithMetrics> = (
-  row,
-  columnId,
-  filterValue
-) => {
-  if (!Array.isArray(filterValue) || filterValue.length === 0) return true
-  const value = String(row.getValue(columnId) ?? '')
-  return filterValue.includes(value)
-}
 
 export function PodTable(props: {
   pods?: PodWithMetrics[]
@@ -100,10 +90,18 @@ export function PodTable(props: {
       columnHelper.accessor(
         (pod) => {
           const status = getPodStatus(pod)
-          return status.readyContainers / Math.max(status.totalContainers, 1)
+          return `${status.readyContainers} / ${status.totalContainers}`
         },
         {
           id: 'readyRatio',
+          sortingFn: (a, b) => {
+            const left = getPodStatus(a.original)
+            const right = getPodStatus(b.original)
+            return (
+              left.readyContainers / Math.max(left.totalContainers, 1) -
+              right.readyContainers / Math.max(right.totalContainers, 1)
+            )
+          },
           header: t('pods.ready'),
           cell: ({ row }) => {
             const status = getPodStatus(row.original)
@@ -131,6 +129,7 @@ export function PodTable(props: {
       ),
       columnHelper.accessor((pod) => getPodStatus(pod).reason, {
         id: 'status',
+        meta: { filterLabel: (value) => translatePodStatus(value, t) },
         header: t('common.status'),
         cell: ({ getValue }) => {
           const status = getValue()
@@ -205,6 +204,7 @@ export function PodTable(props: {
       columnHelper.accessor((pod) => pod.metadata?.creationTimestamp || '', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatDate(value, true) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">
@@ -268,7 +268,16 @@ export function PodTable(props: {
 
         return {
           ...column,
-          filterFn: column.filterFn ?? arrIncludesSome,
+          filterFn:
+            column.filterFn ??
+            ((row, id, values) =>
+              !Array.isArray(values) ||
+              values.length === 0 ||
+              matchesColumnFilter(
+                row.getValue(id),
+                values,
+                column.meta?.filterLabel
+              )),
         }
       }),
     [podColumns]

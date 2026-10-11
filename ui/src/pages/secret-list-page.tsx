@@ -53,7 +53,8 @@ export function SecretListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('type', {
+      columnHelper.accessor((row) => row.type || 'Opaque', {
+        id: 'type',
         header: t('common.type'),
         cell: ({ getValue }) => {
           const type = getValue() || 'Opaque'
@@ -95,6 +96,7 @@ export function SecretListPage() {
       columnHelper.accessor('metadata.creationTimestamp', {
         id: 'created',
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

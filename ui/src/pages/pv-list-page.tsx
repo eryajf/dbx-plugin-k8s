@@ -65,7 +65,8 @@ export function PVListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('status.phase', {
+      columnHelper.accessor((row) => row.status?.phase || 'Unknown', {
+        id: 'status_phase',
         header: t('common.status'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
@@ -88,12 +89,13 @@ export function PVListPage() {
           return <Badge variant={variant}>{phase}</Badge>
         },
       }),
-      columnHelper.accessor('spec.storageClassName', {
+      columnHelper.accessor((row) => row.spec?.storageClassName || '-', {
+        id: 'spec_storageClassName',
         header: t('pvs.storageClass'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const scName = getValue()
-          if (scName) {
+          if (scName !== '-') {
             return (
               <div className="font-medium app-link">
                 <Link to={`/storageclasses/${scName}`}>{scName}</Link>
@@ -103,13 +105,14 @@ export function PVListPage() {
           return '-'
         },
       }),
-      columnHelper.accessor(
-        (row) => parseBytes(row.spec?.capacity?.storage || '0'),
-        {
-          header: t('pvs.capacity'),
-          cell: ({ row }) => row.original.spec?.capacity?.storage || '-',
-        }
-      ),
+      columnHelper.accessor((row) => row.spec?.capacity?.storage || '-', {
+        id: 'capacity',
+        header: t('pvs.capacity'),
+        sortingFn: (a, b, id) =>
+          (parseBytes(String(a.getValue(id) || '0')) || 0) -
+          (parseBytes(String(b.getValue(id) || '0')) || 0),
+        cell: ({ row }) => row.original.spec?.capacity?.storage || '-',
+      }),
       columnHelper.accessor('spec.accessModes', {
         header: t('pvs.accessModes'),
         cell: ({ getValue }) => {
@@ -117,7 +120,8 @@ export function PVListPage() {
           return modes.join(', ') || '-'
         },
       }),
-      columnHelper.accessor('spec.volumeMode', {
+      columnHelper.accessor((row) => row?.spec?.volumeMode || '-', {
+        id: 'spec_volumeMode',
         header: t('storageDetails.volumeMode'),
         cell: ({ getValue }) => getValue() || '-',
       }),
@@ -126,13 +130,17 @@ export function PVListPage() {
         header: t('storageDetails.volumeSource'),
         cell: ({ row }) => getVolumeSourceType(row.original),
       }),
-      columnHelper.accessor('spec.persistentVolumeReclaimPolicy', {
-        header: t('pvs.reclaimPolicy'),
-        cell: ({ getValue }) => {
-          const policy = getValue()
-          return policy || '-'
-        },
-      }),
+      columnHelper.accessor(
+        (row) => row?.spec?.persistentVolumeReclaimPolicy || '-',
+        {
+          id: 'spec_persistentVolumeReclaimPolicy',
+          header: t('pvs.reclaimPolicy'),
+          cell: ({ getValue }) => {
+            const policy = getValue()
+            return policy || '-'
+          },
+        }
+      ),
       columnHelper.accessor('spec.claimRef', {
         header: t('pvs.claim'),
         cell: ({ getValue }) => {
@@ -185,6 +193,7 @@ export function PVListPage() {
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

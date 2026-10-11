@@ -1,5 +1,12 @@
 import { type ReactNode } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import {
+  createTable,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  type ColumnDef,
+} from '@tanstack/react-table'
 import { act, render, screen } from '@testing-library/react'
 import type { Pod } from 'kubernetes-types/core/v1'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -96,6 +103,97 @@ describe('PodListPage', () => {
     mockNavigate.mockReset()
     mockResourceTable.mockClear()
     mockOpenSession.mockClear()
+  })
+
+  it('facets and filters by the status shown in the cell, not the Pod phase', () => {
+    render(<PodListPage />)
+    const { columns } = mockResourceTable.mock.calls[0][0] as unknown as {
+      columns: ColumnDef<Pod>[]
+    }
+    const data = ['ImagePullBackOff', 'CrashLoopBackOff'].map(
+      (reason) =>
+        ({
+          metadata: { name: reason },
+          spec: { containers: [{ name: 'app' }] },
+          status: {
+            phase: 'Running',
+            containerStatuses: [
+              {
+                name: 'app',
+                ready: false,
+                restartCount: 0,
+                image: 'app',
+                imageID: '',
+                state: { waiting: { reason } },
+              },
+            ],
+          },
+        }) as Pod
+    )
+    const table = createTable({
+      data,
+      columns: columns.map((column) => ({
+        ...column,
+        filterFn: (row, id, values: string[]) =>
+          values.includes(String(row.getValue(id))),
+      })),
+      state: { columnFilters: [{ id: 'status', value: ['ImagePullBackOff'] }] },
+      onStateChange: () => {},
+      renderFallbackValue: null,
+      getCoreRowModel: getCoreRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      getFacetedRowModel: getFacetedRowModel(),
+      getFacetedUniqueValues: getFacetedUniqueValues(),
+    })
+    expect([
+      ...table.getColumn('status')!.getFacetedUniqueValues().entries(),
+    ]).toEqual([
+      ['ImagePullBackOff', 1],
+      ['CrashLoopBackOff', 1],
+    ])
+    expect(
+      table.getFilteredRowModel().rows.map((row) => row.original.metadata?.name)
+    ).toEqual(['ImagePullBackOff'])
+    const cell = table
+      .getFilteredRowModel()
+      .rows[0].getAllCells()
+      .find((cell) => cell.column.id === 'status')!
+    const Cell = cell.column.columnDef.cell as (context: unknown) => ReactNode
+    render(<>{Cell(cell.getContext())}</>)
+    expect(screen.getByText('ImagePullBackOff')).toBeInTheDocument()
+  })
+
+  it('keeps the restart accessor stable as time passes without another restart', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-10-11T00:00:30Z'))
+      render(<PodListPage />)
+      const { columns } = mockResourceTable.mock.calls[0][0] as unknown as {
+        columns: ColumnDef<Pod>[]
+      }
+      const column = columns.find((column) => column.id === 'restarts')!
+      const pod = {
+        spec: { containers: [{ name: 'app' }] },
+        status: {
+          phase: 'Running',
+          containerStatuses: [
+            {
+              name: 'app',
+              ready: true,
+              restartCount: 1,
+              state: { running: {} },
+              lastState: { terminated: { finishedAt: '2026-10-11T00:00:00Z' } },
+            },
+          ],
+        },
+      } as Pod
+      if (!('accessorFn' in column)) throw new Error('missing restart accessor')
+      expect(column.accessorFn!(pod, 0)).toBe(1)
+      vi.setSystemTime(new Date('2026-10-11T00:01:35Z'))
+      expect(column.accessorFn!(pod, 0)).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('provides unified row actions for pods', async () => {

@@ -59,7 +59,8 @@ export function PVCListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('status.phase', {
+      columnHelper.accessor((row) => row.status?.phase || 'Unknown', {
+        id: 'status_phase',
         header: t('common.status'),
         cell: ({ getValue }) => {
           const phase = getValue() || 'Unknown'
@@ -80,11 +81,12 @@ export function PVCListPage() {
           return <Badge variant={variant}>{phase}</Badge>
         },
       }),
-      columnHelper.accessor('spec.volumeName', {
+      columnHelper.accessor((row) => row?.spec?.volumeName || '-', {
+        id: 'spec_volumeName',
         header: t('pvcs.volume'),
         cell: ({ getValue }) => {
           const volumeName = getValue()
-          if (volumeName) {
+          if (volumeName !== '-') {
             return (
               <div className="font-medium app-link">
                 <Link to={`/persistentvolumes/${volumeName}`}>
@@ -96,12 +98,13 @@ export function PVCListPage() {
           return '-'
         },
       }),
-      columnHelper.accessor('spec.storageClassName', {
+      columnHelper.accessor((row) => row.spec?.storageClassName || '-', {
+        id: 'spec_storageClassName',
         header: t('pvcs.storageClass'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const scName = getValue()
-          if (scName) {
+          if (scName !== '-') {
             return (
               <div className="font-medium app-link">
                 <Link to={`/storageclasses/${scName}`}>{scName}</Link>
@@ -112,9 +115,13 @@ export function PVCListPage() {
         },
       }),
       columnHelper.accessor(
-        (row) => parseBytes(row.spec?.resources?.requests?.storage || '0'),
+        (row) => row.spec?.resources?.requests?.storage || '-',
         {
+          id: 'capacity',
           header: t('pvcs.capacity'),
+          sortingFn: (a, b, id) =>
+            (parseBytes(String(a.getValue(id) || '0')) || 0) -
+            (parseBytes(String(b.getValue(id) || '0')) || 0),
           cell: ({ row }) =>
             row.original.spec?.resources?.requests?.storage || '-',
         }
@@ -126,7 +133,8 @@ export function PVCListPage() {
           return modes.join(', ') || '-'
         },
       }),
-      columnHelper.accessor('spec.volumeMode', {
+      columnHelper.accessor((row) => row?.spec?.volumeMode || '-', {
+        id: 'spec_volumeMode',
         header: t('storageDetails.volumeMode'),
         cell: ({ getValue }) => getValue() || '-',
       }),
@@ -164,6 +172,7 @@ export function PVCListPage() {
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatTimestampWithRelative(value) },
         cell: ({ getValue }) => {
           return (
             <span className="text-muted-foreground text-sm">

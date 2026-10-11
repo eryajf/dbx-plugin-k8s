@@ -33,6 +33,7 @@ export function HTTPRouteListPage() {
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.created'),
+        meta: { filterLabel: (value) => formatDate(value || '') },
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 
