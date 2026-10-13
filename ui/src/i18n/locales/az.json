@@ -1911,6 +1911,7 @@
   "imageEditor": {
     "containerImage": "Konteyner Şəkli",
     "loadingTags": "Teqlər yüklənir...",
+    "noTagsAvailable": "Mövcud teq yoxdur. İmicin tam ünvanını əl ilə daxil edin.",
     "imageHelp": "Teq daxil olmaqla konteyner şəklini daxil edin, məsələn, nginx:1.21 və ya node:16-alp",
     "imagePullPolicy": "Şəkil çəkmə siyasəti",
     "selectPullPolicy": "Çəkmə siyasətini seçin",

@@ -1911,6 +1911,7 @@
   "imageEditor": {
     "containerImage": "コンテナイメージ",
     "loadingTags": "タグを読み込んでいます...",
+    "noTagsAvailable": "利用可能なタグがありません。完全なイメージ参照を手動で入力してください。",
     "imageHelp": "タグを含むコンテナー イメージを指定します (例: nginx:1.21 または node:16-alpine)",
     "imagePullPolicy": "イメージプルポリシー",
     "selectPullPolicy": "プルポリシーの選択",

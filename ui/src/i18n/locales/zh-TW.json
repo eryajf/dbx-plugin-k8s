@@ -1911,6 +1911,7 @@
   "imageEditor": {
     "containerImage": "容器鏡像",
     "loadingTags": "加載標籤中...",
+    "noTagsAvailable": "暫無可用標籤，可手動輸入完整映像檔位址",
     "imageHelp": "填寫包含標籤的容器鏡像，例如 nginx:1.21、node:16-alpine",
     "imagePullPolicy": "鏡像拉取策略",
     "selectPullPolicy": "選擇拉取策略",

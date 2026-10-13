@@ -1911,6 +1911,7 @@
   "imageEditor": {
     "containerImage": "컨테이너 이미지",
     "loadingTags": "태그 로드 중...",
+    "noTagsAvailable": "사용 가능한 태그가 없습니다. 전체 이미지 주소를 직접 입력하세요.",
     "imageHelp": "태그를 포함하는 컨테이너 이미지를 지정합니다(예: nginx:1.21 또는 node:16-alpine).",
     "imagePullPolicy": "이미지 가져오기 정책",
     "selectPullPolicy": "풀 정책 선택",

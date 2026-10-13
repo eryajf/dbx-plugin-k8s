@@ -23,6 +23,7 @@ import { startDBXWatch } from '../dbx-watch'
 import { fetchAPI } from './shared'
 import { getSearchTokens, normalizeSearchQuery } from '../search-query'
 import { validateSearchResponse } from '../search-response'
+import { normalizeImageTags } from '../image-tags'
 
 type ResourcesItems<T extends ResourceType> = ResourcesTypeMap[T]['items']
 
@@ -894,10 +895,10 @@ export const useTemplates = (options?: { staleTime?: number }) => {
 }
 export async function getImageTags(image: string): Promise<ImageTagInfo[]> {
   if (!image) return []
-  const resp = await apiClient.get<ImageTagInfo[]>(
+  const resp = await apiClient.get<unknown>(
     `/image/tags?image=${encodeURIComponent(image)}`
   )
-  return resp
+  return normalizeImageTags(resp)
 }
 
 export function useImageTags(image: string, options?: { enabled?: boolean }) {

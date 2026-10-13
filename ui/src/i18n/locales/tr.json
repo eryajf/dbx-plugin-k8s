@@ -1911,6 +1911,7 @@
   "imageEditor": {
     "containerImage": "Konteyner Resmi",
     "loadingTags": "Etiketler yükleniyor...",
+    "noTagsAvailable": "Kullanılabilir etiket yok. Tam imaj adresini elle girin.",
     "imageHelp": "Etiketi içeren kapsayıcı görüntüsünü belirtin; örneğin, nginx:1.21 veya node:16-alpine",
     "imagePullPolicy": "Resim Çekme Politikası",
     "selectPullPolicy": "Çekme politikasını seçin",

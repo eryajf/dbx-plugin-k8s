@@ -1911,6 +1911,7 @@
   "imageEditor": {
     "containerImage": "Immagine del contenitore",
     "loadingTags": "Caricamento tag...",
+    "noTagsAvailable": "Nessun tag disponibile. Inserisci manualmente il riferimento completo dell’immagine.",
     "imageHelp": "Specificare l'immagine del contenitore incluso il tag, ad esempio nginx:1.21 o node:16-alpine",
     "imagePullPolicy": "Politica di pull delle immagini",
     "selectPullPolicy": "Seleziona la policy pull",

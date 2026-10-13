@@ -3,6 +3,7 @@ import { Container } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 
 import { formatDate } from '@/lib/utils'
+import { normalizeImageTags } from '@/lib/image-tags'
 
 import { useImageTags } from '../../lib/api'
 import { Input } from '../ui/input'
@@ -55,10 +56,11 @@ export function ImageEditor({ container, onUpdate }: ImageEditorProps) {
     })
   }
 
-  const { data: tagOptions, isLoading: tagLoading } = useImageTags(
+  const { data: tagData, isLoading: tagLoading, isError: tagError } = useImageTags(
     imagePrefix || '',
     { enabled: !!imagePrefix && showTagDropdown }
   )
+  const tagOptions = tagError ? [] : normalizeImageTags(tagData)
 
   function handleInputFocus() {
     setShowTagDropdown(true)
@@ -94,7 +96,12 @@ export function ImageEditor({ container, onUpdate }: ImageEditorProps) {
                 {t('imageEditor.loadingTags')}
               </div>
             )}
-            {tagOptions?.map((tag) => (
+            {!tagLoading && tagOptions.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                {t('imageEditor.noTagsAvailable')}
+              </div>
+            )}
+            {tagOptions.map((tag) => (
               <div
                 key={tag.name}
                 className="px-3 py-2 cursor-pointer hover:bg-accent text-sm flex justify-between"
