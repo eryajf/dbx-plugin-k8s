@@ -20,6 +20,7 @@ import (
 
 const bufferLimit = 1024 * 1024
 const sessionLimit = 64
+const closedSessionGrace = time.Minute
 
 type Result struct {
 	SessionID    string                      `json:"sessionId"`
@@ -122,7 +123,14 @@ func New() *Manager {
 				m.mu.Lock()
 				for id, s := range m.all {
 					s.mu.Lock()
-					idle := time.Since(s.lastRead) > 30*time.Minute
+					// A naturally completed stream is still retained briefly so the
+					// client can read its final frame, but must not keep its buffer
+					// (up to bufferLimit) for the full idle-session lifetime.
+					idleLimit := 30 * time.Minute
+					if s.closed {
+						idleLimit = closedSessionGrace
+					}
+					idle := time.Since(s.lastRead) > idleLimit
 					s.mu.Unlock()
 					if idle {
 						expired = append(expired, s)
@@ -189,6 +197,25 @@ func (m *Manager) remove(connection, id string) error {
 	m.mu.Unlock()
 	s.finish(nil)
 	return nil
+}
+
+// read drains one frame and releases naturally completed sessions immediately.
+// The final frame remains available to the caller, while sessions whose clients
+// stop polling are bounded by the janitor's closedSessionGrace timeout.
+func (m *Manager) read(connection, id string) (Result, error) {
+	s, err := m.get(connection, id)
+	if err != nil {
+		return Result{}, err
+	}
+	result := s.read()
+	if result.Closed {
+		m.mu.Lock()
+		if current := m.all[id]; current == s {
+			delete(m.all, id)
+		}
+		m.mu.Unlock()
+	}
+	return result, nil
 }
 func (m *Manager) CloseConnection(id string) {
 	m.mu.Lock()
@@ -268,7 +295,7 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 	}
 	switch method {
 	case "pod/logs-read", "pod/exec-read", "resource/watch-read", "session/read":
-		return s.read(), nil
+		return m.read(connection, p.SessionID)
 	case "pod/logs-close", "pod/exec-close", "resource/watch-close", "port-forward/close", "session/close":
 		return map[string]bool{"closed": true}, m.remove(connection, p.SessionID)
 	case "pod/exec-write", "terminal/exec-write":

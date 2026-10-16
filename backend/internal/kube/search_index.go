@@ -300,46 +300,49 @@ func (s *SearchIndex) rebuild(ctx context.Context) error {
 	entries := make([]SearchEntry, 0)
 	resourceVersions := make(map[searchShardKey]string)
 	var entriesMu sync.Mutex
+	type listJob struct {
+		gvr      schema.GroupVersionResource
+		resource SearchResource
+	}
+	jobs := make(chan listJob)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 8)
-	for gvr, resource := range catalog {
-		if !hasVerb(resource.Verbs, "list") {
-			continue
-		}
-		gvr, resource := gvr, resource
+	// Keep the number of blocked goroutines bounded by the request concurrency
+	// limit. A cluster with thousands of CRDs should not create one goroutine
+	// per resource while only eight List calls can run at once.
+	for worker := 0; worker < 8; worker++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-			case <-buildCtx.Done():
-				return
-			}
-			defer func() { <-sem }()
-			listCtx, listCancel := context.WithTimeout(buildCtx, searchIndexListTimeout)
-			items, resourceVersion, listErr := s.listMetadata(listCtx, gvr, resource.Namespaced, resource.Kind, resource.Preferred, "")
-			listCancel()
-			if listErr != nil {
+			for job := range jobs {
+				gvr, resource := job.gvr, job.resource
+				listCtx, listCancel := context.WithTimeout(buildCtx, searchIndexListTimeout)
+				items, resourceVersion, listErr := s.listMetadata(listCtx, gvr, resource.Namespaced, resource.Kind, resource.Preferred, "")
+				listCancel()
 				entriesMu.Lock()
-				// listMetadata returns entries collected before a later page
-				// failed. Keep them so one slow page does not erase useful
-				// metadata from the initial snapshot.
 				entries = append(entries, items...)
 				if resourceVersion != "" {
 					resourceVersions[searchShardKey{gvr: gvr}] = resourceVersion
 				}
-				warnings = append(warnings, fmt.Sprintf("%s/%s/%s: %v", gvr.Group, gvr.Version, gvr.Resource, listErr))
+				if listErr != nil {
+					// Keep entries collected before a later page failed so one
+					// slow shard does not erase useful metadata.
+					warnings = append(warnings, fmt.Sprintf("%s/%s/%s: %v", gvr.Group, gvr.Version, gvr.Resource, listErr))
+				}
 				entriesMu.Unlock()
-				return
 			}
-			entriesMu.Lock()
-			entries = append(entries, items...)
-			if resourceVersion != "" {
-				resourceVersions[searchShardKey{gvr: gvr}] = resourceVersion
-			}
-			entriesMu.Unlock()
 		}()
 	}
+	for gvr, resource := range catalog {
+		if !hasVerb(resource.Verbs, "list") {
+			continue
+		}
+		select {
+		case jobs <- listJob{gvr: gvr, resource: resource}:
+		case <-buildCtx.Done():
+			break
+		}
+	}
+	close(jobs)
 	wg.Wait()
 	if err := ctx.Err(); err != nil {
 		return err
