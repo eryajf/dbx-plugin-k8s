@@ -89,8 +89,9 @@ const (
 	// Every discovery/list request gets a finite budget. Kubernetes API
 	// servers and aggregated APIs can otherwise leave a single shard blocked
 	// forever and prevent the rest of the catalog from becoming searchable.
-	searchIndexListTimeout    = 5 * time.Second
-	searchIndexRebuildTimeout = 30 * time.Second
+	searchIndexListTimeout      = 5 * time.Second
+	searchIndexDiscoveryTimeout = 10 * time.Second
+	searchIndexRebuildTimeout   = 30 * time.Second
 )
 
 // SearchIndex is isolated per kube.Client. A failed shard does not discard the
@@ -511,9 +512,14 @@ func (s *SearchIndex) resourceCatalog(ctx context.Context) (map[schema.GroupVers
 	if s.client.Core == nil && s.client.Discovery == nil {
 		return catalog, nil, fmt.Errorf("Kubernetes discovery client is unavailable")
 	}
-	lists, err, _ := s.client.CachedAPIResourceListsContext(ctx)
+	// Bound discovery separately so unhealthy aggregated APIs cannot consume
+	// the entire rebuild budget needed to list healthy resources. WithTimeout
+	// also preserves an earlier rebuild/caller deadline.
+	discoveryCtx, cancel := context.WithTimeout(ctx, searchIndexDiscoveryTimeout)
+	defer cancel()
+	snapshot, err, _ := s.client.CachedDiscoverySnapshot(discoveryCtx)
+	lists, preferredVersions := snapshot.Lists, snapshot.Preferred
 	warnings := []string{}
-	preferredVersions := s.client.PreferredVersions()
 	if err != nil {
 		warnings = append(warnings, err.Error())
 	}

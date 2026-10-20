@@ -582,6 +582,8 @@
     "quickSwitchHint": "Sürətli keçid qrupları: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "Yeniləmə uğursuz oldu. Son uğurlu nəticə göstərilir.",
+    "lastSuccessfulUpdate": "Son uğurlu yeniləmə:",
     "errorLoading": "{{resourceName}} yükləmə xətası",
     "tryAgain": "Yenidən cəhd edin",
     "delete": "Sil",
@@ -2108,6 +2110,7 @@
     "available": "Mövcuddur: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "Jurnal məzmunu natamam ola bilər.",
     "title": "Qeydlər",
     "lines": "{{count}} xətləri",
     "filtered": "süzülür",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "pod fayl ağacını dəyişdirin",
     "fileTreeUnavailable": "Faylları gözdən keçirmək üçün pod və konteyner seçin.",
     "settings": "Terminal parametrləri",
-    "clear": "Terminalı təmizləyin"
+    "clear": "Terminalı təmizləyin",
+    "outputTruncated": "Çıxış buferi kəsildi: {{bytes}} bayt itirildi"
   },
   "floatingTerminal": {
     "workspace": "Terminal iş sahəsi",

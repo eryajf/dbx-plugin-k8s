@@ -1,11 +1,19 @@
+import i18n from '@/i18n'
 import type { DBXTransport } from './dbx-transport'
 import { TerminalInputError } from './dbx-terminal-errors'
-export type SessionFrame = {sessionId: string; data?: string; closed?: boolean; error?: string; droppedBytes?: number}
-export function startSessionStream(transport: DBXTransport, method: string, params: Record<string, unknown>, callbacks: {onOpen?: (id: string) => void; onData?: (data: string) => void; onError?: (error: Error) => void; onClose?: () => void}) {
-  let stopped = false, id = '', closing = false
+export type SessionFrame = {sessionId: string; data?: string; closed?: boolean; error?: string; warning?: string; droppedBytes?: number}
+export function startSessionStream(transport: DBXTransport, method: string, params: Record<string, unknown>, callbacks: {onOpen?: (id: string) => void; onData?: (data: string) => void; onWarning?: (warning: string) => void; onError?: (error: Error) => void; onClose?: () => void}) {
+  let stopped = false, id = '', closing = false, remoteClosed = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let wake: (() => void) | undefined
-  const closeRemote = () => { if (!id || closing) return; closing = true; void transport.rpc('session/close', {sessionId: id}).catch(() => {}) }
+  // Cleanup may be reported both by a final read and by the close RPC.
+  const warnings = new Set<string>()
+  const reportWarning = (warning: string) => {
+    if (warnings.has(warning)) return
+    warnings.add(warning)
+    callbacks.onWarning?.(warning)
+  }
+  const closeRemote = () => { if (!id || closing || remoteClosed) return; closing = true; void transport.rpc('session/close', {sessionId: id}).catch(error => reportWarning(error instanceof Error ? error.message : String(error))) }
   const run = async () => {
     try {
       const opened = await transport.rpc<SessionFrame>(method, params)
@@ -15,8 +23,20 @@ export function startSessionStream(transport: DBXTransport, method: string, para
       callbacks.onOpen?.(id)
       while (!stopped) {
         const frame = await transport.rpc<SessionFrame>('session/read', {sessionId: id})
-        if (stopped) break
-        if (frame.droppedBytes) callbacks.onError?.(new Error(`输出缓冲区丢失 ${frame.droppedBytes} 字节`))
+        // A closed frame already includes cleanup results and removes the remote session.
+        if (frame.closed) remoteClosed = true
+        if (stopped) {
+          // The backend can remove the session before this final response arrives.
+          // Keep its cleanup result, but never revive the stream or deliver late output.
+          if (frame.closed && frame.warning) reportWarning(frame.warning)
+          break
+        }
+        if (frame.droppedBytes) reportWarning(i18n.t('terminalContent.outputTruncated', {bytes: frame.droppedBytes}))
+        if (stopped) {
+          if (frame.closed && frame.warning) reportWarning(frame.warning)
+          break
+        }
+        if (frame.warning) reportWarning(frame.warning)
         if (stopped) break
         if (frame.data) callbacks.onData?.(frame.data)
         if (frame.error) throw new Error(frame.error)
@@ -109,6 +129,8 @@ export function createDBXTerminalSocket(transport: DBXTransport, params: Record<
   const stream = startSessionStream(transport, openMethod, openParams, {
     onOpen: () => {if (closed) return; socket.readyState = 1; socket.onopen?.()},
     onData: data => {if (!closed) socket.onmessage?.({data: JSON.stringify({type: 'stdout', data})})},
+    // Explicit close can finish before its cleanup RPC reports a warning.
+    onWarning: data => socket.onmessage?.({data: JSON.stringify({type: 'warning', data})}),
     onError: error => finish(1006, error),
     onClose: () => finish(1000)
   })

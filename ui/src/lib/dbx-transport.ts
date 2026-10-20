@@ -2,7 +2,8 @@ import { load, dump } from 'js-yaml'
 import { dispatchDBXFiles } from './dbx-files'
 import { getDBXResourceIdentity, resolveDBXResource } from './dbx-resource-discovery'
 import { validateSearchResponse } from './search-response'
-export type DBXInvoke = (method: string, params: Record<string, unknown>) => Promise<unknown>
+import { scopedDBXInvoke, waitForRequest, type DBXRequestOptions } from './dbx-request'
+export type DBXInvoke = (method: string, params: Record<string, unknown>, options?: {timeoutMs: number}) => Promise<unknown>
 type ObjectData = { apiVersion?: string; kind?: string; metadata?: { name?: string; namespace?: string; uid?: string; resourceVersion?: string }; [key: string]: unknown }
 type Favorite = { resource: { resource: string; group: string; version: string }; object: ObjectData }
 
@@ -14,7 +15,11 @@ export class DBXTransport {
   rpc<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     return this.invoke(method, { ...params, connectionId: this.connectionId }) as Promise<T>
   }
-  async request<T>(path: string, method: string, body?: unknown): Promise<T> {
+  async request<T>(path: string, method: string, body?: unknown, options?: DBXRequestOptions): Promise<T> {
+    if (options) {
+      const transport = new DBXTransport(scopedDBXInvoke(this.invoke, options), this.connectionId)
+      return await waitForRequest(transport.dispatch(path, method, body), options.signal, options.timeoutMs) as T
+    }
     return await this.dispatch(path, method, body) as T
   }
   private async dispatch(path: string, method: string, body?: unknown): Promise<unknown> {
@@ -210,5 +215,5 @@ export class DBXTransport {
 export function getDBXTransport(connectionId?: string): DBXTransport | null {
   const bridge = (globalThis as unknown as {dbxPlugin?: {invoke: DBXInvoke; context?: {connectionId?: string}}}).dbxPlugin
   const id = connectionId || bridge?.context?.connectionId
-  return bridge && id ? new DBXTransport((method, params) => bridge.invoke(method, params), id) : null
+  return bridge && id ? new DBXTransport((method, params, options) => options ? bridge.invoke(method, params, options) : bridge.invoke(method, params), id) : null
 }

@@ -7,11 +7,15 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { useLogsWebSocket as useRealLogsWebSocket } from "@/lib/api/observability";
+import i18n from "@/i18n";
 import { LogViewer } from "./log-viewer";
 
 const state = vi.hoisted(() => ({
   text: "",
+  realStream: false,
   options: {} as { onNewLog?: (text: string) => void; onClear?: () => void },
   save: vi.fn(),
   zones: vi.fn(),
@@ -35,6 +39,9 @@ vi.mock("@/lib/api", () => ({
     options: typeof state.options,
   ) => {
     state.options = options;
+    // Keep hook order stable; only integration tests enable the actual DBX stream.
+    const realState = useRealLogsWebSocket(_ns, _pod, {...options, enabled: state.realStream});
+    if (state.realStream) return realState;
     return {
       isLoading: false,
       isConnected: true,
@@ -123,11 +130,39 @@ beforeEach(() => {
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.scrollIntoView = () => {};
 
+  state.realStream = false;
   state.text = "";
   state.save.mockClear();
   state.zones.mockClear();
   state.decorations.mockClear();
   localStorage.clear();
+});
+
+afterEach(() => {cleanup(); Reflect.deleteProperty(globalThis, "dbxPlugin");});
+
+it("shows DBX truncation separately from raw logs, continues reading and exports only original data", async () => {
+  state.realStream = true;
+  let reads = 0;
+  const invoke = vi.fn(async (method: string) => {
+    if (method === "pod/logs-open") return {sessionId: "logs"};
+    if (method === "session/read") {
+      reads++;
+      if (reads === 1) return {sessionId: "logs", droppedBytes: 1048576, data: "retained tail\n"};
+      if (reads === 2) return {sessionId: "logs", data: "later log\n"};
+      return new Promise(() => {});
+    }
+    return {closed: true};
+  });
+  Object.assign(globalThis, {dbxPlugin: {context: {connectionId: "cluster"}, invoke}});
+  render(<LogViewer namespace="default" podName="pod" />);
+  const notice = await screen.findByRole("status");
+  expect(notice).toHaveTextContent("logViewer.incomplete");
+  expect(notice).toHaveTextContent(i18n.t("terminalContent.outputTruncated", {bytes: 1048576}));
+  await waitFor(() => expect(state.text).toBe("retained tail\nlater log"));
+  expect(invoke.mock.calls.some(([method]) => method === "session/close")).toBe(false);
+  fireEvent.click(screen.getByRole("button", {name: "logViewer.downloadLogs"}));
+  await waitFor(() => expect(state.save).toHaveBeenCalledWith(expect.objectContaining({content: "retained tail\nlater log\n"})));
+  expect(screen.getByRole("status")).toBeInTheDocument();
 });
 
 it("highlights text by default, toggles filtering, preserves gaps, and exports original logs", async () => {

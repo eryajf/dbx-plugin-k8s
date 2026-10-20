@@ -117,6 +117,9 @@ func TestWatchRoutesAndConnectionIsolation(t *testing.T) {
 	if _, err = call(p, "resource/watch-close", string(body)); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = call(p, "resource/watch-close", string(body)); err != nil {
+		t.Fatalf("repeated close should succeed: %v", err)
+	}
 	if _, err = call(p, "resource/watch-read", string(body)); err == nil {
 		t.Fatal("closed session remained available")
 	}

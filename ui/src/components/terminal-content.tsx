@@ -1,7 +1,9 @@
+import { toast } from 'sonner'
+
 import { getDBXTransport } from '@/lib/dbx-transport'
 import { createDBXTerminalSocket, type TerminalSocket } from '@/lib/dbx-session-stream'
 import { translateTerminalInputError } from '@/lib/dbx-terminal-errors'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   IconClearAll,
   IconFolder,
@@ -120,6 +122,8 @@ export function Terminal({
   const selectedFontSizeRef = useRef(fontSize)
   const selectedCursorStyleRef = useRef(cursorStyle)
 
+  const terminalInstanceId = useId()
+  const sessionGenerationRef = useRef(0)
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -506,8 +510,14 @@ export function Terminal({
               '/api/v1/kubectl-terminal/ws',
               currentCluster
             )
-    const wsUrl = getWebSocketUrl(wsPath)
+    let disposed = false
+    let sessionClosed = false
+    const warnings = new Set<string>()
+    const generation = ++sessionGenerationRef.current
     const dbxTransport = getDBXTransport(clusterName)
+    const target = [dbxTransport?.connectionId ?? currentCluster, type === 'node' ? nodeName : type === 'kubectl' ? 'kubectl' : `${namespace}/${selectedPod}/${selectedContainer}`].filter(Boolean).join(' / ')
+    const warningTitle = `${t('pods.terminal')} · ${target} · ${terminalInstanceId}/${generation}`
+    const wsUrl = getWebSocketUrl(wsPath)
     const websocket = dbxTransport
       ? createDBXTerminalSocket(dbxTransport, {
           type,
@@ -520,6 +530,7 @@ export function Terminal({
     wsRef.current = websocket
 
     websocket.onopen = () => {
+      if (disposed || sessionClosed) return
       setIsConnected(true)
       networkStatsRef.current = {
         lastReset: Date.now(),
@@ -573,6 +584,17 @@ export function Terminal({
     websocket.onmessage = (event: { data: string }) => {
       try {
         const message = JSON.parse(event.data)
+        if (message.type === 'warning') {
+          if (warnings.has(message.data)) return
+          warnings.add(message.data)
+          if (disposed || sessionClosed || websocket.readyState === WebSocket.CLOSED) {
+            toast.warning(warningTitle, { description: message.data })
+          } else {
+            terminal.writeln(`\x1b[33m${message.data}\x1b[0m`)
+          }
+          return
+        }
+        if (disposed || sessionClosed) return
         const dataSize = new Blob([event.data]).size
         updateNetworkStats(dataSize, false)
         switch (message.type) {
@@ -602,12 +624,15 @@ export function Terminal({
     }
 
     websocket.onerror = (error: unknown) => {
+      if (disposed || sessionClosed) return
       console.error('WebSocket error:', error)
       terminal.writeln('\x1b[31mWebSocket connection error\x1b[0m')
       setIsConnected(false)
     }
 
     websocket.onclose = (event: { code: number }) => {
+      sessionClosed = true
+      if (disposed) return
       setIsConnected(false)
       setNetworkSpeed({ upload: 0, download: 0 })
       if (speedUpdateTimerRef.current) {
@@ -671,6 +696,8 @@ export function Terminal({
     }
 
     return () => {
+      disposed = true
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer)
       window.removeEventListener('resize', handleResize)
       if (resizeObserver) {
         resizeObserver.disconnect()
@@ -679,8 +706,11 @@ export function Terminal({
         currentTerminalRef.removeEventListener('wheel', handleWheelEvent)
         currentTerminalRef.removeEventListener('touchmove', handleWheelEvent)
       }
-      terminal.dispose()
       websocket.close()
+      terminal.dispose()
+      if (xtermRef.current === terminal) xtermRef.current = null
+      if (fitAddonRef.current === fitAddon) fitAddonRef.current = null
+      if (wsRef.current === websocket) wsRef.current = null
       if (speedUpdateTimerRef.current)
         clearInterval(speedUpdateTimerRef.current)
       if (pingTimerRef.current) clearInterval(pingTimerRef.current)
@@ -691,6 +721,7 @@ export function Terminal({
     selectedContainer,
     clusterName,
     namespace,
+    nodeName,
     type,
     updateNetworkStats,
     reconnectFlag,

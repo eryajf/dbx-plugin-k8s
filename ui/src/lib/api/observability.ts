@@ -475,7 +475,7 @@ export const useLogsWebSocket = (
   const connectionId = transport?.connectionId
   const isDBX = !!connectionId
   const callbacks = useRef(options); callbacks.current = options
-  const [dbxState, setDBXState] = useState({isLoading: false, error: null as Error | null, isConnected: false, downloadSpeed: 0})
+  const [dbxState, setDBXState] = useState({isLoading: false, error: null as Error | null, warning: null as string | null, isConnected: false, downloadSpeed: 0})
   const stopRef = useRef<(() => void) | null>(null)
   const [generation, setGeneration] = useState(0)
   const stopDBX = useCallback(() => {stopRef.current?.(); stopRef.current = null; setDBXState(s => ({...s, isConnected: false, isLoading: false}))}, [])
@@ -483,16 +483,18 @@ export const useLogsWebSocket = (
   useEffect(() => {
     const current = getDBXTransport()
     if (!current || options?.enabled === false || !namespace || !podName) return
-    setDBXState({isLoading: true, error: null, isConnected: false, downloadSpeed: 0})
+    setDBXState({isLoading: true, error: null, warning: null, isConnected: false, downloadSpeed: 0})
+    let active = true
     let last = Date.now()
     const stream = startSessionStream(current, 'pod/logs-open', {namespace, name: podName, container: options?.container, tailLines: options?.tailLines, timestamps: options?.timestamps, previous: options?.previous, sinceSeconds: options?.sinceSeconds, follow: true}, {
       onOpen: () => {callbacks.current?.onClear?.(); setDBXState(s => ({...s, isLoading: false, isConnected: true}))},
       onData: data => {callbacks.current?.onNewLog?.(data); const now = Date.now(); const speed = new TextEncoder().encode(data).length * 1000 / Math.max(1, now - last); last = now; setDBXState(s => ({...s, downloadSpeed: speed}))},
+      onWarning: warning => {if (active) setDBXState(s => ({...s, warning}))},
       onError: error => setDBXState(s => ({...s, error, isLoading: false, isConnected: false})),
       onClose: () => setDBXState(s => ({...s, isLoading: false, isConnected: false, downloadSpeed: 0}))
     })
     stopRef.current = stream.close
-    return () => {stream.close(); stopRef.current = null}
+    return () => {active = false; stream.close(); stopRef.current = null}
   }, [connectionId, namespace, podName, generation, options?.enabled, options?.container, options?.tailLines, options?.timestamps, options?.previous, options?.sinceSeconds])
 
   // Build WebSocket URL
@@ -613,6 +615,7 @@ export const useLogsWebSocket = (
     () => ({
       isLoading: wsState.isConnecting,
       error: wsState.error,
+      warning: null,
       isConnected: wsState.isConnected,
       downloadSpeed: wsState.networkStats.downloadSpeed,
       refetch,

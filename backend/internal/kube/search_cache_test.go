@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -176,6 +177,7 @@ func TestCachedDiscoveryRetriesAfterFailure(t *testing.T) {
 		GroupVersion: "v1",
 		APIResources: []metav1.APIResource{{Name: "pods", Kind: "Pod", Namespaced: true}},
 	}}
+	time.Sleep(discoveryFailureBackoff + 20*time.Millisecond)
 	if _, err, hit := client.CachedAPIResourceLists(); err != nil || hit {
 		t.Fatalf("recovered discovery = err %v, hit %t; want a fresh successful lookup", err, hit)
 	}
@@ -187,10 +189,6 @@ func TestInvalidateDiscoveryCacheDoesNotPublishInFlightResult(t *testing.T) {
 	oldResources := []*metav1.APIResourceList{{
 		GroupVersion: "v1",
 		APIResources: []metav1.APIResource{{Name: "pods", Kind: "Pod", Namespaced: true}},
-	}}
-	newResources := []*metav1.APIResourceList{{
-		GroupVersion: "apps/v1",
-		APIResources: []metav1.APIResource{{Name: "deployments", Kind: "Deployment", Namespaced: true}},
 	}}
 	discoveryClient.Resources = oldResources
 	started := make(chan struct{})
@@ -215,17 +213,19 @@ func TestInvalidateDiscoveryCacheDoesNotPublishInFlightResult(t *testing.T) {
 
 	client.InvalidateDiscoveryCache()
 	close(release)
-	if err := <-first; err != nil {
-		t.Fatalf("first discovery = %v", err)
+	if err := <-first; !errors.Is(err, context.Canceled) {
+		t.Fatalf("invalidated discovery = %v, want cancellation", err)
 	}
 
-	discoveryClient.Resources = newResources
+	// FakeDiscovery's legacy method is not interruptible; keep its backing
+	// Resources immutable while the detached call finishes. A new request must
+	// run even when the server catalog itself has not changed.
 	lists, err, hit := client.CachedAPIResourceListsContext(context.Background())
 	if err != nil || hit {
 		t.Fatalf("post-invalidation discovery = hit %t, err %v; want a fresh lookup", hit, err)
 	}
-	if len(lists) != 1 || lists[0].GroupVersion != "apps/v1" {
-		t.Fatalf("post-invalidation resources = %#v, want apps/v1", lists)
+	if len(lists) != 1 || lists[0].GroupVersion != "v1" {
+		t.Fatalf("post-invalidation resources = %#v, want v1", lists)
 	}
 	if got := calls.Load(); got != 2 {
 		t.Fatalf("discovery calls = %d, want 2", got)

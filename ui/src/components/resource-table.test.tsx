@@ -23,6 +23,11 @@ const useResourcesMock = vi.fn()
 const useClusterInfoMock = vi.fn()
 const useFavoritesMock = vi.fn()
 const toggleFavoriteMock = vi.fn()
+const resourceRefetchMock = vi.fn()
+let resourceError: Error | null = null
+let resourceFetching = false
+let resourceUpdatedAt = 1_700_000_000_000
+let resourceInitialLoading = false
 let resourceData: Array<{
   apiVersion?: string
   metadata: {
@@ -31,7 +36,7 @@ let resourceData: Array<{
     uid: string
     creationTimestamp?: string
   }
-}> = [
+}> | undefined = [
   {
     metadata: {
       name: 'demo',
@@ -61,11 +66,13 @@ vi.mock('@/lib/api', async () => {
     useResources: (...args: unknown[]) => {
       useResourcesMock(...args)
       return {
-        isLoading: false,
+        isLoading: resourceInitialLoading,
         data: resourceData,
-        isError: false,
-        error: null,
-        refetch: vi.fn(),
+        isError: Boolean(resourceError),
+        error: resourceError,
+        isFetching: resourceFetching,
+        dataUpdatedAt: resourceUpdatedAt,
+        refetch: resourceRefetchMock,
       }
     },
     useResourcesWatch: () => ({
@@ -141,6 +148,11 @@ describe('ResourceTable batch delete confirmation', () => {
     localStorage.removeItem('test-clusterselectedNamespace')
     deleteResourceMock.mockReset()
     useResourcesMock.mockReset()
+    resourceRefetchMock.mockReset()
+    resourceError = null
+    resourceFetching = false
+    resourceInitialLoading = false
+    resourceUpdatedAt = 1_700_000_000_000
     resourceData = [
       {
         metadata: {
@@ -165,6 +177,71 @@ describe('ResourceTable batch delete confirmation', () => {
       isMutating: false,
       toggleFavorite: toggleFavoriteMock,
     })
+  })
+
+  it('keeps old rows and the last success time on a temporary background error', async () => {
+    await i18n.changeLanguage('en')
+    resourceError = Object.assign(new Error('Service unavailable'), { status: 503, retryable: true })
+    renderTable()
+    expect(screen.getByText('demo')).toBeInTheDocument()
+    expect(screen.getByText(/Showing the last successful result/)).toBeInTheDocument()
+    expect(document.querySelector('time')).toHaveAttribute('dateTime', new Date(resourceUpdatedAt).toISOString())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(useResourcesMock).toHaveBeenLastCalledWith('deployments', undefined, expect.objectContaining({ refreshInterval: 5000 }))
+  })
+
+  it('retains an empty successful result and timestamp on a temporary error', async () => {
+    await i18n.changeLanguage('en')
+    resourceData = []
+    resourceError = Object.assign(new Error('Service unavailable'), { status: 503, retryable: true })
+    renderTable()
+    expect(screen.getByText('No resources found')).toBeInTheDocument()
+    expect(screen.getByText(/Showing the last successful result/)).toBeInTheDocument()
+    expect(document.querySelector('time')).not.toBeNull()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it.each([401, 403, 0])('hides misleading old rows for a permanent/unknown error %i', async status => {
+    await i18n.changeLanguage('en')
+    resourceError = Object.assign(new Error('Request failed'), status ? { status } : {})
+    renderTable()
+    expect(screen.queryByText('demo')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(document.querySelector('time')).toBeNull()
+  })
+
+  it('shows a whole-page initial error when no snapshot exists', async () => {
+    await i18n.changeLanguage('en')
+    resourceData = undefined
+    resourceError = Object.assign(new Error('Service unavailable'), { status: 503, retryable: true })
+    renderTable()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText(/Showing the last successful result/)).not.toBeInTheDocument()
+  })
+
+  it('disables manual refresh during fetching and coalesces refetch options', async () => {
+    await i18n.changeLanguage('en')
+    resourceFetching = true
+    const view = renderTable()
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled()
+    expect(document.querySelector('[aria-busy="true"].flex')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(resourceRefetchMock).not.toHaveBeenCalled()
+    view.unmount()
+    resourceFetching = false
+    renderTable()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(resourceRefetchMock).toHaveBeenCalledWith({ cancelRefetch: false })
+  })
+
+  it('resets row selection and delete confirmation on connection change', async () => {
+    await i18n.changeLanguage('en')
+    renderTable()
+    fireEvent.click(screen.getByLabelText('Select row'))
+    fireEvent.click(screen.getByRole('button', { name: /Delete \(1\)/ }))
+    act(() => updateClusterMock?.('other-connection'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByLabelText('Select row')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('requires the global confirmation keyword before deleting selected rows', async () => {

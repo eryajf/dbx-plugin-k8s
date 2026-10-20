@@ -582,6 +582,8 @@
     "quickSwitchHint": "クイックスイッチクラスター: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "更新に失敗しました。最後に取得できた結果を表示しています。",
+    "lastSuccessfulUpdate": "最終成功更新：",
     "errorLoading": "{{resourceName}} のロード中にエラーが発生しました",
     "tryAgain": "もう一度やり直してください",
     "delete": "削除",
@@ -2108,6 +2110,7 @@
     "available": "利用可能: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "ログの内容が不完全な可能性があります。",
     "title": "ログ",
     "lines": "{{count}} 行",
     "filtered": "フィルタリングされた",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "pod ファイル ツリーの切り替え",
     "fileTreeUnavailable": "ファイルを参照するには、pod とコンテナーを選択します。",
     "settings": "端末設定",
-    "clear": "クリア端子"
+    "clear": "クリア端子",
+    "outputTruncated": "出力バッファが切り詰められ、{{bytes}} バイトが失われました"
   },
   "floatingTerminal": {
     "workspace": "ターミナルワークスペース",

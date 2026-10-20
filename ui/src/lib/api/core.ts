@@ -2,7 +2,7 @@ import { getDBXTransport } from '../dbx-transport'
 import { downloadDBXFile } from '../dbx-files'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { focusManager, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
 import {
@@ -24,6 +24,14 @@ import { fetchAPI } from './shared'
 import { getSearchTokens, normalizeSearchQuery } from '../search-query'
 import { validateSearchResponse } from '../search-response'
 import { normalizeImageTags } from '../image-tags'
+import { useCluster } from '@/hooks/use-cluster'
+import { isRetryableReadError, normalizeRequestError } from '../request-errors'
+import {
+  RESOURCE_READ_TIMEOUT_MS,
+  resourceReadRetryDelay,
+  resourceRecoveryInterval,
+  retryResourceRead,
+} from '../resource-query-recovery'
 
 type ResourcesItems<T extends ResourceType> = ResourcesTypeMap[T]['items']
 
@@ -58,6 +66,10 @@ export const fetchResources = <T>(
     labelSelector?: string
     fieldSelector?: string
     reduce?: boolean
+    connectionId?: string
+    timeoutMs?: number
+    signal?: AbortSignal
+    routeSearch?: string
   }
 ): Promise<T> => {
   let endpoint = namespace ? `/${resource}/${namespace}` : `/${resource}`
@@ -83,7 +95,14 @@ export const fetchResources = <T>(
     endpoint += `?${params.toString()}`
   }
 
-  return fetchAPI<T>(endpoint)
+  const scopedEndpoint = opts?.routeSearch === undefined
+    ? endpoint
+    : appendRouteGVR(endpoint, opts.routeSearch)
+  return fetchAPI<T>(scopedEndpoint, {
+    connectionId: opts?.connectionId,
+    timeoutMs: opts?.timeoutMs,
+    signal: opts?.signal,
+  })
 }
 
 // Search API types
@@ -444,31 +463,106 @@ export const useResources = <T extends ResourceType>(
     refreshInterval?: number
     disable?: boolean
     reduce?: boolean
+    connectionId?: string
+    /** Only the primary route resource should inherit its served GVR hint. */
+    useRouteIdentity?: boolean
   }
 ) => {
-  return useQuery({
-    queryKey: [
-      resource,
-      namespace,
-      options?.limit,
-      options?.labelSelector,
-      options?.fieldSelector,
-    ],
-    queryFn: () => {
-      return fetchResources<ResourcesTypeMap[T]>(resource, namespace, {
-        limit: options?.limit,
-        continueToken: undefined,
-        labelSelector: options?.labelSelector,
-        fieldSelector: options?.fieldSelector,
-        reduce: options?.reduce,
-      })
+  const { currentCluster } = useCluster()
+  const location = useLocation()
+  const connectionId = options?.connectionId ?? currentCluster ?? ''
+  const routeSearch = options?.useRouteIdentity ? location.search : ''
+  const queryKey = [
+    resource, // Preserve resource-prefix invalidation used by existing mutations.
+    namespace || '_all',
+    options?.limit ?? null,
+    options?.labelSelector || '',
+    options?.fieldSelector || '',
+    options?.reduce ?? false,
+    connectionId,
+    routeGVRKey(routeSearch),
+  ]
+  // Only recovery scheduling metadata lives here; snapshots stay in Query.
+  const recovery = useRef({ scope: '', successCount: -1, errorBaseline: 0 })
+  const scope = JSON.stringify(queryKey)
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    // Abort a pending read/backoff when hidden, rather than leaving a paused
+    // retry which could resume even after the user selected Off.
+    const cancelWhenHidden = () => {
+      if (document.visibilityState === 'hidden' || !focusManager.isFocused()) {
+        void queryClient.cancelQueries({ queryKey: JSON.parse(scope), exact: true })
+      }
+    }
+    document.addEventListener('visibilitychange', cancelWhenHidden)
+    const unsubscribe = focusManager.subscribe(cancelWhenHidden)
+    return () => {
+      document.removeEventListener('visibilitychange', cancelWhenHidden)
+      unsubscribe()
+    }
+  }, [queryClient, scope])
+  const result = useQuery({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      try {
+        return await fetchResources<ResourcesTypeMap[T]>(resource, namespace, {
+          limit: options?.limit,
+          labelSelector: options?.labelSelector,
+          fieldSelector: options?.fieldSelector,
+          reduce: options?.reduce,
+          connectionId,
+          signal,
+          routeSearch,
+          timeoutMs: RESOURCE_READ_TIMEOUT_MS,
+        })
+      } catch (error) {
+        throw normalizeRequestError(error)
+      }
     },
-    enabled: !options?.disable,
+    enabled: Boolean(connectionId) && !options?.disable,
     select: (data: ResourcesTypeMap[T]): ResourcesItems<T> => data.items,
-    placeholderData: (prevData) => prevData,
-    refetchInterval: options?.refreshInterval || 0,
-    staleTime: options?.staleTime || (resource === 'crds' ? 5000 : 1000),
+    // No cross-key placeholder: an empty successful list is still a snapshot.
+    placeholderData: undefined,
+    retry: retryResourceRead,
+    // Query's no-data error remount path otherwise bypasses refetchOnMount,
+    // causing Off/permanent failures to silently start a new retry cycle.
+    retryOnMount: false,
+    retryDelay: (attempt) => resourceReadRetryDelay(attempt),
+    refetchIntervalInBackground: false,
+    refetchInterval: (query) => {
+      const state = query.state
+      if (recovery.current.scope !== scope) {
+        recovery.current = { scope, successCount: -1, errorBaseline: 0 }
+      }
+      if (state.status === 'success' && recovery.current.successCount !== state.dataUpdateCount) {
+        recovery.current.successCount = state.dataUpdateCount
+        recovery.current.errorBaseline = state.errorUpdateCount
+      }
+      return resourceRecoveryInterval(
+        options?.refreshInterval,
+        state.error,
+        state.errorUpdateCount - recovery.current.errorBaseline
+      )
+    },
+    // Canceling an initial read restores pending/idle. Off disables polling,
+    // not completion of that first load; settled errors keep their retry policy.
+    refetchOnWindowFocus: (query) =>
+      (query.state.status === 'pending' && query.state.data === undefined) ||
+      Boolean(resourceRecoveryInterval(options?.refreshInterval, query.state.error, 1)),
+    refetchOnReconnect: (query) =>
+      (query.state.status === 'pending' && query.state.data === undefined) ||
+      Boolean(resourceRecoveryInterval(options?.refreshInterval, query.state.error, 1)),
+    refetchOnMount: (query) => !query.state.error ||
+      (Boolean(options?.refreshInterval) && isRetryableReadError(query.state.error)),
+    staleTime: options?.staleTime ?? (resource === 'crds' ? 5000 : 1000),
   })
+  const refetch = result.refetch
+  const mergedRefetch = useCallback(
+    (refetchOptions?: Parameters<typeof refetch>[0]) =>
+      refetch({ ...refetchOptions, cancelRefetch: false }),
+    [refetch]
+  )
+  return { ...result, refetch: mergedRefetch, resourceQueryScope: scope }
 }
 
 // Hook: SSE watch for resource lists (initial snapshot + ADDED/MODIFIED/DELETED)

@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import i18n from '@/i18n'
+import { languages } from '@/i18n/locale'
 import { DBXTransport, getDBXTransport } from './dbx-transport'
-import { createDBXTerminalSocket } from './dbx-session-stream'
+import { createDBXTerminalSocket, startSessionStream, type SessionFrame } from './dbx-session-stream'
 
 describe('createDBXTerminalSocket', () => {
   it.each([
@@ -107,6 +109,249 @@ async function connectedTerminal() {
   }
   return {socket, send, writes, invoke, messages, onclose, read, acknowledge}
 }
+
+describe('session warnings and closure', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('keeps truncated output, subsequent reads, input and resize usable', async () => {
+    const nextRead = deferred<SessionFrame>()
+    let reads = 0
+    const invoke = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === 'pod/exec-open') return {sessionId: 'terminal'}
+      if (method === 'session/read') {
+        if (++reads === 1) return {sessionId: 'terminal', droppedBytes: 128, data: 'retained output'}
+        return nextRead.promise
+      }
+      if (method === 'terminal/exec-write') return {written: new TextEncoder().encode(String(params.data)).length}
+      return {ok: true}
+    })
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const messages: unknown[] = []
+    const onclose = vi.fn()
+    socket.onmessage = event => messages.push(JSON.parse(event.data))
+    socket.onclose = onclose
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(messages).toEqual([
+      {type: 'warning', data: i18n.t('terminalContent.outputTruncated', {bytes: 128})},
+      {type: 'stdout', data: 'retained output'},
+    ])
+    expect(socket.readyState).toBe(1)
+    expect(onclose).not.toHaveBeenCalled()
+    expect(invoke.mock.calls.filter(([method]) => method === 'session/close')).toHaveLength(0)
+
+    socket.send(JSON.stringify({type: 'stdin', data: 'pwd\r'}))
+    socket.send(JSON.stringify({type: 'resize', cols: 100, rows: 30}))
+    await vi.advanceTimersByTimeAsync(250)
+    expect(invoke).toHaveBeenCalledWith('terminal/exec-write', expect.objectContaining({sessionId: 'terminal', data: 'pwd\r'}))
+    expect(invoke).toHaveBeenCalledWith('terminal/exec-resize', expect.objectContaining({sessionId: 'terminal', cols: 100, rows: 30}))
+    expect(reads).toBe(2)
+    nextRead.resolve({sessionId: 'terminal', data: 'next output', closed: true})
+    await vi.advanceTimersByTimeAsync(0)
+    expect(messages[messages.length - 1]).toEqual({type: 'stdout', data: 'next output'})
+    expect(onclose).toHaveBeenCalledExactlyOnceWith({code: 1000})
+    expect(invoke.mock.calls.filter(([method]) => method === 'session/close')).toHaveLength(0)
+  })
+
+  it('emits a cleanup warning and final output before closing a closed frame normally', async () => {
+    const invoke = vi.fn(async (method: string) => method === 'pod/exec-open'
+      ? {sessionId: 'terminal'}
+      : {sessionId: 'terminal', warning: 'cleanup failed: permission denied', data: 'final output', closed: true})
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const events: unknown[] = []
+    socket.onmessage = event => events.push(JSON.parse(event.data))
+    socket.onclose = event => events.push(event)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(events).toEqual([
+      {type: 'warning', data: 'cleanup failed: permission denied'},
+      {type: 'stdout', data: 'final output'},
+      {code: 1000},
+    ])
+    expect(socket.readyState).toBe(3)
+    expect(invoke.mock.calls.filter(([method]) => method === 'session/close')).toHaveLength(0)
+  })
+
+  it.each(['frame', 'rejection'] as const)('still closes on fatal read %s after a warning', async failure => {
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'pod/exec-open') return {sessionId: 'terminal'}
+      if (method === 'session/read') {
+        if (failure === 'rejection') throw new Error('fatal read error')
+        return {sessionId: 'terminal', droppedBytes: 64, data: 'last output', error: 'fatal read error'}
+      }
+      return {ok: true}
+    })
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const messages: Array<{type: string; data: string}> = []
+    const onclose = vi.fn()
+    socket.onmessage = event => messages.push(JSON.parse(event.data))
+    socket.onclose = onclose
+    await vi.advanceTimersByTimeAsync(0)
+    if (failure === 'frame') expect(messages.map(message => message.type)).toEqual(['warning', 'stdout', 'error'])
+    expect(messages[messages.length - 1]).toEqual({type: 'error', data: 'fatal read error'})
+    expect(socket.readyState).toBe(3)
+    expect(onclose).toHaveBeenCalledExactlyOnceWith({code: 1006})
+    socket.send(JSON.stringify({type: 'stdin', data: 'later'}))
+    socket.send(JSON.stringify({type: 'resize', cols: 80, rows: 24}))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(invoke.mock.calls.map(([method]) => method)).toEqual(['pod/exec-open', 'session/read', 'session/close'])
+  })
+
+  it.each(['local', 'fatal'] as const)('reports cleanup RPC failure after %s close without reviving the socket', async closure => {
+    const read = deferred<SessionFrame>()
+    const cleanup = deferred<unknown>()
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'pod/exec-open') return {sessionId: 'terminal'}
+      if (method === 'session/read') return read.promise
+      if (method === 'session/close') return cleanup.promise
+      return {ok: true}
+    })
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const messages: unknown[] = []
+    const onclose = vi.fn(), onopen = vi.fn()
+    socket.onmessage = event => messages.push(JSON.parse(event.data))
+    socket.onclose = onclose
+    socket.onopen = onopen
+    await vi.advanceTimersByTimeAsync(0)
+    if (closure === 'local') socket.close()
+    else read.reject(new Error('fatal read error'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(socket.readyState).toBe(3)
+    cleanup.reject(new Error('cleanup failed: permission denied'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(messages[messages.length - 1]).toEqual({type: 'warning', data: 'cleanup failed: permission denied'})
+    expect(onclose).toHaveBeenCalledExactlyOnceWith({code: closure === 'local' ? 1000 : 1006})
+    expect(onopen).toHaveBeenCalledOnce()
+    expect(socket.readyState).toBe(3)
+    socket.send(JSON.stringify({type: 'stdin', data: 'later'}))
+    socket.close()
+    read.resolve({sessionId: 'terminal', closed: true})
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(invoke.mock.calls.map(([method]) => method)).toEqual(['pod/exec-open', 'session/read', 'session/close'])
+  })
+
+  it('does not close again when the backend has already removed a closed session', async () => {
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'pod/exec-open') return {sessionId: 'terminal'}
+      if (method === 'session/close') throw new Error('session not found')
+      return {sessionId: 'terminal', closed: true, error: 'terminal exited'}
+    })
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const messages: unknown[] = []
+    socket.onmessage = event => messages.push(JSON.parse(event.data))
+    await vi.advanceTimersByTimeAsync(0)
+    socket.close()
+    expect(messages).toEqual([{type: 'error', data: 'terminal exited'}])
+    expect(invoke.mock.calls.map(([method]) => method)).toEqual(['pod/exec-open', 'session/read'])
+  })
+
+  it('passes warnings to stream callbacks without requiring a warning handler', async () => {
+    for (const handleWarnings of [true, false]) {
+      const invoke = vi.fn(async (method: string) => method === 'pod/logs-open'
+        ? {sessionId: 'logs'}
+        : {sessionId: 'logs', droppedBytes: 16, warning: 'cleanup warning', data: 'tail', closed: true})
+      const onWarning = vi.fn(), onData = vi.fn(), onError = vi.fn(), onClose = vi.fn()
+      startSessionStream(new DBXTransport(invoke, 'cluster'), 'pod/logs-open', {}, {
+        onWarning: handleWarnings ? onWarning : undefined, onData, onError, onClose,
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      if (handleWarnings) expect(onWarning.mock.calls).toEqual([
+        [i18n.t('terminalContent.outputTruncated', {bytes: 16})], ['cleanup warning'],
+      ])
+      expect(onData).toHaveBeenCalledExactlyOnceWith('tail')
+      expect(onError).not.toHaveBeenCalled()
+      expect(onClose).toHaveBeenCalledOnce()
+    }
+  })
+
+  it.each(['stream', 'socket'] as const)('cleans a late session ID after %s.close without reopening or reading', async kind => {
+    const opened = deferred<SessionFrame>()
+    const invoke = vi.fn(async (method: string) => method === 'pod/exec-open' ? opened.promise : {ok: true})
+    const transport = new DBXTransport(invoke, 'cluster')
+    const onOpen = vi.fn(), onData = vi.fn(), onWarning = vi.fn(), onError = vi.fn(), onClose = vi.fn()
+    const session = kind === 'stream'
+      ? startSessionStream(transport, 'pod/exec-open', {}, {onOpen, onData, onWarning, onError, onClose})
+      : createDBXTerminalSocket(transport, {})
+    if ('readyState' in session) {
+      session.onopen = onOpen
+      session.onmessage = onData
+      session.onclose = onClose
+    }
+    session.close()
+    session.close()
+    opened.resolve({sessionId: 'late-session'})
+    await vi.advanceTimersByTimeAsync(0)
+    expect(invoke.mock.calls.map(([method]) => method)).toEqual(['pod/exec-open', 'session/close'])
+    expect(invoke).toHaveBeenCalledWith('session/close', {sessionId: 'late-session', connectionId: 'cluster'})
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(onData).not.toHaveBeenCalled()
+    expect(onWarning).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(kind === 'socket' ? 1 : 0)
+  })
+
+  it.each([false, true])('only delivers a final cleanup warning after local close (closed=%s)', async closed => {
+    const read = deferred<SessionFrame>()
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'pod/exec-open') return {sessionId: 'terminal'}
+      if (method === 'session/read') return read.promise
+      return {ok: true}
+    })
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const onmessage = vi.fn(), onclose = vi.fn()
+    socket.onmessage = onmessage
+    socket.onclose = onclose
+    await vi.advanceTimersByTimeAsync(0)
+    socket.close()
+    read.resolve({sessionId: 'terminal', droppedBytes: 32, warning: 'late warning', data: 'late output', error: 'late error', closed})
+    await vi.advanceTimersByTimeAsync(0)
+    if (closed) expect(onmessage).toHaveBeenCalledExactlyOnceWith({data: JSON.stringify({type: 'warning', data: 'late warning'})})
+    else expect(onmessage).not.toHaveBeenCalled()
+    expect(socket.readyState).toBe(3)
+    expect(onclose).toHaveBeenCalledExactlyOnceWith({code: 1000})
+    expect(invoke.mock.calls.filter(([method]) => method === 'session/close')).toHaveLength(1)
+  })
+
+  it.each(['close-first', 'read-first', 'close-success'] as const)('keeps delayed final cleanup warnings and deduplicates cleanup failures (%s)', async order => {
+    const read = deferred<SessionFrame>(), cleanup = deferred<unknown>()
+    let removed = false
+    const warning = 'Temporary terminal resources could not be cleaned up: forbidden'
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'pod/exec-open') return {sessionId: 'terminal'}
+      if (method === 'session/read') {removed = true; return read.promise}
+      if (method === 'session/close') {expect(removed).toBe(true); return cleanup.promise}
+      return {ok: true}
+    })
+    const socket = createDBXTerminalSocket(new DBXTransport(invoke, 'cluster'), {})
+    const messages: unknown[] = [], onclose = vi.fn(), onopen = vi.fn()
+    socket.onmessage = event => messages.push(JSON.parse(event.data))
+    socket.onclose = onclose
+    socket.onopen = onopen
+    await vi.advanceTimersByTimeAsync(0)
+    socket.close()
+    if (order === 'close-first') cleanup.reject(new Error(warning))
+    if (order === 'close-success') cleanup.resolve({closed: true})
+    await vi.advanceTimersByTimeAsync(0)
+    read.resolve({sessionId: 'terminal', closed: true, warning, data: 'late output', error: 'late error'})
+    await vi.advanceTimersByTimeAsync(0)
+    if (order === 'read-first') cleanup.reject(new Error(warning))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(messages).toEqual([{type: 'warning', data: warning}])
+    expect(onopen).toHaveBeenCalledOnce()
+    expect(onclose).toHaveBeenCalledExactlyOnceWith({code: 1000})
+    expect(socket.readyState).toBe(3)
+    expect(invoke.mock.calls.map(([method]) => method)).toEqual(['pod/exec-open', 'session/read', 'session/close'])
+  })
+
+  it.each(languages.map(language => language.code))('localizes output truncation with byte interpolation in %s', locale => {
+    const text = i18n.getFixedT(locale)('terminalContent.outputTruncated', {bytes: 128})
+    expect(i18n.getResource(locale, 'translation', 'terminalContent.outputTruncated')).toBeTruthy()
+    expect(text).toContain('128')
+    expect(text).not.toContain('{{')
+    expect(text).not.toBe('terminalContent.outputTruncated')
+    if (locale !== 'en') expect(text).not.toBe(i18n.getFixedT('en')('terminalContent.outputTruncated', {bytes: 128}))
+  })
+})
 
 describe('terminal input ordering and lifecycle', () => {
   it('waits for acknowledgement and merges queued keystrokes without reordering', async () => {

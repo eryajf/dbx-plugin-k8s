@@ -582,6 +582,8 @@
     "quickSwitchHint": "Hızlı geçiş kümeleri: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "Yenileme başarısız. Son başarılı sonuç gösteriliyor.",
+    "lastSuccessfulUpdate": "Son başarılı güncelleme:",
     "errorLoading": "{{resourceName}} yüklenirken hata oluştu",
     "tryAgain": "Tekrar deneyin",
     "delete": "Sil",
@@ -2108,6 +2110,7 @@
     "available": "Mevcut: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "Günlük içeriği eksik olabilir.",
     "title": "Günlükler",
     "lines": "{{count}} hatları",
     "filtered": "filtrelenmiş",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "pod dosya ağacını değiştir",
     "fileTreeUnavailable": "Dosyalara göz atmak için bir pod ve kapsayıcı seçin.",
     "settings": "Terminal ayarları",
-    "clear": "Terminali temizle"
+    "clear": "Terminali temizle",
+    "outputTruncated": "Çıktı arabelleği kesildi: {{bytes}} bayt kayboldu"
   },
   "floatingTerminal": {
     "workspace": "Terminal Çalışma Alanı",

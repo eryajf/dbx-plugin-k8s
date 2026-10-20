@@ -582,6 +582,8 @@
     "quickSwitchHint": "快速切換集群：⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "重新整理失敗，目前顯示上次成功取得的結果。",
+    "lastSuccessfulUpdate": "上次成功更新：",
     "errorLoading": "載入 {{resourceName}} 時出錯",
     "tryAgain": "重試",
     "delete": "刪除",
@@ -2108,6 +2110,7 @@
     "available": "可用：{{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "日誌內容可能不完整。",
     "title": "紀錄",
     "lines": "{{count}} 行",
     "filtered": "已篩選",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "切換 Pod 檔案樹",
     "fileTreeUnavailable": "請選擇 Pod 和容器後瀏覽文件。",
     "settings": "終端設定",
-    "clear": "清空終端"
+    "clear": "清空終端",
+    "outputTruncated": "輸出緩衝區已截斷，遺失 {{bytes}} 位元組"
   },
   "floatingTerminal": {
     "workspace": "終端工作台",

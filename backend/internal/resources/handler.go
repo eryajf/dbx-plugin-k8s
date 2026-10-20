@@ -62,11 +62,11 @@ func Handle(ctx context.Context, c *kube.Client, method string, raw json.RawMess
 	default:
 		return nil, fmt.Errorf("unknown resource method: %s", method)
 	}
-	r, err := resolve(ctx, c, req)
+	write := method == "resource/create" || method == "resource/update" || method == "resource/apply" || method == "resource/patch" || method == "resource/delete"
+	r, err := resolveWithPolicy(ctx, c, req, !write)
 	if err != nil {
 		return nil, err
 	}
-	write := method == "resource/create" || method == "resource/update" || method == "resource/apply" || method == "resource/patch" || method == "resource/delete"
 	if !r.Namespaced && req.Namespace != "" {
 		return nil, fmt.Errorf("%s is cluster scoped; namespace must be empty", r.Resource)
 	}

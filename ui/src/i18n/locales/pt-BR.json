@@ -582,6 +582,8 @@
     "quickSwitchHint": "Clusters de troca rápida: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "A atualização falhou. Exibindo o último resultado bem-sucedido.",
+    "lastSuccessfulUpdate": "Última atualização bem-sucedida:",
     "errorLoading": "Erro ao carregar {{resourceName}}",
     "tryAgain": "Tente novamente",
     "delete": "Excluir",
@@ -2108,6 +2110,7 @@
     "available": "Disponível: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "O conteúdo do log pode estar incompleto.",
     "title": "Registros",
     "lines": "Linhas {{count}}",
     "filtered": "filtrado",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "Alternar árvore de arquivos pod",
     "fileTreeUnavailable": "Selecione um pod e um contêiner para navegar pelos arquivos.",
     "settings": "Configurações do terminal",
-    "clear": "Limpar terminal"
+    "clear": "Limpar terminal",
+    "outputTruncated": "Buffer de saída truncado: {{bytes}} bytes perdidos"
   },
   "floatingTerminal": {
     "workspace": "Área de trabalho do terminal",

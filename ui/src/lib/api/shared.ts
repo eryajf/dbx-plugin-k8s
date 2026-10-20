@@ -1,4 +1,4 @@
-import { apiClient } from '../api-client'
+import { apiClient, type APIRequestOptions } from '../api-client'
 
 export interface PaginatedResult<T> {
   items: T
@@ -12,7 +12,7 @@ export interface PaginatedResult<T> {
 // Generic fetch function with error handling
 export async function fetchAPI<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: APIRequestOptions
 ): Promise<T> {
   try {
     return await apiClient.get<T>(`${endpoint}`, options)

@@ -582,6 +582,8 @@
     "quickSwitchHint": "快速切换集群：⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "刷新失败，当前显示上次成功获取的结果。",
+    "lastSuccessfulUpdate": "上次成功更新：",
     "errorLoading": "加载 {{resourceName}} 时出错",
     "tryAgain": "重试",
     "delete": "删除",
@@ -2108,6 +2110,7 @@
     "available": "可用：{{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "日志内容可能不完整。",
     "title": "日志",
     "lines": "{{count}} 行",
     "filtered": "已筛选",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "切换 Pod 文件树",
     "fileTreeUnavailable": "请选择 Pod 和容器后浏览文件。",
     "settings": "终端设置",
-    "clear": "清空终端"
+    "clear": "清空终端",
+    "outputTruncated": "输出缓冲区已截断，丢失 {{bytes}} 字节"
   },
   "floatingTerminal": {
     "workspace": "终端工作台",

@@ -582,6 +582,8 @@
     "quickSwitchHint": "Cluster di cambio rapido: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "Aggiornamento non riuscito. Viene mostrato l’ultimo risultato riuscito.",
+    "lastSuccessfulUpdate": "Ultimo aggiornamento riuscito:",
     "errorLoading": "Errore durante il caricamento di {{resourceName}}",
     "tryAgain": "Riprova",
     "delete": "Elimina",
@@ -2108,6 +2110,7 @@
     "available": "Disponibile: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "Il contenuto del log potrebbe essere incompleto.",
     "title": "Registri",
     "lines": "Righe {{count}}",
     "filtered": "filtrato",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "Attiva/disattiva l'albero dei file pod",
     "fileTreeUnavailable": "Seleziona pod e un contenitore per sfogliare i file.",
     "settings": "Impostazioni del terminale",
-    "clear": "Terminale chiaro"
+    "clear": "Terminale chiaro",
+    "outputTruncated": "Buffer di uscita troncato: {{bytes}} byte persi"
   },
   "floatingTerminal": {
     "workspace": "Area di lavoro del terminale",

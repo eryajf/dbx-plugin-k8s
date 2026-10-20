@@ -65,10 +65,20 @@ func newRegressionAPI(t *testing.T, resources ...kube.SearchResource) *regressio
 	for _, resource := range resources {
 		gvr := schema.GroupVersionResource{Group: resource.Group, Version: resource.Version, Resource: resource.Resource}
 		listKinds[gvr] = resource.Kind + "List"
-		apiLists = append(apiLists, &metav1.APIResourceList{
-			GroupVersion: gvr.GroupVersion().String(),
-			APIResources: []metav1.APIResource{{Name: resource.Resource, Kind: resource.Kind, Namespaced: resource.Namespaced, Verbs: resource.Verbs}},
-		})
+		// A real GV endpoint returns one list containing all resources. Keep the
+		// fake compatible with per-GV discovery rather than duplicate GV lists.
+		var list *metav1.APIResourceList
+		for _, candidate := range apiLists {
+			if candidate.GroupVersion == gvr.GroupVersion().String() {
+				list = candidate
+				break
+			}
+		}
+		if list == nil {
+			list = &metav1.APIResourceList{GroupVersion: gvr.GroupVersion().String()}
+			apiLists = append(apiLists, list)
+		}
+		list.APIResources = append(list.APIResources, metav1.APIResource{Name: resource.Resource, Kind: resource.Kind, Namespaced: resource.Namespaced, Verbs: resource.Verbs})
 		api.lists[gvr] = regressionList(gvr, resource.Kind, "10", regressionObject(gvr, resource.Kind, "existing-"+resource.Resource, "blue", "10"))
 	}
 	core.Discovery().(*discoveryfake.FakeDiscovery).Resources = apiLists

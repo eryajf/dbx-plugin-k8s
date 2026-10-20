@@ -41,6 +41,8 @@ func TestGroupResourcesCoalescesAndInvalidates(t *testing.T) {
 	if err := <-first; err != context.Canceled {
 		t.Fatalf("cancel = %v", err)
 	}
+	// The final waiter leaving must cancel/detach its flight. New callers
+	// share a fresh one instead of inheriting the abandoned request.
 	var wg sync.WaitGroup
 	for i := 0; i < 12; i++ {
 		wg.Add(1)
@@ -59,7 +61,7 @@ func TestGroupResourcesCoalescesAndInvalidates(t *testing.T) {
 	}
 	close(release)
 	wg.Wait()
-	if calls.Load() != 1 {
+	if calls.Load() != 2 {
 		t.Fatalf("calls = %d", calls.Load())
 	}
 	list, err := c.APIResourcesForGroupVersion(context.Background(), "v1")
@@ -70,7 +72,7 @@ func TestGroupResourcesCoalescesAndInvalidates(t *testing.T) {
 	if _, err := c.APIResourcesForGroupVersion(context.Background(), "v1"); err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() != 2 {
+	if calls.Load() != 3 {
 		t.Fatalf("calls after invalidation = %d", calls.Load())
 	}
 }
@@ -96,6 +98,10 @@ func TestGroupResourceFailureIsRetried(t *testing.T) {
 	if _, err := c.APIResourcesForGroupVersion(ctx, "v1"); err == nil {
 		t.Fatal("expected discovery failure")
 	}
+	if _, err := c.APIResourcesForGroupVersion(ctx, "v1"); err == nil {
+		t.Fatal("failure must be briefly backed off")
+	}
+	time.Sleep(discoveryFailureBackoff + 20*time.Millisecond)
 	if _, err := c.APIResourcesForGroupVersion(ctx, "v1"); err != nil {
 		t.Fatal(err)
 	}

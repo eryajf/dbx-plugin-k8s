@@ -577,6 +577,7 @@ export function LogViewer({
   const {
     isLoading,
     isConnected,
+    warning,
     downloadSpeed,
     refetch,
     stopStreaming,
@@ -736,6 +737,11 @@ export function LogViewer({
       className={`log-viewer-${effectiveLogTheme === "github" ? "light" : "dark"} h-full flex flex-col py-4 gap-0 ${isFullscreen ? "fixed inset-0 z-50 m-0 rounded-none" : ""} ${wordWrap ? "whitespace-pre-wrap" : "whitespace-pre"} `}
     >
       <style>{ANSI_CSS}</style>
+      {warning && (
+        <div role="status" className="mx-6 mb-2 whitespace-normal rounded border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+          <strong>{t("logViewer.incomplete")}</strong> {warning}
+        </div>
+      )}
       <CardHeader>
         <div className="flex min-w-0 flex-nowrap items-center justify-between gap-2">
           <div className="flex min-w-0 shrink items-center gap-2">

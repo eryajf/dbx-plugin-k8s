@@ -582,6 +582,8 @@
     "quickSwitchHint": "퀵 스위치 클러스터: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "새로 고침에 실패했습니다. 마지막으로 성공한 결과를 표시합니다.",
+    "lastSuccessfulUpdate": "마지막 성공 업데이트:",
     "errorLoading": "{{resourceName}} 로드 중 오류 발생",
     "tryAgain": "다시 시도",
     "delete": "삭제",
@@ -2108,6 +2110,7 @@
     "available": "사용 가능: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "로그 내용이 불완전할 수 있습니다.",
     "title": "로그",
     "lines": "{{count}} 라인",
     "filtered": "거르는",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "pod 파일 트리 전환",
     "fileTreeUnavailable": "pod 및 컨테이너를 선택하여 파일을 찾아보세요.",
     "settings": "터미널 설정",
-    "clear": "터미널 지우기"
+    "clear": "터미널 지우기",
+    "outputTruncated": "출력 버퍼가 잘려 {{bytes}}바이트가 손실되었습니다"
   },
   "floatingTerminal": {
     "workspace": "터미널 작업 공간",

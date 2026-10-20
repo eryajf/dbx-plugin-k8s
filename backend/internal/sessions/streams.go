@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -22,6 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 )
+
+var newTerminalExecutor = kube.NewRemoteCommandExecutor
 
 // Streams must not inherit the unary HTTP timeout used by normal resource calls.
 func streamCore(c *kube.Client) (*kubernetes.Clientset, *rest.Config, error) {
@@ -139,7 +142,7 @@ func (m *Manager) exec(ctx context.Context, c *kube.Client, connection string, r
 		return nil, err
 	}
 	u := client.CoreV1().RESTClient().Post().Resource("pods").Namespace(p.Namespace).Name(p.Name).SubResource("exec").VersionedParams(&core.PodExecOptions{Container: p.Container, Command: p.Command, Stdin: true, Stdout: true, Stderr: !p.TTY, TTY: p.TTY}, scheme.ParameterCodec).URL()
-	executor, err := kube.NewRemoteCommandExecutor(cfg, u)
+	executor, err := newTerminalExecutor(cfg, u)
 	if err != nil {
 		return nil, err
 	}
@@ -165,10 +168,13 @@ func (m *Manager) exec(ctx context.Context, c *kube.Client, connection string, r
 // openAgentExec starts an interactive shell in an already-created agent Pod.
 // Agent lifecycle is owned by the session so closing the terminal also removes
 // the temporary Pod.
-func (m *Manager) openAgentExec(ctx context.Context, c *kube.Client, connection, namespace, pod, container string, cleanup func()) (any, error) {
+func (m *Manager) openAgentExec(ctx context.Context, c *kube.Client, connection, namespace, pod, container string, cleanup func() error) (any, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
 	client, cfg, err := streamCore(c)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, cleanup())
 	}
 	u := client.CoreV1().RESTClient().Post().Resource("pods").Namespace(namespace).Name(pod).SubResource("exec").VersionedParams(&core.PodExecOptions{
 		Container: container,
@@ -178,17 +184,17 @@ func (m *Manager) openAgentExec(ctx context.Context, c *kube.Client, connection,
 		Stderr:    true,
 		TTY:       true,
 	}, scheme.ParameterCodec).URL()
-	executor, err := kube.NewRemoteCommandExecutor(cfg, u)
+	executor, err := newTerminalExecutor(cfg, u)
 	if err != nil {
-		cleanup()
-		return nil, err
+		return nil, errors.Join(err, cleanup())
 	}
-	s, err := m.open(c.Context, connection, "exec")
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
+	s, err := m.openWithCleanup(c.Context, connection, "exec", cleanup)
 	if err != nil {
-		cleanup()
-		return nil, err
+		return nil, errors.Join(err, cleanup())
 	}
-	s.setCleanup(cleanup)
 	input, writer := io.Pipe()
 	s.mu.Lock()
 	s.input = writer
@@ -202,6 +208,51 @@ func (m *Manager) openAgentExec(ctx context.Context, c *kube.Client, connection,
 	}()
 	return map[string]string{"sessionId": s.id}, nil
 }
+
+// Attach preserves the node agent's chroot; a new exec process would start in
+// the container filesystem instead of inheriting the agent's root directory.
+func (m *Manager) openAgentAttach(ctx context.Context, c *kube.Client, connection, namespace, pod, container string, cleanup func() error) (any, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
+	client, cfg, err := streamCore(c)
+	if err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
+	u := client.CoreV1().RESTClient().Post().Resource("pods").Namespace(namespace).Name(pod).SubResource("attach").VersionedParams(&core.PodAttachOptions{
+		Container: container,
+		Stdin:     true,
+		Stdout:    true,
+		TTY:       true,
+	}, scheme.ParameterCodec).URL()
+	executor, err := newTerminalExecutor(cfg, u)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("create node terminal attach: %w", err), cleanup())
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
+	s, err := m.openWithCleanup(c.Context, connection, "exec", cleanup)
+	if err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
+	input, writer := io.Pipe()
+	s.mu.Lock()
+	s.input = writer
+	s.mu.Unlock()
+	go func() {
+		defer input.Close()
+		err := executor.StreamWithContext(s.ctx, remotecommand.StreamOptions{
+			Stdin: input, Stdout: s, Tty: true, TerminalSizeQueue: s,
+		})
+		if err != nil {
+			err = fmt.Errorf("attach node terminal: %w", err)
+		}
+		s.finish(err)
+	}()
+	return map[string]string{"sessionId": s.id}, nil
+}
+
 func (m *Manager) watch(c *kube.Client, connection string, raw json.RawMessage) (any, error) {
 	var p struct {
 		Group           string `json:"group"`

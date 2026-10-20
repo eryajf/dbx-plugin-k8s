@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/eryajf/dbx-plugin-k8s/internal/kube"
 	"k8s.io/client-go/tools/portforward"
@@ -27,6 +29,7 @@ type Result struct {
 	Data         string                      `json:"data"`
 	Closed       bool                        `json:"closed"`
 	Error        string                      `json:"error,omitempty"`
+	Warning      string                      `json:"warning,omitempty"`
 	DroppedBytes int                         `json:"droppedBytes"`
 	Ready        bool                        `json:"ready"`
 	Ports        []portforward.ForwardedPort `json:"ports,omitempty"`
@@ -45,17 +48,25 @@ type session struct {
 	ready                bool
 	ports                []portforward.ForwardedPort
 	lastRead             time.Time
-	cleanup              func()
+	cleanup              func() error
 	cleanupOnce          sync.Once
+	cleanupPending       bool
+	cleanupErr           error
+	warning              string
+	outputTruncated      bool
 }
 
 func (s *session) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := len(p)
+	if s.closed {
+		return 0, io.ErrClosedPipe
+	}
 	if len(s.data)+n > bufferLimit {
 		excess := len(s.data) + n - bufferLimit
 		s.dropped += excess
+		s.outputTruncated = true
 		if excess >= len(s.data) {
 			p = p[excess-len(s.data):]
 			s.data = nil
@@ -73,22 +84,69 @@ func (s *session) finish(err error) {
 		s.err = err.Error()
 	}
 	input := s.input
-	cleanup := s.cleanup
 	s.mu.Unlock()
 	s.cancel()
 	if input != nil {
 		input.Close()
 	}
-	if cleanup != nil {
-		s.cleanupOnce.Do(cleanup)
-	}
+	s.runCleanup()
 }
+
+func (s *session) runCleanup() {
+	s.mu.Lock()
+	cleanup := s.cleanup
+	s.mu.Unlock()
+	if cleanup == nil {
+		return
+	}
+	s.cleanupOnce.Do(func() {
+		err := cleanup()
+		s.mu.Lock()
+		s.cleanupErr = err
+		if err != nil {
+			s.warning = fmt.Sprintf("Temporary terminal resources could not be cleaned up: %v", err)
+		}
+		s.cleanupPending = false
+		s.mu.Unlock()
+		if err != nil {
+			log.Printf("terminal session %s cleanup failed: %v", s.id, err)
+		}
+	})
+}
+
 func (s *session) read() Result {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastRead = time.Now()
-	r := Result{SessionID: s.id, Data: string(s.data), Closed: s.closed, Error: s.err, DroppedBytes: s.dropped, Ready: s.ready, Ports: s.ports}
-	s.data = nil
+	if s.outputTruncated {
+		// A bounded buffer may start in the middle of a UTF-8 rune. Discard
+		// continuation bytes until the next rune boundary, even across reads.
+		for len(s.data) > 0 && !utf8.RuneStart(s.data[0]) {
+			s.data = s.data[1:]
+			s.dropped++
+		}
+		if len(s.data) > 0 {
+			s.outputTruncated = false
+		}
+	}
+	end := 0
+	for end < len(s.data) {
+		if !utf8.FullRune(s.data[end:]) && !s.closed {
+			break
+		}
+		_, size := utf8.DecodeRune(s.data[end:])
+		end += size
+	}
+	data := strings.ToValidUTF8(string(s.data[:end]), "\uFFFD")
+	r := Result{SessionID: s.id, Data: data, Closed: s.closed && !s.cleanupPending, Warning: s.warning, DroppedBytes: s.dropped, Ready: s.ready, Ports: s.ports}
+	if !s.cleanupPending {
+		r.Error = s.err
+	}
+	if end == len(s.data) {
+		s.data = nil
+	} else {
+		s.data = append([]byte(nil), s.data[end:]...)
+	}
 	s.dropped = 0
 	return r
 }
@@ -147,6 +205,13 @@ func New() *Manager {
 	return m
 }
 func (m *Manager) open(parent context.Context, connection, kind string) (*session, error) {
+	return m.openWithCleanup(parent, connection, kind, nil)
+}
+
+func (m *Manager) openWithCleanup(parent context.Context, connection, kind string, cleanup func() error) (*session, error) {
+	if err := parent.Err(); err != nil {
+		return nil, err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.ctx.Err() != nil {
@@ -160,21 +225,20 @@ func (m *Manager) open(parent context.Context, connection, kind string) (*sessio
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(parent)
-	s := &session{id: hex.EncodeToString(b), connection: connection, kind: kind, ctx: ctx, cancel: cancel, sizes: make(chan remotecommand.TerminalSize, 1), lastRead: time.Now()}
+	s := &session{id: hex.EncodeToString(b), connection: connection, kind: kind, ctx: ctx, cancel: cancel, sizes: make(chan remotecommand.TerminalSize, 1), lastRead: time.Now(), cleanup: cleanup, cleanupPending: cleanup != nil}
 	m.all[s.id] = s
 	go func() { <-ctx.Done(); s.finish(nil) }()
 	return s, nil
 }
 
-func (s *session) setCleanup(cleanup func()) {
+func (s *session) setCleanup(cleanup func() error) {
 	s.mu.Lock()
 	closed := s.closed
 	s.cleanup = cleanup
+	s.cleanupPending = cleanup != nil
 	s.mu.Unlock()
 	if closed {
-		if cleanup != nil {
-			s.cleanupOnce.Do(cleanup)
-		}
+		s.runCleanup()
 	}
 }
 func (m *Manager) get(connection, id string) (*session, error) {
@@ -191,12 +255,19 @@ func (m *Manager) remove(connection, id string) error {
 	s := m.all[id]
 	if s == nil || s.connection != connection {
 		m.mu.Unlock()
-		return fmt.Errorf("session not found")
+		return nil
 	}
-	delete(m.all, id)
 	m.mu.Unlock()
 	s.finish(nil)
-	return nil
+	m.mu.Lock()
+	if current := m.all[id]; current == s {
+		delete(m.all, id)
+	}
+	m.mu.Unlock()
+	s.mu.Lock()
+	err := s.cleanupErr
+	s.mu.Unlock()
+	return err
 }
 
 // read drains one frame and releases naturally completed sessions immediately.
@@ -289,6 +360,16 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return nil, err
 	}
+	switch method {
+	case "pod/logs-close", "pod/exec-close", "resource/watch-close", "port-forward/close", "session/close":
+		if p.SessionID == "" {
+			return nil, fmt.Errorf("sessionId is required")
+		}
+		if err := m.remove(connection, p.SessionID); err != nil {
+			return nil, fmt.Errorf("Temporary terminal resources could not be cleaned up: %w", err)
+		}
+		return map[string]bool{"closed": true}, nil
+	}
 	s, err := m.get(connection, p.SessionID)
 	if err != nil {
 		return nil, err
@@ -296,8 +377,6 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 	switch method {
 	case "pod/logs-read", "pod/exec-read", "resource/watch-read", "session/read":
 		return m.read(connection, p.SessionID)
-	case "pod/logs-close", "pod/exec-close", "resource/watch-close", "port-forward/close", "session/close":
-		return map[string]bool{"closed": true}, m.remove(connection, p.SessionID)
 	case "pod/exec-write", "terminal/exec-write":
 		if s.kind != "exec" {
 			return nil, fmt.Errorf("not an exec session")

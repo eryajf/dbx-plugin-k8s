@@ -5,6 +5,12 @@ import {
 } from './cluster-transport'
 import { withSubPath } from './subpath'
 import { getDBXTransport } from './dbx-transport'
+import { normalizeRequestError } from './request-errors'
+
+export interface APIRequestOptions extends RequestInit {
+  connectionId?: string
+  timeoutMs?: number
+}
 
 export interface APIErrorOptions {
   code?: string
@@ -40,10 +46,20 @@ class ApiClient {
 
   private async makeRequest<T>(
     url: string,
-    options: RequestInit = {}
+    options: APIRequestOptions = {}
   ): Promise<T> {
-    const transport = getDBXTransport()
-    if (transport) return transport.request<T>(url, options.method || 'GET', options.body instanceof FormData ? options.body : options.body ? JSON.parse(String(options.body)) : undefined)
+    const { connectionId, timeoutMs, ...requestOptions } = options
+    const transport = getDBXTransport(connectionId)
+    if (transport) {
+      try {
+        return await transport.request<T>(url, options.method || 'GET', options.body instanceof FormData ? options.body : options.body ? JSON.parse(String(options.body)) : undefined, { timeoutMs, signal: options.signal })
+      } catch (error) {
+        throw normalizeRequestError(error)
+      }
+    }
+    if (connectionId && (globalThis as {dbxPlugin?: unknown}).dbxPlugin) {
+      throw Object.assign(new Error('DBX connection is not connected'), { code: 'not_connected', retryable: false })
+    }
     const fullUrl = withSubPath(this.baseUrl + url)
 
     const headers: Record<string, string> = {
@@ -58,13 +74,23 @@ class ApiClient {
 
     const requestUrl = appendClusterNameParam(
       fullUrl,
-      explicitClusterName ?? this.getCurrentCluster?.()
+      connectionId ?? explicitClusterName ?? this.getCurrentCluster?.()
     )
 
+    const controller = new AbortController()
+    const abort = () => controller.abort(options.signal?.reason)
+    if (options.signal?.aborted) abort()
+    else options.signal?.addEventListener('abort', abort, { once: true })
+    let timedOut = false
+    const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, Math.max(1, Math.min(60_000, timeoutMs)))
     const defaultOptions: RequestInit = {
       credentials: 'include',
+      ...requestOptions,
       headers,
-      ...options,
+      signal: controller.signal,
     }
 
     try {
@@ -99,19 +125,26 @@ class ApiClient {
         return (await response.text()) as T
       }
     } catch (error) {
-      console.error('API request failed:', error)
-      throw error
+      if (options.signal?.aborted) throw new DOMException('Request canceled', 'AbortError')
+      if (timedOut) throw Object.assign(new Error('Resource read timed out'), { code: 'timeout', retryable: true })
+      if (error instanceof TypeError && /Failed to fetch|NetworkError|Load failed|fetch failed/i.test(error.message)) {
+        throw Object.assign(error, { code: 'network', retryable: true })
+      }
+      throw normalizeRequestError(error)
+    } finally {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', abort)
     }
   }
 
-  async get<T>(url: string, options?: RequestInit): Promise<T> {
+  async get<T>(url: string, options?: APIRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'GET' })
   }
 
   async post<T>(
     url: string,
     data?: unknown,
-    options?: RequestInit
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -125,7 +158,7 @@ class ApiClient {
     })
   }
 
-  async put<T>(url: string, data?: unknown, options?: RequestInit): Promise<T> {
+  async put<T>(url: string, data?: unknown, options?: APIRequestOptions): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
       ...options,
@@ -138,14 +171,14 @@ class ApiClient {
     })
   }
 
-  async delete<T>(url: string, options?: RequestInit): Promise<T> {
+  async delete<T>(url: string, options?: APIRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'DELETE' })
   }
 
   async patch<T>(
     url: string,
     data?: unknown,
-    options?: RequestInit
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {

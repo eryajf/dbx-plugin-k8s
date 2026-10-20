@@ -706,7 +706,18 @@ func TestSearchKeepsCoreMatchesWhenResourceCatalogIsLarge(t *testing.T) {
 			listKinds := make(map[schema.GroupVersionResource]string)
 			for _, r := range builtInSearchResources {
 				gv := schema.GroupVersion{Group: r.Group, Version: r.Version}
-				catalog = append(catalog, &metav1.APIResourceList{GroupVersion: gv.String(), APIResources: []metav1.APIResource{{Name: r.Resource, Kind: r.Kind, Namespaced: r.Namespaced, Verbs: r.Verbs}}})
+				var list *metav1.APIResourceList
+				for _, candidate := range catalog {
+					if candidate.GroupVersion == gv.String() {
+						list = candidate
+						break
+					}
+				}
+				if list == nil {
+					list = &metav1.APIResourceList{GroupVersion: gv.String()}
+					catalog = append(catalog, list)
+				}
+				list.APIResources = append(list.APIResources, metav1.APIResource{Name: r.Resource, Kind: r.Kind, Namespaced: r.Namespaced, Verbs: r.Verbs})
 				listKinds[gv.WithResource(r.Resource)] = r.Kind + "List"
 			}
 			// These groups sort before apps/v1. The default search still scans

@@ -131,6 +131,15 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 		return nil, classify(e)
 	}
 	timeout := 60 * time.Second
+	if method == "resource/list" {
+		if value, exists := v["requestTimeoutMs"]; exists {
+			milliseconds, ok := value.(float64)
+			if !ok || milliseconds < 1 || milliseconds > 60000 || milliseconds != float64(int64(milliseconds)) {
+				return nil, dbx.NewError(-32602, "requestTimeoutMs must be an integer between 1 and 60000")
+			}
+			timeout = time.Duration(milliseconds) * time.Millisecond
+		}
+	}
 	if method == "node/drain" {
 		var req operations.Request
 		if err := json.Unmarshal(raw, &req); err != nil {
@@ -304,7 +313,7 @@ func main() {
 	p := &plugin{connections: connection.New(), sessions: sessions.New()}
 	defer p.connections.Close()
 	defer p.sessions.Close()
-	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.30", Capabilities: []string{"connections", "events", "mcp"}}, p)
+	s := dbx.NewServer(dbx.Metadata{ID: "io.dbx.k8s", Version: "0.1.35", Capabilities: []string{"connections", "events", "mcp"}}, p)
 	if e := s.Serve(); e != nil {
 		log.Fatal(e)
 	}

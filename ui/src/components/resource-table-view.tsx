@@ -35,6 +35,7 @@ interface ResourceTableViewProps<T> {
   table: TableInstance<T>
   columnCount: number
   isLoading: boolean
+  isFetching?: boolean
   data?: T[]
   allPageSize?: number
   maxBodyHeightClassName?: string
@@ -114,6 +115,7 @@ export function ResourceTableView<T>({
   table,
   columnCount,
   isLoading,
+  isFetching = false,
   data,
   allPageSize,
   maxBodyHeightClassName = 'max-h-[calc(100dvh-210px)]',
@@ -259,11 +261,11 @@ export function ResourceTableView<T>({
   }, [dataLength, fitViewportHeight])
 
   return (
-    <div ref={rootRef} className={containerClassName}>
+    <div ref={rootRef} className={containerClassName} aria-busy={isFetching || isLoading}>
       <div ref={tableShellRef} className="rounded-lg border overflow-hidden">
         <div
           className={`transition-opacity duration-200 ${
-            isLoading && dataLength > 0 ? 'opacity-75' : 'opacity-100'
+            (isLoading || isFetching) && dataLength > 0 ? 'opacity-75' : 'opacity-100'
           }`}
         >
           {emptyState || (

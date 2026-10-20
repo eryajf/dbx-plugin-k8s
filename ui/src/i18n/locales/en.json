@@ -582,6 +582,8 @@
     "quickSwitchHint": "Quick switch clusters: ⌘⇧K"
   },
   "resourceTable": {
+    "refreshWarning": "Refresh failed. Showing the last successful result.",
+    "lastSuccessfulUpdate": "Last successful update:",
     "errorLoading": "Error loading {{resourceName}}",
     "tryAgain": "Try Again",
     "delete": "Delete",
@@ -2108,6 +2110,7 @@
     "available": "Available: {{value}} {{unit}}"
   },
   "logViewer": {
+    "incomplete": "Log content may be incomplete.",
     "title": "Logs",
     "lines": "{{count}} lines",
     "filtered": "filtered",
@@ -2181,7 +2184,8 @@
     "toggleFileTree": "Toggle pod file tree",
     "fileTreeUnavailable": "Select a pod and container to browse files.",
     "settings": "Terminal settings",
-    "clear": "Clear terminal"
+    "clear": "Clear terminal",
+    "outputTruncated": "Output buffer truncated: {{bytes}} bytes lost"
   },
   "floatingTerminal": {
     "workspace": "Terminal Workspace",

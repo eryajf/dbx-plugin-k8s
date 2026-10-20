@@ -37,9 +37,9 @@ func discoverWithCache(c *kube.Client) (*Discovery, bool, error) {
 }
 
 func discoverWithCacheContext(ctx context.Context, c *kube.Client) (*Discovery, bool, error) {
-	lists, err, hit := c.CachedAPIResourceListsContext(ctx)
+	snapshot, err, hit := c.CachedDiscoverySnapshot(ctx)
+	lists, preferredVersions := snapshot.Lists, snapshot.Preferred
 	result := &Discovery{Resources: []Resource{}, Warnings: []string{}}
-	preferredVersions := c.PreferredVersions()
 	if err != nil {
 		if len(lists) == 0 {
 			return nil, hit, err
@@ -65,6 +65,10 @@ func discoverWithCacheContext(ctx context.Context, c *kube.Client) (*Discovery, 
 	return result, hit, nil
 }
 func resolve(ctx context.Context, c *kube.Client, req Request) (Resource, error) {
+	return resolveWithPolicy(ctx, c, req, false)
+}
+
+func resolveWithPolicy(ctx context.Context, c *kube.Client, req Request, readOnly bool) (Resource, error) {
 	if req.Version == "" || req.Resource == "" {
 		return Resource{}, fmt.Errorf("version and resource are required")
 	}
@@ -74,7 +78,11 @@ func resolve(ctx context.Context, c *kube.Client, req Request) (Resource, error)
 		}
 	}
 	gv := schema.GroupVersion{Group: req.Group, Version: req.Version}
-	list, err := c.APIResourcesForGroupVersion(ctx, gv.String())
+	lookup := c.APIResourcesForGroupVersion
+	if readOnly {
+		lookup = c.APIResourcesForGroupVersionReadOnly
+	}
+	list, err := lookup(ctx, gv.String())
 	if err != nil {
 		return Resource{}, err
 	}

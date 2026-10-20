@@ -41,6 +41,7 @@ import {
 } from '@/lib/api'
 import { useFavorites } from '@/hooks/use-favorites'
 import { getDBXResourceIdentity } from '@/lib/dbx-resource-discovery'
+import { canShowResourceSnapshot } from '@/lib/resource-query-recovery'
 import {
   loadResourceTablePreference,
   loadWorkspacePreference,
@@ -80,6 +81,7 @@ import {
 import { Toggle } from '@/components/ui/toggle'
 
 import { ErrorMessage } from './error-message'
+import { RefreshButton } from './refresh-button'
 import { HoverActionDropdownMenu } from './hover-action-dropdown-menu'
 import { ResourceTableView } from './resource-table-view'
 import {
@@ -218,6 +220,9 @@ export function ResourceTable<T>({
     isError: queryIsError,
     error: queryError,
     refetch: queryRefetch,
+    isFetching: queryFetching,
+    dataUpdatedAt,
+    resourceQueryScope,
   } = useResources(
     resourceType ?? (resourceName.toLowerCase() as ResourceType),
     effectiveNamespace,
@@ -225,8 +230,16 @@ export function ResourceTable<T>({
       refreshInterval: useSSE ? 0 : refreshInterval, // disable polling when SSE
       reduce: true, // Fetch reduced data for performance
       disable: useSSE || !namespaceIsReady,
+      connectionId,
+      useRouteIdentity: true,
     }
   )
+  useEffect(() => {
+    setRowSelection({})
+    setDeleteDialogOpen(false)
+    setDeleteConfirmationInput('')
+    setPagination((previous) => ({ ...previous, pageIndex: 0 }))
+  }, [connectionId, effectiveNamespace, resourceStorageKey, resourceQueryScope, useSSE])
 
   // SSE state (when enabled)
   // SSE watch hook
@@ -680,23 +693,24 @@ export function ResourceTable<T>({
   ])
 
   const data = useMemo(() => {
-    if (useSSE) return watchData
-    return queryData
-  }, [useSSE, watchData, queryData])
+    if (!namespaceIsReady) return undefined
+    if (useSSE) return canShowResourceSnapshot(watchData, watchError) ? watchData : undefined
+    return canShowResourceSnapshot(queryData, queryError) ? queryData : undefined
+  }, [namespaceIsReady, useSSE, watchData, watchError, queryData, queryError])
   const isLoading = useSSE ? watchLoading : queryLoading
   const isError = useSSE ? Boolean(watchError) : queryIsError
   const error = useSSE
     ? (watchError as Error | null)
     : (queryError as unknown as Error | null)
-  const refetch = useSSE ? reconnectSSE : queryRefetch
+  const isFetching = useSSE ? watchLoading : Boolean(queryFetching)
+  const refetch = useCallback(() => {
+    if (useSSE) reconnectSSE()
+    else void queryRefetch({ cancelRefetch: false })
+  }, [useSSE, reconnectSSE, queryRefetch])
+  const hasSnapshot = data !== undefined
+  const backgroundWarning = Boolean(error) && hasSnapshot
 
   const memoizedData = useMemo(() => (data || []) as T[], [data])
-
-  useEffect(() => {
-    if (!useSSE && error) {
-      setRefreshInterval(0)
-    }
-  }, [useSSE, error])
 
   // Match formatted groups consistently with the options in the filter menu.
   const columnsWithFilterFn = useMemo(() => {
@@ -861,7 +875,7 @@ export function ResourceTable<T>({
   // Render empty state based on condition
   const renderEmptyState = () => {
     // Only show loading state if there's no existing data
-    if (isLoading && (!data || (data as T[]).length === 0)) {
+    if (!namespaceIsReady || (isLoading && !hasSnapshot)) {
       return (
         <div className="h-72 flex flex-col items-center justify-center">
           <div className="mb-4 bg-muted/30 p-6 rounded-full">
@@ -884,12 +898,13 @@ export function ResourceTable<T>({
       )
     }
 
-    if (isError) {
+    if (isError && !hasSnapshot) {
       return (
         <ErrorMessage
           resourceName={resourceName}
           error={error}
           refetch={refetch}
+          isFetching={isFetching}
         />
       )
     }
@@ -957,11 +972,6 @@ export function ResourceTable<T>({
                 aria-label={t('resourceTable.watch')}
                 onPressedChange={(pressed) => {
                   setUseSSE(pressed)
-                  if (pressed) {
-                    setRefreshInterval(0)
-                  } else if (refreshInterval === 0) {
-                    setRefreshInterval(5000)
-                  }
                 }}
               >
                 <span
@@ -1000,6 +1010,9 @@ export function ResourceTable<T>({
                 <SelectItem value="30000">30s</SelectItem>
               </SelectContent>
             </Select>
+            <RefreshButton onClick={refetch} isFetching={isFetching} disabled={!namespaceIsReady}>
+              {t('common.refresh')}
+            </RefreshButton>
             {!clusterScope && (
               <NamespaceSelector
                 selectedNamespace={selectedNamespace}
@@ -1166,10 +1179,25 @@ export function ResourceTable<T>({
         </div>
       </div>
 
+      {backgroundWarning && (
+        <div role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+          {t('resourceTable.refreshWarning')}
+          <span className="ml-2 text-muted-foreground">{translateError(error, t)}</span>
+        </div>
+      )}
+      {!useSSE && hasSnapshot && Boolean(dataUpdatedAt) && (
+        <div className="text-xs text-muted-foreground" role="status">
+          {t('resourceTable.lastSuccessfulUpdate')}{' '}
+          <time dateTime={new Date(dataUpdatedAt).toISOString()}>
+            {new Date(dataUpdatedAt).toLocaleTimeString(i18n.language)}
+          </time>
+        </div>
+      )}
       <ResourceTableView
         table={table}
         columnCount={enhancedColumns.length}
         isLoading={isLoading}
+        isFetching={isFetching}
         data={data as T[] | undefined}
         fitViewportHeight={true}
         emptyState={emptyState}

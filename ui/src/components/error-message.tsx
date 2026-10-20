@@ -2,6 +2,7 @@ import { RotateCcw, ShieldX, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { isRBACError, translateError } from '@/lib/utils'
+import { normalizeRequestError } from '@/lib/request-errors'
 
 import { Button } from './ui/button'
 
@@ -11,6 +12,7 @@ interface ErrorMessageProps {
   fallbackKey?: string
   className?: string
   refetch: () => void
+  isFetching?: boolean
 }
 
 export function ErrorMessage({
@@ -18,6 +20,8 @@ export function ErrorMessage({
   refetch,
   error,
   fallbackKey = 'common.error',
+  className,
+  isFetching = false,
 }: ErrorMessageProps) {
   const { t } = useTranslation()
 
@@ -25,12 +29,13 @@ export function ErrorMessage({
     return null
   }
 
-  const isRBAC = error instanceof Error && isRBACError(error.message)
-  const message =
-    error instanceof Error ? translateError(error, t) : t(fallbackKey)
+  const normalized = normalizeRequestError(error)
+  const isRBAC = normalized.status === 401 || normalized.status === 403 ||
+    isRBACError(normalized.message)
+  const message = normalized.message ? translateError(normalized, t) : t(fallbackKey)
 
   return (
-    <div className="h-72 flex flex-col items-center justify-center">
+    <div role="alert" className={className ?? 'h-72 flex flex-col items-center justify-center'}>
       <div className="mb-4">
         {isRBAC ? (
           <ShieldX className="h-16 w-16 text-amber-500" />
@@ -46,7 +51,7 @@ export function ErrorMessage({
         })}
       </h3>
       <p className="text-muted-foreground mb-4">{message}</p>
-      <Button variant="outline" onClick={() => refetch()}>
+      <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
         <RotateCcw className="h-4 w-4 mr-2" />
         {t('resourceTable.tryAgain')}
       </Button>

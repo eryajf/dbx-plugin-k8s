@@ -62,6 +62,7 @@ import { LabelsAnno } from '@/components/lables-anno'
 import { MetricCell } from '@/components/metrics-cell'
 import { NodeDrainOptionRow } from '@/components/node-drain-option-row'
 import { NodeImageTable } from '@/components/node-image-table'
+import { OpenNodeTerminalButton } from '@/components/open-node-terminal-button'
 import { NodeMonitoring } from '@/components/node-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RefreshButton } from '@/components/refresh-button'
@@ -394,6 +395,7 @@ export function NodeDetail(props: { name: string }) {
             {t('detail.buttons.refresh')}
           </RefreshButton>
           <DescribeDialog resourceType="nodes" name={name} />
+          <OpenNodeTerminalButton nodeName={name} />
 
           {/* Drain Node Popover */}
           <Popover
