@@ -8,7 +8,7 @@
 
 **在 DBX 中连接、查看和管理 Kubernetes 集群**
 
-[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.17-4c8bf5)](https://github.com/t8y2/dbx)
+[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.59-4c8bf5)](https://github.com/t8y2/dbx)
 [![License](https://img.shields.io/github/license/eryajf/dbx-plugin-k8s)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-eryajf%2Fdbx--plugin--k8s-181717?logo=github)](https://github.com/eryajf/dbx-plugin-k8s)
 
@@ -85,7 +85,16 @@ Kubeconfig 连接支持通过 DBX 的 SSH 跳板或 SOCKS5 传输层访问 API S
 3. 点击 **测试连接**，确认 API Server 可访问且凭据有效。
 4. 点击 **连接**，进入 Kubernetes 工作台。
 
-插件要求 DBX <code>>=0.6.17</code>。集群账号需要拥有对应资源的 Kubernetes RBAC 权限；如果只需要查看，可以使用只读权限。日志、终端、文件操作、端口转发、节点维护和资源变更分别需要额外的 Kubernetes 权限。
+插件要求 DBX <code>>=0.6.59</code>。集群账号需要拥有对应资源的 Kubernetes RBAC 权限；如果只需要查看，可以使用只读权限。日志、终端、文件操作、端口转发、节点维护和资源变更分别需要额外的 Kubernetes 权限。
+
+
+### 外部 MCP 工具
+
+插件通过 DBX MCP 导出 24 个工具，工具名使用 `dbx_k8s__` 前缀。安装后，在 DBX **设置 → MCP → 能力** 中授权 Kubernetes 插件，并在权限管理中放行需要使用的集群连接，再刷新 MCP 客户端的工具列表。
+
+Manifest 为每个工具声明权限级别：查询为 `read`，资源修改及工作负载操作为 `write`，删除资源与排空节点为 `full`。声明不自动授予访问权限；DBX 的插件授权上限、单工具开关、连接权限及集群 RBAC 仍然生效。只需查看时应选择只读授权。
+
+插件工作台可以连接集群并不代表外部 MCP 已获授权。如果升级后没有 Kubernetes 工具，请检查插件版本、MCP 插件授权和连接范围。
 
 ## 安全与数据
 
