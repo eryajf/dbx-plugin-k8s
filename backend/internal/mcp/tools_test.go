@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -9,6 +11,53 @@ import (
 	discoveryfake "k8s.io/client-go/discovery/fake"
 	corefake "k8s.io/client-go/kubernetes/fake"
 )
+
+func TestManifestDeclaresEveryExternalToolWithMatchingAccess(t *testing.T) {
+	data, err := os.ReadFile("../../../manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Contributions []struct {
+			Type          string `json:"type"`
+			ExternalTools bool   `json:"external_tools"`
+			AITools       bool   `json:"ai_tools"`
+			Tools         map[string]struct {
+				Access string `json:"access"`
+			} `json:"tools"`
+		} `json:"contributions"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	contributions := 0
+	for _, contribution := range manifest.Contributions {
+		if contribution.Type != "mcp" {
+			continue
+		}
+		contributions++
+		if !contribution.ExternalTools || !contribution.AITools {
+			t.Fatal("Kubernetes tools must opt in to external MCP and built-in AI")
+		}
+		if len(contribution.Tools) != len(definitions()) {
+			t.Fatalf("manifest declares %d tools, backend exposes %d", len(contribution.Tools), len(definitions()))
+		}
+		for _, tool := range definitions() {
+			want := "write"
+			if tool.ReadOnly {
+				want = "read"
+			} else if tool.Destructive {
+				want = "full"
+			}
+			if got := contribution.Tools[tool.Name].Access; got != want {
+				t.Errorf("manifest access for %s = %q, want %q", tool.Name, got, want)
+			}
+		}
+	}
+	if contributions != 1 {
+		t.Fatalf("expected exactly one MCP contribution, got %d", contributions)
+	}
+}
 
 func TestToolsExposeReadOnlyAndMutationAnnotations(t *testing.T) {
 	response := Tools()

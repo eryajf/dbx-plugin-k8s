@@ -3,12 +3,12 @@
   "manifest_version": 1,
   "id": "io.dbx.k8s",
   "name": "Kubernetes Manager",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "publisher": "eryajf",
   "description": "Manage Kubernetes clusters, workloads and resources from DBX.",
   "icon": "assets/plugin.png",
   "engines": {
-    "dbx": ">=0.6.17",
+    "dbx": ">=0.6.59",
     "host_api": "1"
   },
   "permissions": [
@@ -331,6 +331,87 @@
       "id": "io.dbx.k8s.workbench",
       "label": "Kubernetes Workbench",
       "description": "Browse and operate Kubernetes resources."
+    },
+    {
+      "type": "mcp",
+      "id": "io.dbx.k8s.mcp",
+      "description": "Kubernetes resource inspection and operations through DBX MCP.",
+      "ai_tools": true,
+      "external_tools": true,
+      "tools": {
+        "get_cluster_overview": {
+          "access": "read"
+        },
+        "get_resource": {
+          "access": "read"
+        },
+        "list_resources": {
+          "access": "read"
+        },
+        "describe_resource": {
+          "access": "read"
+        },
+        "get_related_resources": {
+          "access": "read"
+        },
+        "search_resources": {
+          "access": "read"
+        },
+        "get_recent_events": {
+          "access": "read"
+        },
+        "get_metrics": {
+          "access": "read"
+        },
+        "get_pod_logs": {
+          "access": "read"
+        },
+        "query_prometheus": {
+          "access": "read"
+        },
+        "create_resource": {
+          "access": "write"
+        },
+        "update_resource": {
+          "access": "write"
+        },
+        "patch_resource": {
+          "access": "write"
+        },
+        "json_patch_resource": {
+          "access": "write"
+        },
+        "apply_resource": {
+          "access": "write"
+        },
+        "restart_workload": {
+          "access": "write"
+        },
+        "scale_workload": {
+          "access": "write"
+        },
+        "rollback_workload": {
+          "access": "write"
+        },
+        "trigger_cronjob": {
+          "access": "write"
+        },
+        "suspend_cronjob": {
+          "access": "write"
+        },
+        "cordon_node": {
+          "access": "write"
+        },
+        "uncordon_node": {
+          "access": "write"
+        },
+        "delete_resource": {
+          "access": "full"
+        },
+        "drain_node": {
+          "access": "full"
+        }
+      }
     }
   ],
   "localizations": {

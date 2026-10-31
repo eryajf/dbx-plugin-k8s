@@ -7,7 +7,7 @@
 
 **Connect to, inspect, and manage Kubernetes clusters from DBX**
 
-[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.17-4c8bf5)](https://github.com/t8y2/dbx)
+[![DBX](https://img.shields.io/badge/DBX-%3E%3D0.6.59-4c8bf5)](https://github.com/t8y2/dbx)
 [![License](https://img.shields.io/github/license/eryajf/dbx-plugin-k8s)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-eryajf%2Fdbx--plugin--k8s-181717?logo=github)](https://github.com/eryajf/dbx-plugin-k8s)
 
@@ -84,7 +84,16 @@ Resource lists include namespace selection, name or label filters, sorting, pagi
 3. Select **Test connection** to verify API Server reachability and credentials.
 4. Select **Connect** to open the Kubernetes workbench.
 
-The plugin requires DBX <code>>=0.6.17</code>. The cluster identity must have the Kubernetes RBAC permissions for the resources and actions you want to use. A read-only identity is sufficient for inspection. Logs, terminals, file operations, port forwarding, node maintenance, and resource changes each require their corresponding Kubernetes permissions.
+The plugin requires DBX <code>>=0.6.59</code>. The cluster identity must have the Kubernetes RBAC permissions for the resources and actions you want to use. A read-only identity is sufficient for inspection. Logs, terminals, file operations, port forwarding, node maintenance, and resource changes each require their corresponding Kubernetes permissions.
+
+
+### External MCP tools
+
+The plugin exposes 24 tools through DBX MCP under the `dbx_k8s__` prefix. After installation, authorize the Kubernetes plugin in **Settings → MCP → Capabilities**, allow the intended cluster connection in access management, and refresh the MCP client's tool list.
+
+The manifest declares `read` for inspection, `write` for resource and workload changes, and `full` for deleting resources or draining nodes. These declarations do not grant access automatically: DBX plugin grants, access ceilings, per-tool switches, connection policies, and Kubernetes RBAC still apply. Use read-only authorization when only inspecting a cluster.
+
+A working desktop connection does not imply external MCP authorization. If tools disappear after an upgrade, check the plugin version, MCP plugin grant, and connection scope.
 
 ## Security and data
 
