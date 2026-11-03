@@ -175,7 +175,7 @@ func (p *plugin) Handle(_ dbx.RequestContext, method string, raw json.RawMessage
 		} else {
 			out, e = operations.Handle(ctx, c, method, raw)
 		}
-	case strings.HasPrefix(method, "pod/"), strings.HasPrefix(method, "session/"), strings.HasPrefix(method, "port-forward/"), strings.HasPrefix(method, "terminal/"), strings.HasPrefix(method, "kubectl/"):
+	case strings.HasPrefix(method, "filesystem/download/"), strings.HasPrefix(method, "pod/"), strings.HasPrefix(method, "session/"), strings.HasPrefix(method, "port-forward/"), strings.HasPrefix(method, "terminal/"), strings.HasPrefix(method, "kubectl/"):
 		out, e = p.sessions.Handle(ctx, c, id, method, raw)
 	default:
 		return nil, dbx.MethodNotFound(method)
@@ -238,7 +238,7 @@ func knownMethod(method string) bool {
 		"kube/cluster-info", "kube/discover", "prometheus/resource-usage-history", "prometheus/pods-metrics", "kube/namespaces", "kube/overview", "kube/metrics", "kube/recent-events", "kube/search",
 		"resource/list", "resource/get", "resource/create", "resource/update", "resource/patch", "resource/delete", "resource/describe", "resource/related", "resource/apply", "resource/search", "resource/watch", "resource/watch-read", "resource/watch-close",
 		"node/cordon", "node/uncordon", "node/drain", "workload/restart", "workload/scale", "workload/history", "workload/rollback", "cronjob/trigger", "cronjob/suspend",
-		"pod/files-list", "pod/file-read", "pod/file-write", "pod/file-delete", "pod/logs-open", "pod/logs-read", "pod/logs-close", "pod/exec-open", "pod/exec-read", "pod/exec-write", "pod/exec-resize", "pod/exec-close", "node/exec-open", "kubectl/exec-open", "terminal/exec-write", "terminal/exec-resize", "session/read", "session/close", "port-forward/open", "port-forward/list", "port-forward/close", "favorite/list", "favorite/update":
+		"filesystem/download/open", "filesystem/download/read", "filesystem/download/close", "pod/files-list", "pod/file-read", "pod/file-write", "pod/file-delete", "pod/download-open", "pod/download-read", "pod/logs-open", "pod/logs-read", "pod/logs-close", "pod/exec-open", "pod/exec-read", "pod/exec-write", "pod/exec-resize", "pod/exec-close", "node/exec-open", "kubectl/exec-open", "terminal/exec-write", "terminal/exec-resize", "session/read", "session/close", "port-forward/open", "port-forward/list", "port-forward/close", "favorite/list", "favorite/update":
 		return true
 	}
 	return false

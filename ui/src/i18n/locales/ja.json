@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "{{name}} をダウンロード中：{{bytes}} バイト",
+    "cancelDownload": "キャンセル",
+    "downloadCanceled": "ダウンロードをキャンセルしました",
+    "downloadSuccess": "{{name}} を保存しました",
+    "downloadError": "ダウンロードに失敗しました：{{error}}",
+    "safeDownloadUnavailable": "安全にダウンロードするには、DBX デスクトップ版を更新して再試行してください。",
     "kubectlCpTitle": "kubectl cp でアップロード",
     "kubectlCpSize": "このファイルはオンラインアップロードの上限 256 KiB を超えています。",
     "kubectlCpBinary": "バイナリまたは UTF-8 以外のファイルはオンラインでアップロードできません。",

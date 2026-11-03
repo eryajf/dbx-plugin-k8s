@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "{{name}} 다운로드 중: {{bytes}}바이트",
+    "cancelDownload": "취소",
+    "downloadCanceled": "다운로드가 취소되었습니다",
+    "downloadSuccess": "{{name}} 저장됨",
+    "downloadError": "다운로드 실패: {{error}}",
+    "safeDownloadUnavailable": "안전하게 다운로드하려면 DBX 데스크톱을 업데이트하고 다시 시도하세요.",
     "kubectlCpTitle": "kubectl cp로 업로드",
     "kubectlCpSize": "이 파일은 온라인 업로드 제한인 256 KiB를 초과합니다.",
     "kubectlCpBinary": "바이너리 또는 UTF-8이 아닌 파일은 온라인으로 업로드할 수 없습니다.",

@@ -18,7 +18,6 @@ import { toast } from 'sonner'
 
 import {
   podDeleteFile,
-  podDownloadFile,
   podListFiles,
   podReadFileContent,
   podUpdateFileContent,
@@ -27,6 +26,7 @@ import {
 } from '@/lib/api'
 import { copyTextToClipboard } from '@/lib/desktop'
 import { DBXUploadFallbackError } from '@/lib/dbx-files'
+import { downloadPodFile } from '@/lib/pod-download'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -207,7 +207,7 @@ export function PodTerminalFileTree({
   }
 
   const handleDownload = (path: string, isDirectory: boolean) => {
-    podDownloadFile(namespace, podName, containerName, path, {
+    void downloadPodFile(namespace, podName, containerName, path, {
       clusterName,
       isDirectory,
     })

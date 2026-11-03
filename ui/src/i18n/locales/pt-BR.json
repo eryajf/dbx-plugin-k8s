@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "Baixando {{name}}: {{bytes}} bytes",
+    "cancelDownload": "Cancelar",
+    "downloadCanceled": "Download cancelado",
+    "downloadSuccess": "{{name}} salvo",
+    "downloadError": "Falha no download: {{error}}",
+    "safeDownloadUnavailable": "Para baixar com segurança, atualize o DBX para desktop e tente novamente.",
     "kubectlCpTitle": "Enviar com kubectl cp",
     "kubectlCpSize": "Este arquivo excede o limite de envio online de 256 KiB.",
     "kubectlCpBinary": "Arquivos binários ou que não sejam UTF-8 não podem ser enviados online.",

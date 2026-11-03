@@ -1,5 +1,5 @@
 import { getDBXTransport } from '../dbx-transport'
-import { downloadDBXFile } from '../dbx-files'
+import { downloadDBXFile, previewDBXFile } from '../dbx-files'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { focusManager, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -818,12 +818,12 @@ export const podDownloadFile = (
   podName: string,
   container: string,
   path: string,
-  options?: { clusterName?: string; isDirectory?: boolean }
+  options?: { clusterName?: string; isDirectory?: boolean; signal?: AbortSignal; onProgress?: (bytes: number, total?: number) => void }
 ) => {
-  const transport = getDBXTransport()
+  const transport = getDBXTransport(options?.clusterName)
   if (transport) {
     if (options?.isDirectory) return Promise.reject(new Error('目录下载尚不可用，请下载单个文件'))
-    return downloadDBXFile((m,p)=>transport.rpc(m,p),{namespace,name:podName,container,path})
+    return downloadDBXFile({connectionId: transport.connectionId, namespace,name:podName,container,path}, options)
   }
   const params = new URLSearchParams({
     container,
@@ -838,7 +838,7 @@ export const podDownloadFile = (
   const baseName = path.split('/').filter(Boolean).pop() || 'download'
   const suggestedName = options?.isDirectory ? `${baseName}.tar` : baseName
 
-  void downloadNativeFile({
+  return downloadNativeFile({
     title: 'Save File',
     message: 'Choose where to save the downloaded file',
     buttonText: 'Save',
@@ -846,8 +846,9 @@ export const podDownloadFile = (
     url,
   }).then((result) => {
     if (result === null) {
-      void openURL(url)
+      return openURL(url).then(() => 'started' as const)
     }
+    return result.canceled ? 'canceled' as const : 'saved' as const
   })
 }
 
@@ -860,7 +861,7 @@ export const podPreviewFile = (
 ) => {
   const transport = getDBXTransport()
   if (transport) {
-    return downloadDBXFile((m,p)=>transport.rpc(m,p),{namespace,name:podName,container,path})
+    return previewDBXFile((m,p)=>transport.rpc(m,p),{namespace,name:podName,container,path})
   }
   const params = new URLSearchParams({
     container,

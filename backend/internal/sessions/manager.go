@@ -54,6 +54,7 @@ type session struct {
 	cleanupErr           error
 	warning              string
 	outputTruncated      bool
+	download             *downloadStream
 }
 
 func (s *session) Write(p []byte) (int, error) {
@@ -160,15 +161,17 @@ func (s *session) Next() *remotecommand.TerminalSize {
 }
 
 type Manager struct {
-	mu     sync.Mutex
-	all    map[string]*session
-	ctx    context.Context
-	cancel context.CancelFunc
+	mu              sync.Mutex
+	all             map[string]*session
+	downloads       map[string]*managedDownload
+	closedDownloads map[string]time.Time
+	ctx             context.Context
+	cancel          context.CancelFunc
 }
 
 func New() *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
-	m := &Manager{all: make(map[string]*session), ctx: ctx, cancel: cancel}
+	m := &Manager{all: make(map[string]*session), downloads: make(map[string]*managedDownload), closedDownloads: make(map[string]time.Time), ctx: ctx, cancel: cancel}
 	go func() {
 		t := time.NewTicker(time.Minute)
 		defer t.Stop()
@@ -179,6 +182,7 @@ func New() *Manager {
 			case <-t.C:
 				var expired []*session
 				m.mu.Lock()
+				m.pruneClosedDownloads(time.Now())
 				for id, s := range m.all {
 					s.mu.Lock()
 					// A naturally completed stream is still retained briefly so the
@@ -291,6 +295,13 @@ func (m *Manager) read(connection, id string) (Result, error) {
 func (m *Manager) CloseConnection(id string) {
 	m.mu.Lock()
 	var sessions []*session
+	var downloads []*managedDownload
+	for key, download := range m.downloads {
+		if strings.HasPrefix(key, id+"\x00") {
+			downloads = append(downloads, download)
+			delete(m.downloads, key)
+		}
+	}
 	for key, s := range m.all {
 		if s.connection == id {
 			sessions = append(sessions, s)
@@ -298,6 +309,9 @@ func (m *Manager) CloseConnection(id string) {
 		}
 	}
 	m.mu.Unlock()
+	for _, download := range downloads {
+		download.cancel()
+	}
 	for _, s := range sessions {
 		s.finish(nil)
 	}
@@ -305,12 +319,21 @@ func (m *Manager) CloseConnection(id string) {
 func (m *Manager) Close() {
 	m.cancel()
 	m.mu.Lock()
+	var downloads []*managedDownload
+	for key, download := range m.downloads {
+		downloads = append(downloads, download)
+		delete(m.downloads, key)
+	}
+	clear(m.closedDownloads)
 	sessions := make([]*session, 0, len(m.all))
 	for id, s := range m.all {
 		sessions = append(sessions, s)
 		delete(m.all, id)
 	}
 	m.mu.Unlock()
+	for _, download := range downloads {
+		download.cancel()
+	}
 	for _, s := range sessions {
 		s.finish(nil)
 	}
@@ -318,12 +341,16 @@ func (m *Manager) Close() {
 
 func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method string, raw json.RawMessage) (any, error) {
 	switch method {
+	case "filesystem/download/open", "filesystem/download/read", "filesystem/download/close":
+		return m.managedDownload(ctx, c, connection, method, raw)
 	case "pod/file-write":
 		return fileWrite(ctx, c, raw)
 	case "pod/file-delete":
 		return fileDelete(ctx, c, raw)
 	case "pod/file-read":
 		return fileRead(ctx, c, raw)
+	case "pod/download-open":
+		return m.downloadOpen(ctx, c, connection, raw)
 	case "pod/files-list":
 		return filesList(ctx, c, raw)
 	case "pod/logs-open":
@@ -375,6 +402,8 @@ func (m *Manager) Handle(ctx context.Context, c *kube.Client, connection, method
 		return nil, err
 	}
 	switch method {
+	case "pod/download-read":
+		return m.downloadRead(ctx, connection, s)
 	case "pod/logs-read", "pod/exec-read", "resource/watch-read", "session/read":
 		return m.read(connection, p.SessionID)
 	case "pod/exec-write", "terminal/exec-write":

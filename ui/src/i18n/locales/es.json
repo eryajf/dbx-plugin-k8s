@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "Descargando {{name}}: {{bytes}} bytes",
+    "cancelDownload": "Cancelar",
+    "downloadCanceled": "Descarga cancelada",
+    "downloadSuccess": "Se guardó {{name}}",
+    "downloadError": "Error de descarga: {{error}}",
+    "safeDownloadUnavailable": "Para descargar de forma segura, actualiza DBX de escritorio y vuelve a intentarlo.",
     "kubectlCpTitle": "Subir con kubectl cp",
     "kubectlCpSize": "Este archivo supera el límite de carga en línea de 256 KiB.",
     "kubectlCpBinary": "Los archivos binarios o que no sean UTF-8 no se pueden subir en línea.",

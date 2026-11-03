@@ -38,6 +38,8 @@ import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 
+const columnHelper = createColumnHelper<PodWithMetrics>()
+
 export function PodTable(props: {
   pods?: PodWithMetrics[]
   labelSelector?: string
@@ -58,8 +60,6 @@ export function PodTable(props: {
     name: string
     namespace?: string
   } | null>(null)
-  const columnHelper = createColumnHelper<PodWithMetrics>()
-
   const podColumns = useMemo(
     (): ColumnDef<PodWithMetrics>[] => [
       ...(props.showNamespace

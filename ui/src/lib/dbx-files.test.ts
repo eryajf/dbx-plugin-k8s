@@ -1,7 +1,35 @@
-import {describe,it,expect,vi} from 'vitest'
-import {dispatchDBXFiles} from './dbx-files'
+import {afterEach,describe,it,expect,vi} from 'vitest'
+import {dispatchDBXFiles, downloadDBXFile} from './dbx-files'
 const params={connectionId:'c',namespace:'default',name:'pod',container:'app',path:'/tmp'}
 describe('DBX files',()=>{
+ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+ it('uses the atomic host download and forwards progress and cancellation', async () => {
+  const controller = new AbortController()
+  let listener: (event: {method: string; params: {downloadId: string; sent: number; total: number}}) => void = () => {}
+  let finish: (value: null) => void = () => {}
+  const cancelDownload = vi.fn().mockResolvedValue(undefined)
+  const off = vi.fn()
+  const downloadFile = vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  vi.stubGlobal('dbxPlugin', {capabilities: {downloadFile: true}, downloadFile, cancelDownload, onEvent: (fn: typeof listener) => { listener = fn; return off }})
+  const progress = vi.fn()
+  const pending = downloadDBXFile(params, {signal: controller.signal, onProgress: progress})
+  const request = downloadFile.mock.calls[0][0]
+  listener({method: 'host.download.progress', params: {downloadId: request.downloadId, sent: 3, total: 4}})
+  expect(progress).toHaveBeenCalledWith(3, 4)
+  controller.abort()
+  expect(cancelDownload).toHaveBeenCalledWith(request.downloadId)
+  finish(null)
+  expect(await pending).toBe('canceled')
+  expect(off).toHaveBeenCalledOnce()
+ })
+ it('never starts an unsafe legacy save for any file, including binary files', async () => {
+  const saveFile = vi.fn()
+  vi.stubGlobal('dbxPlugin', {capabilities: {}, saveFile})
+  for (const path of ['/tmp/text.txt', '/tmp/binary-ff.bin']) {
+   await expect(downloadDBXFile({...params, path})).rejects.toMatchObject({name: 'DBXDownloadUnavailableError'})
+  }
+  expect(saveFile).not.toHaveBeenCalled()
+ })
  it('lists real metadata at depth one',async()=>{
   const items=[{name:'x',size:'17',mode:'-rw-r--r--',isDir:false,uid:'1',gid:'2',modTime:'2024-01-01T00:00:00Z'}]
   const invoke=vi.fn().mockResolvedValue({items,truncated:false})

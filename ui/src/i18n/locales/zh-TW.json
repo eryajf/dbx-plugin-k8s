@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "正在下載 {{name}}：{{bytes}} 位元組",
+    "cancelDownload": "取消",
+    "downloadCanceled": "下載已取消",
+    "downloadSuccess": "已儲存 {{name}}",
+    "downloadError": "下載失敗：{{error}}",
+    "safeDownloadUnavailable": "安全下載需要更新版本的 DBX 桌面版，請更新 DBX 後重試。",
     "kubectlCpTitle": "使用 kubectl cp 上傳",
     "kubectlCpSize": "此檔案超過線上上傳的 256 KiB 限制。",
     "kubectlCpBinary": "二進位或非 UTF-8 檔案無法線上上傳。",

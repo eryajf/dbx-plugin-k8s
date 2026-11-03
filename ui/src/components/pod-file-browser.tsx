@@ -14,12 +14,12 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
-  podDownloadFile,
   podPreviewFile,
   podUploadFile,
   usePodFiles,
 } from '@/lib/api'
 import { DBXUploadFallbackError } from '@/lib/dbx-files'
+import { downloadPodFile } from '@/lib/pod-download'
 import { toSimpleContainer } from '@/lib/k8s'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -96,7 +96,7 @@ export function PodFileBrowser({
     const filePath =
       currentPath === '/' ? `/${fileName}` : `${currentPath}/${fileName}`
     const file = files?.find((item) => item.name === fileName)
-    podDownloadFile(namespace, podName, selectedContainer, filePath, {
+    void downloadPodFile(namespace, podName, selectedContainer, filePath, {
       isDirectory: file?.isDir,
     })
   }

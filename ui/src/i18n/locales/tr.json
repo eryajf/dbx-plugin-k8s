@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "{{name}} indiriliyor: {{bytes}} bayt",
+    "cancelDownload": "İptal",
+    "downloadCanceled": "İndirme iptal edildi",
+    "downloadSuccess": "{{name}} kaydedildi",
+    "downloadError": "İndirme başarısız: {{error}}",
+    "safeDownloadUnavailable": "Güvenli indirme için DBX masaüstünü güncelleyip tekrar deneyin.",
     "kubectlCpTitle": "kubectl cp ile yükle",
     "kubectlCpSize": "Bu dosya 256 KiB çevrimiçi yükleme sınırını aşıyor.",
     "kubectlCpBinary": "İkili veya UTF-8 olmayan dosyalar çevrimiçi yüklenemez.",

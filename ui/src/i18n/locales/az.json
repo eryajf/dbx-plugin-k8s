@@ -1565,6 +1565,12 @@
     }
   },
   "podFiles": {
+    "downloadingProgress": "{{name}} endirilir: {{bytes}} bayt",
+    "cancelDownload": "Ləğv et",
+    "downloadCanceled": "Endirmə ləğv edildi",
+    "downloadSuccess": "{{name}} saxlanıldı",
+    "downloadError": "Endirmə uğursuz oldu: {{error}}",
+    "safeDownloadUnavailable": "Təhlükəsiz endirmə üçün DBX masaüstü tətbiqini yeniləyin və yenidən cəhd edin.",
     "kubectlCpTitle": "kubectl cp ilə yüklə",
     "kubectlCpSize": "Bu fayl 256 KiB onlayn yükləmə limitini aşır.",
     "kubectlCpBinary": "İkili və ya UTF-8 olmayan fayllar onlayn yüklənə bilməz.",

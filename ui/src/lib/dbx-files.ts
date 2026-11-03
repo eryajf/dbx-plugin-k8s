@@ -53,9 +53,49 @@ function readBytes(file:File):Promise<ArrayBuffer> {
  if(typeof file.arrayBuffer === 'function') return file.arrayBuffer()
  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result as ArrayBuffer);reader.onerror=()=>reject(reader.error);reader.readAsArrayBuffer(file)})
 }
-export async function downloadDBXFile(invoke:DBXInvoke, params:Record<string,unknown>):Promise<void> {
- const content = await dispatchDBXFiles(invoke,params,'download','GET',undefined) as string
- const url=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}))
- const link=document.createElement('a');link.href=url;link.download=String(params.path).split('/').pop()||'download'
- document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
+type ManagedDownloadHost = {
+ capabilities?: {downloadFile?: boolean}
+ downloadFile?: (options: {downloadId: string; fileName: string; params: Record<string, unknown>}) => Promise<unknown | null>
+ cancelDownload?: (id: string) => Promise<unknown>
+ onEvent?: (listener: (event: {method?: string; params?: {downloadId?: string; sent?: number; total?: number}}) => void) => () => void
+}
+export function hasManagedDownload(): boolean {
+ const host = (window as unknown as {dbxPlugin?: ManagedDownloadHost}).dbxPlugin
+ return Boolean(host?.capabilities?.downloadFile && host.downloadFile && host.cancelDownload)
+}
+export class DBXDownloadUnavailableError extends Error {
+ constructor() { super('Safe file downloads require a newer DBX desktop host'); this.name = 'DBXDownloadUnavailableError' }
+}
+type DownloadOptions = { signal?: AbortSignal; onProgress?: (bytes: number, total?: number) => void }
+export async function downloadDBXFile(params: Record<string, unknown>, options: DownloadOptions = {}): Promise<'saved' | 'canceled'> {
+ const host = (window as unknown as {dbxPlugin?: ManagedDownloadHost}).dbxPlugin
+ if (options.signal?.aborted) return 'canceled'
+ if (!hasManagedDownload() || !host?.downloadFile || !host.cancelDownload) throw new DBXDownloadUnavailableError()
+ const downloadId = crypto.randomUUID()
+ const cancelDownload = host.cancelDownload
+ const abort = () => { void cancelDownload(downloadId).catch(() => {}) }
+ const unsubscribe = host.onEvent?.(event => {
+  if (event.method === 'host.download.progress' && event.params?.downloadId === downloadId && typeof event.params.sent === 'number') {
+   options.onProgress?.(event.params.sent, event.params.total)
+  }
+ })
+ options.signal?.addEventListener('abort', abort)
+ try {
+  if (options.signal?.aborted) return 'canceled'
+  const result = await host.downloadFile({downloadId, fileName: String(params.path).split('/').pop() || 'download', params})
+  return result === null ? 'canceled' : 'saved'
+ } catch (error) {
+  if (options.signal?.aborted) return 'canceled'
+  throw error
+ } finally {
+  options.signal?.removeEventListener('abort', abort)
+  unsubscribe?.()
+ }
+}
+
+export async function previewDBXFile(invoke: DBXInvoke, params: Record<string, unknown>): Promise<void> {
+ const content = await dispatchDBXFiles(invoke, params, 'preview', 'GET', undefined) as string
+ const url = URL.createObjectURL(new Blob([content], {type: 'text/plain;charset=utf-8'}))
+ const link = document.createElement('a'); link.href = url; link.download = String(params.path).split('/').pop() || 'download'
+ document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
