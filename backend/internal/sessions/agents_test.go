@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -322,6 +323,13 @@ func TestNodeAgentLogFailurePreservesCancellation(t *testing.T) {
 }
 
 func TestNodeAgentHostShell(t *testing.T) {
+	// The harness execs /bin/sh and the stub relies on /usr/bin/readlink plus
+	// POSIX executable bits (0755) to probe host shells. Windows has neither
+	// /bin/sh nor meaningful exec bits, and os.Symlink needs extra privileges
+	// there, so the matrix cannot run. macOS and Linux keep full coverage.
+	if runtime.GOOS == "windows" {
+		t.Skip("host shell probing requires POSIX shells and executable bits")
+	}
 	for _, tc := range []struct {
 		name        string
 		shells      []string
