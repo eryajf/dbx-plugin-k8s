@@ -2,16 +2,20 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 type Theme = 'dark' | 'light' | 'system'
+type ResolvedTheme = 'dark' | 'light'
 
 type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
   storageKey?: string
+  // Host-owned appearance (e.g. the DBX workbench theme). When set it wins
+  // over the stored preference so the plugin follows the surrounding shell.
+  overrideTheme?: ResolvedTheme | null
 }
 
 type ThemeProviderState = {
   theme: Theme
-  actualTheme: Omit<Theme, 'system'>
+  actualTheme: ResolvedTheme
   setTheme: (theme: Theme) => void
 }
 
@@ -27,22 +31,24 @@ export function ThemeProvider({
   children,
   defaultTheme = 'system',
   storageKey = 'vite-ui-theme',
+  overrideTheme = null,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
-  const [actualTheme, setActualTheme] = useState<Omit<Theme, 'system'>>(
-    theme === 'system'
+  const appliedTheme = overrideTheme ?? theme
+  const [actualTheme, setActualTheme] = useState<ResolvedTheme>(
+    appliedTheme === 'system'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
         ? 'dark'
         : 'light'
-      : theme
+      : appliedTheme
   )
 
   // Watch for system theme changes when theme is 'system'
   useEffect(() => {
-    if (theme === 'system') {
+    if (appliedTheme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
       const handleChange = () => {
         const root = window.document.documentElement
@@ -50,6 +56,7 @@ export function ThemeProvider({
 
         const systemTheme = mediaQuery.matches ? 'dark' : 'light'
         root.classList.add(systemTheme)
+        root.style.colorScheme = systemTheme
         setActualTheme(systemTheme)
       }
 
@@ -59,9 +66,10 @@ export function ThemeProvider({
     }
     const root = window.document.documentElement
     root.classList.remove('light', 'dark')
-    setActualTheme(theme)
-    root.classList.add(theme)
-  }, [theme])
+    setActualTheme(appliedTheme)
+    root.classList.add(appliedTheme)
+    root.style.colorScheme = appliedTheme
+  }, [appliedTheme])
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -83,7 +91,7 @@ export function ThemeProvider({
   }, [storageKey])
 
   const value = {
-    theme,
+    theme: appliedTheme,
     setTheme: (theme: Theme) => {
       localStorage.setItem(storageKey, theme)
       setTheme(theme)

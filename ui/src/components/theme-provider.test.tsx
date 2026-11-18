@@ -153,3 +153,34 @@ describe('ThemeProvider', () => {
     })
   })
 })
+
+describe('ThemeProvider host override', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    document.documentElement.className = ''
+    document.documentElement.style.colorScheme = ''
+  })
+
+  it('follows the host appearance over the stored preference', () => {
+    createMatchMedia(false)
+    localStorage.setItem('theme-key', 'light')
+
+    const { rerender } = render(
+      <ThemeProvider storageKey="theme-key" overrideTheme="dark">
+        <ThemeConsumer />
+      </ThemeProvider>
+    )
+    expect(screen.getByTestId('state')).toHaveTextContent('dark/dark')
+    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement.style.colorScheme).toBe('dark')
+
+    rerender(
+      <ThemeProvider storageKey="theme-key" overrideTheme={null}>
+        <ThemeConsumer />
+      </ThemeProvider>
+    )
+    expect(screen.getByTestId('state')).toHaveTextContent('light/light')
+    expect(document.documentElement).toHaveClass('light')
+    expect(document.documentElement.style.colorScheme).toBe('light')
+  })
+})
