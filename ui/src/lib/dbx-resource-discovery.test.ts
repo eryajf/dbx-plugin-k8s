@@ -4,7 +4,9 @@ import {
   getDBXResourceIdentity,
   getDBXResourceIdentityForCRD,
   getDBXResourcePath,
+  isResourceNotDiscoveredError,
   resolveDBXResource,
+  ResourceNotDiscoveredError,
 } from './dbx-resource-discovery'
 describe('DBX resource discovery', () => {
   it('resolves discovered resources and caches per connection', async () => {
@@ -15,6 +17,14 @@ describe('DBX resource discovery', () => {
   it('rejects unknown resources and supports clearing', async () => {
     const invoke = vi.fn().mockResolvedValue({resources:[]}); await expect(resolveDBXResource('c','widgets.example.com',invoke)).rejects.toThrow('not discovered')
     clearDBXResourceDiscovery('c'); expect(invoke).toHaveBeenCalledTimes(1)
+  })
+  it('throws a typed ResourceNotDiscoveredError for missing resources', async () => {
+    const invoke = vi.fn().mockResolvedValue({ resources: [] })
+    const promise = resolveDBXResource('typed-missing', 'gateways', invoke)
+    await expect(promise).rejects.toBeInstanceOf(ResourceNotDiscoveredError)
+    await expect(promise).rejects.toMatchObject({ resource: 'gateways' })
+    expect(isResourceNotDiscoveredError(await promise.catch(error => error))).toBe(true)
+    clearDBXResourceDiscovery('typed-missing')
   })
 
   it('loads stable resources without waiting for unrelated discovery', async () => {
