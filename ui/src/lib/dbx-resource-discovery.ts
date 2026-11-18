@@ -35,6 +35,25 @@ export interface DBXResourceIdentity {
   customResource: boolean
 }
 
+/** The cluster API does not serve this resource (e.g. an uninstalled CRD). */
+export class ResourceNotDiscoveredError extends Error {
+  readonly resource: string
+  constructor(resource: string) {
+    super(`Kubernetes resource is not discovered: ${resource}`)
+    this.name = 'ResourceNotDiscoveredError'
+    this.resource = resource
+  }
+}
+
+export function isResourceNotDiscoveredError(
+  error: unknown
+): error is ResourceNotDiscoveredError {
+  return (
+    error instanceof ResourceNotDiscoveredError ||
+    (error instanceof Error && error.name === 'ResourceNotDiscoveredError')
+  )
+}
+
 export function getDBXResourceIdentity(
   resource: Pick<DBXResourceDescriptor, 'group' | 'version' | 'resource'>
 ): DBXResourceIdentity {
@@ -119,7 +138,7 @@ export async function resolveDBXResource(
     }
     return (r.resource === resource || `${r.resource}.${r.group}` === resource) || r.aliases?.includes(resource) || r.kind?.toLowerCase() === resource.toLowerCase()
   })
-  if (!found) throw new Error(`Kubernetes resource is not discovered: ${resource}`)
+  if (!found) throw new ResourceNotDiscoveredError(resource)
   return { group: found.group || '', version: found.version, resource: found.resource, namespaced: !!found.namespaced, kind: found.kind, verbs: found.verbs }
 }
 export function clearDBXResourceDiscovery(connectionId?: string): void { if (connectionId) cache.delete(connectionId); else cache.clear() }
