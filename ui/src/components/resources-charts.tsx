@@ -37,9 +37,9 @@ export function ResourceCharts(props: ResourceChartsProps) {
       },
       {
         name: t('monitoring.memoryUsage'),
-        request: memory.requested / 1024 / 1024 / 1024 / 1024,
-        limit: memory.limited / 1024 / 1024 / 1024 / 1024,
-        total: memory.allocatable / 1024 / 1024 / 1024 / 1024,
+        request: memory.requested / 1024 / 1024 / 1024,
+        limit: memory.limited / 1024 / 1024 / 1024,
+        total: memory.allocatable / 1024 / 1024 / 1024,
         requestPercentage: (memory.requested / memory.allocatable) * 100,
         limitPercentage: (memory.limited / memory.allocatable) * 100,
         unit: 'GiB',
