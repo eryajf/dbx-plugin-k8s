@@ -11,6 +11,11 @@ import {
   saveAppearancePreference,
   type AppearancePreferencePayload,
 } from '@/lib/api/admin'
+import {
+  getThemeHost,
+  syncHostTheme,
+  type HostAppearance,
+} from '@/lib/host-theme'
 
 import {
   ColorThemeProvider,
@@ -43,8 +48,21 @@ export function AppearanceProvider({
   defaultFont = 'maple',
   fontStorageKey = 'vite-ui-font',
 }: AppearanceProviderProps) {
+  // Inside DBX the host shell owns the appearance; follow it live so the
+  // plugin matches the workbench light/dark mode instead of the OS setting.
+  const [hostTheme, setHostTheme] = useState<HostAppearance | null>(null)
+  useEffect(() => {
+    const host = getThemeHost()
+    if (!host) return
+    return syncHostTheme(host, setHostTheme)
+  }, [])
+
   return (
-    <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>
+    <ThemeProvider
+      defaultTheme={defaultTheme}
+      storageKey={themeStorageKey}
+      overrideTheme={hostTheme}
+    >
       <ColorThemeProvider
         defaultColorTheme={defaultColorTheme}
         storageKey={colorThemeStorageKey}

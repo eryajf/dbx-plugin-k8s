@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -322,6 +323,15 @@ func TestNodeAgentLogFailurePreservesCancellation(t *testing.T) {
 }
 
 func TestNodeAgentHostShell(t *testing.T) {
+	// 该用例依赖 POSIX 语义，Windows 上没有等价物：
+	//   · stub 脚本用 [ -x "$file" ] 判断 host shell 是否可执行 ——
+	//     这依赖 0755 的执行位，而 Windows/MSYS2 的普通文件没有 POSIX 执行位
+	//     （实测 [ -f 'C:/...' ] 为真、[ -x 'C:/...' ] 为假）；
+	//   · 被探测的路径是 /bin/bash、/usr/bin/sh 这类 Linux 绝对路径。
+	// ⇒ 非 Linux 平台跳过；CI（ubuntu-latest）照常完整运行。
+	if runtime.GOOS != "linux" {
+		t.Skip("host shell probing requires POSIX executable bits")
+	}
 	for _, tc := range []struct {
 		name        string
 		shells      []string
